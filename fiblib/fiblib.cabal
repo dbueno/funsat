@@ -1,0 +1,16 @@
+Name:                fiblib
+Version:             0.1
+Synopsis:            A functional Fibonacci heap
+Description:         An functional implementation of a Fibonacci heap based on the pseudocode of Cormen, Rivest, blah
+Category:            Data Structures
+License:             LGPL
+License-file:        LICENSE
+Author:              Denis Bueno
+Maintainer:          Denis Bueno <dbueno@gmail.com>
+Stability:           provisional
+Build-Depends:       base, QuickCheck, containers
+Build-type:          Simple
+
+Exposed-modules:     Data.FibHeap
+Ghc-options:         -Wall -cpp -DTESTING
+Other-modules:       Properties

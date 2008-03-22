@@ -1,0 +1,20 @@
+Name:                bitset
+Version:             0.6
+Synopsis:            A functional data structure for efficient membership testing.
+Description:
+        A /bit set/ maintains a record of members from a type that can be mapped
+        into (non-negative) @Int@s.  Supports insertion, deletion, size, and
+        membership testing, and is completely pure (functional).
+Category:            Data Structures
+License:             LGPL
+License-file:        LICENSE
+Author:              Denis Bueno
+Maintainer:          Denis Bueno <dbueno@gmail.com>
+Stability:           provisional
+Build-Depends:       base, QuickCheck
+Build-type:          Simple
+
+Exposed-modules:     Data.BitSet
+Ghc-options:         -Wall
+Ghc-prof-options:    -prof -auto-all
+Extra-source-files:  tests/Properties.hs

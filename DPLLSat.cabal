@@ -1,0 +1,31 @@
+Name:                DPLLSat
+Version:             0.2
+Cabal-Version:       >= 1.2
+Description:
+
+    The goal is to create a realistic satisfiability solver.  Current features
+    include two-watched literals, conflict-directed learning, non-chronological
+    backtracking, and restarts.
+
+Stability:           alpha
+License:             LGPL
+License-file:        COPYING
+Author:              Denis Bueno
+Maintainer:          Denis Bueno <dbueno@gmail.com>
+Build-type:          Simple
+
+Executable dsat
+ Main-is:             Main.hs
+ Ghc-options:         -W -DTESTING -cpp
+ Ghc-prof-options:    -prof -auto-all
+ Hs-source-dirs:      . tests
+ Other-modules:       DPLLSat Data.Heap.Finger Properties
+ Build-Depends:       base, parsec, containers, pretty, mtl
+                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , parallel, fingertree
+Library
+ Exposed-modules:     DPLLSat Data.Heap.Finger
+ Ghc-options:         -W -DTESTING -cpp
+ Build-Depends:       base, parsec, containers, pretty, mtl
+                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , parallel, fingertree

@@ -1,0 +1,30 @@
+Name:                sat-micro-hs
+Version:             0.1.2
+Description:         A complete (in the logical sense) SAT solver with non-chronological backtracking.  This is a Haskell implementation of (most of) the minimal OCaml solver described in the paper "SAT-MICRO: petit mais costaud!" by Sylvain Conchon, Johannes Kanig, and Stephane Lescuyer (see <http://www.lri.fr/~conchon/publis/conchon-jfla08.ps>).
+Synopsis:            A minimal SAT solver
+Category:            Algorithms
+Stability:           alpha
+License:             LGPL
+License-file:        LICENSE
+
+Author:              Denis Bueno
+Maintainer:          Denis Bueno <dbueno@gmail.com>
+
+Cabal-Version:       >= 1.2
+Build-type:          Simple
+Tested-with:         GHC==6.8.2
+
+
+Executable sat-micro
+  Main-is:             Main.hs
+  Ghc-options:         -Wall
+  Ghc-prof-options:    -prof -auto-all
+  Other-modules:       SatMicro
+  Build-Depends:       base, containers, pretty, mtl, parse-dimacs
+
+Library
+  exposed-modules:     SatMicro
+  Build-Depends:       base, containers, pretty, mtl, parse-dimacs
+  Ghc-prof-options:    -prof -auto-all
+
+

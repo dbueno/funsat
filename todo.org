@@ -1,0 +1,66 @@
+* Sat todo file
+
+* TODO Learned clause deletion
+
+* DONE Make "bad" bag use bitset
+  CLOSED: [2008-03-18 Tue 10:11]
+
+* 29 Feb 2008 16:43:29
+I had to re-install GHC 6.8.1 for a reason that is not important.  I was going
+to install 6.8.2, which I had to compile myself.  While waiting for that, I
+worked on DPLLSat with 6.8.1.  My tests run in 5 seconds, without
+optimisations!  Last night I was waiting 10 minutes.  And this is user time!
+I have no idea why.  I did change the unit propagation code today, but only
+making it do more work!
+
+I'm going to install 6.8.2, and then put 6.8.1 somewhere else so I can switch
+between them easily, somehow.  Weird, weird.
+
+This could be explained by a different test distribution ...
+
+* DONE Make unit propagation propagate with learned clauses too.
+  CLOSED: [2008-03-18 Tue 10:11]
+
+* TODO [#K] Incorporate stupid frequency-based decision heuristic      :ARCHIVE:
+
+* DONE Implement clause learning but only after
+  CLOSED: [2008-03-18 Tue 10:11]
+watched literals, otherwise the number of times we have to walk the set of
+clauses will really kill the runtime.
+
+* DONE Change watched literal imp so that we only propagate assignments
+  CLOSED: [2008-02-22 Fri 11:37]
+that have actually been made since the last iteration; this saves time.
+
+So unitProp (maybe rename bcp?) should take a list of literals to propagate,
+and compute until that list is emptied -- sounds like a worklist algorithm!
+
+* TODO Implement SAT-MICRO annotated clauses and literals	       :ARCHIVE:
+instead of using the current dl (decision list).
+
+* TODO Probably don't need the cnf				       :ARCHIVE:
+and wch fields of the state.  Probably can get away with some watcher.
+
+* DONE [#A] Make watched literals work as follows:
+  CLOSED: [2008-02-22 Fri 11:38]
+-- watcherMap: Map Lit [((Lit, Lit), Clause)]
+
+** When l first added to assignment (either decision or propagation):
+if -l is watched, then for each clause associated with -l, look at -l's paired
+literal, q.  If q is undefined under the assignment, then:
+
+  -- If q is a unit literal of this clause, assign q.
+
+  -- If q is *not* a unit literal of this clause, stop watching -l and
+starting watching some other literal of the clause.  (Choose next by removing
+everything in the assignment from the clause, then picking a random element.)
+
+Write this in terms of a list of newly-assigned literals, so one can recurse
+at the end.
+  
+
+* DONE [#A] Change assignment representation to O(1)
+  CLOSED: [2008-02-13 Wed 21:59]
+** DONE Lits to Int
+   CLOSED: [2008-02-02 Sat 11:55]
+

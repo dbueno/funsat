@@ -1,0 +1,17 @@
+Name:                parse-dimacs
+Version:             1.1
+Synopsis:            DIMACS CNF parser library
+Description:         A DIMACS CNF parser library, implemented with Parsec.
+Category:            Parsing
+License:             LGPL
+License-file:        COPYING
+Author:              Denis Bueno
+Maintainer:          Denis Bueno <dbueno@gmail.com>
+Stability:           provisional
+Build-Depends:       base, parsec
+Build-type:          Simple
+Tested-with:         GHC==6.8.2
+Extra-source-files:  CHANGES
+
+Exposed-modules:     Language.CNF.Parse.ParseDIMACS
+Ghc-options:         -W

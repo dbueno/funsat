@@ -1,0 +1,10 @@
+-*- mode: outline -*-
+
+* 1.1 (21 Mar 2008)
+Parser allows clauses to be split over multiple lines.
+
+* 1.0.1
+Cabal description fix
+
+* 1.0
+Initial release

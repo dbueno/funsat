@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./sat-micro "$@" +RTS -K768M -RTS

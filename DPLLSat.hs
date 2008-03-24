@@ -583,17 +583,18 @@ bcpLit m l = do
     -- Update wather lists for normal & learnt clauses; if conflict is found,
     -- return that and don't update anything else.
     c <- runErrorT $ do
-           {-# SCC "bcpWatches" #-} forM (tails clauses) (updateWatches
+           {-# SCC "bcpWatches" #-} forM_ (tails clauses) (updateWatches
              (\ f l -> lift . lift $ readArray ws l >>= writeArray ws l . f))
-           {-# SCC "bcpLearnts" #-} forM (tails learnts) (updateWatches
+           {-# SCC "bcpLearnts" #-} forM_ (tails learnts) (updateWatches
              (\ f l -> lift . lift $ readArray ls l >>= writeArray ls l . f))
     case c of
       Left conflict -> return $ Just conflict
       Right _       -> return Nothing
   where
-    -- updateWatches: for each annotated clause, find the status of its
-    -- watched literals.  This is the main work of the function `assign'.  If
-    -- a conflict is found, the at-fault clause is returned through Left, and
+    -- updateWatches: `l' has been assigned, so we look at the clauses in
+    -- which contain @negate l@, namely the watcher list for l.  For each
+    -- annotated clause, find the status of its watched literals.  If a
+    -- conflict is found, the at-fault clause is returned through Left, and
     -- the unprocessed clauses are placed back into the appropriate watcher
     -- list.
     {-# INLINE updateWatches #-}

@@ -133,6 +133,7 @@ import Debug.Trace (trace)
 import System.Random
 import System.IO.Unsafe (unsafePerformIO)
 import System.IO (hPutStr, stderr)
+import Text.Printf( printf )
 import qualified Data.BitSet as BitSet
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
@@ -973,7 +974,7 @@ instance Show Stats where
     show s =
         ("#c " ++ show (statsNumConfl s)
          ++ "/#l " ++ show (statsNumLearnt s)
-         ++ " (avg " ++ show (statsAvgLearntLen s)
+         ++ " (avg " ++ printf "%.2f" (statsAvgLearntLen s)
          ++ " lits)      ")
 
 extractStats :: DPLLMonad s Stats

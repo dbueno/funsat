@@ -120,7 +120,6 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
-import Data.Heap.Finger (Heap)
 import Data.Int (Int64)
 import Data.List (intercalate, nub, tails)
 import Data.Map (Map)
@@ -140,7 +139,6 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
-import qualified Data.Heap.Finger as Heap
 
 
 -- * Interface
@@ -162,7 +160,7 @@ solve cfg g fIn =
     SC{ cnf=f, dl=[], bad=BitSet.empty, rnd=g
       , watches=undefined, learnt=undefined, propQ=Seq.empty
       , trail=[], numConfl=0, level=undefined
-      , reason=Map.empty, varOrder=emptyVarOrder
+      , reason=Map.empty, varOrder=undefined
       , dpllConfig=cfg }
   where
     f = preprocessCNF fIn
@@ -176,9 +174,8 @@ solve cfg g fIn =
       modify $ \s -> s{ watches = initialWatches }
       initialLearnts <- lift $ newSTArray (L (- (numVars f)), L (numVars f)) []
       modify $ \s -> s{ learnt = initialLearnts }
-      let initialVarOrder = foldl' (flip varOrderAdd)
-                            emptyVarOrder [V 1 .. V (numVars f)]
-      modify $ \s -> s{ varOrder = initialVarOrder }
+      initialVarOrder <- lift $ newSTUArray (V 1, V (numVars f)) initialActivity
+      modify $ \s -> s{ varOrder = VarOrder initialVarOrder }
 
       leftUnsat <-
         runErrorT $
@@ -231,13 +228,14 @@ solveStep m = do
     maybeConfl <- bcp m
     mFr <- lift $ unsafeFreezeAss m
     s <- get
+    voFr <- FrozenVarOrder `liftM` lift (unsafeFreeze . varOrderArr . varOrder $ s)
     newState $ 
           -- Check if unsat.
           unsat maybeConfl s      ==> return Nothing
           -- Unit propagation may reveal conflicts; check.
        >< maybeConfl              >=> backJump m
           -- No conflicts.  Decide.
-       >< select mFr (varOrder s) >=> decide m
+       >< select mFr voFr >=> decide m
     where
       -- Take the step chosen by the transition guards above.
       newState stepMaybe =
@@ -505,12 +503,10 @@ noLevel :: Int
 noLevel = -1
 
 -- | The VSIDS-like dynamic variable ordering.
-data VarOrder = VarOrder { varOrderMap :: Map Var Double
-                         , varOrderHeap :: Heap Double Var }
-                deriving Show
-
-emptyVarOrder = VarOrder { varOrderHeap = Heap.empty
-                         , varOrderMap  = Map.empty }
+newtype VarOrder s = VarOrder { varOrderArr :: STUArray s Var Double }
+    deriving Show
+newtype FrozenVarOrder = FrozenVarOrder (UArray Var Double)
+    deriving Show
 
 type BadBag = BitSet Var
 
@@ -541,7 +537,7 @@ data DPLLStateContents s = SC
       -- ^ For each variable, the clause that (was unit and) implied its value.
     , numConfl :: Int64
       -- ^ The number of conflicts that have occurred since the last restart.
-    , varOrder :: VarOrder
+    , varOrder :: VarOrder s
     , rnd :: StdGen              -- ^ random source
     , dpllConfig :: DPLLConfig
     }
@@ -551,6 +547,8 @@ instance Show (STRef s a) where
     show = const "<STRef>"
 instance Show (STUArray s Var Int) where
     show = const "<STUArray Var Int>"
+instance Show (STUArray s Var Double) where
+    show = const "<STUArray Var Double>"
 instance Show (STArray s a b) where
     show = const "<STArray>"
 
@@ -634,23 +632,19 @@ bcp m = do
 
 -- *** Decisions
 
--- | A variable selection and an updated `VarOrder'.
-type VarOrderSelection = (Var, VarOrder)
-
 -- | Find and return a decision variable.  A /decision variable/ must be (1)
 -- undefined under the assignment and (2) it or its negation occur in the
 -- formula.
 --
 -- Select a decision variable, if possible, and return it and the adjusted
 -- `VarOrder'.
-select :: IAssignment -> VarOrder -> Maybe VarOrderSelection
+select :: IAssignment -> FrozenVarOrder -> Maybe Var
 select = varOrderGet
 
 -- | Assign given decision variable.  Records the current assignment before
 -- deciding on the decision variable indexing the assignment.
-decide :: MAssignment s -> VarOrderSelection -> DPLLMonad s (Maybe (MAssignment s))
-decide m (v, vo) = do
-  modify $ \s -> s{ varOrder = vo }
+decide :: MAssignment s -> Var -> DPLLMonad s (Maybe (MAssignment s))
+decide m v = do
   let ld = L (unVar v)
   (SC{dl=dl}) <- get
 --   trace ("decide " ++ show ld) $
@@ -775,7 +769,7 @@ undoOne m = do
 -- | Increase the recorded activity of given variable.
 bump :: Var -> DPLLMonad s ()
 {-# INLINE bump #-}
-bump v = modify $ \s -> s{ varOrder = varOrderMod v (+ varInc) (varOrder s) }
+bump v = varOrderMod v (+ varInc)
 
 varInc :: Double
 varInc = 1.0
@@ -839,20 +833,18 @@ enqueue :: MAssignment s
 {-# INLINE enqueue #-}
 enqueue m l r = do
   mFr <- lift $ unsafeFreezeAss m
-  if l `isFalseUnder` mFr
-   then return False            -- conflict
-   else if l `isTrueUnder` mFr
-   then return True             -- already assigned
-   else do
-     lift $ m `assign` l
-    -- assign decision level for literal
-     gets (level &&& (length . dl)) >>= \(levelArr, dlInt) ->
-       lift (writeArray levelArr (var l) dlInt)
-     modify $ \s -> s{ trail = l : (trail s)
-                     , propQ = propQ s Seq.|> l } 
-     when (isJust r) $
-       modifySlot reason $ \s m -> s{reason = Map.insert (var l) (fromJust r) m}
-     return True
+  case l `statusUnder` mFr of
+    Right b -> return b         -- conflict/already assigned
+    Left () -> do
+      lift $ m `assign` l
+      -- assign decision level for literal
+      gets (level &&& (length . dl)) >>= \(levelArr, dlInt) ->
+        lift (writeArray levelArr (var l) dlInt)
+      modify $ \s -> s{ trail = l : (trail s)
+                      , propQ = propQ s Seq.|> l } 
+      when (isJust r) $
+        modifySlot reason $ \s m -> s{reason = Map.insert (var l) (fromJust r) m}
+      return True
 
 -- | Pop the `propQ'.  Error (crash) if it is empty.
 dequeue :: DPLLMonad s Lit
@@ -896,49 +888,36 @@ newSTArray = newArray
 showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
                                                   (a!i) /= 0])
 
--- | Add a variable to the variable order with default activity.
-varOrderAdd :: Var -> VarOrder -> VarOrder
-{-# INLINE varOrderAdd #-}
-varOrderAdd v vo = vo{ varOrderMap = Map.insert v initialActivity (varOrderMap vo) }
-
--- | Modify priority of variable; takes care of double overflow.
-varOrderMod :: Var -> (Double -> Double) -> VarOrder -> VarOrder
-varOrderMod v f vo =
-    let vActivity = Map.findWithDefault initialActivity v (varOrderMap vo)
-    in if f vActivity > 1e100
-       then varOrderMod v f
-              (vo{ varOrderMap = (rescaleActivities (varOrderMap vo)) })
-       else
-           vo{ varOrderMap = Map.adjust f v (varOrderMap vo) }
-
+-- | Modify priority of variable; takes care of @Double@ overflow.
+varOrderMod :: Var -> (Double -> Double) -> DPLLMonad s ()
+varOrderMod v f = do
+    vo <- varOrderArr `liftM` gets varOrder
+    vActivity <- lift $ readArray vo v
+    when (f vActivity > 1e100) $ rescaleActivities vo
+    lift $ writeArray vo v (f vActivity)
   where
-    rescaleActivities = Map.map (* 1e-100)
+    rescaleActivities vo = lift $ do
+        indices <- range `liftM` getBounds vo
+        forM_ indices (\i -> readArray vo i >>= writeArray vo i . (* 1e-100))
 
 
--- | Delete a variable (it's been assigned) from the variable order.
-varOrderDel :: Var -> VarOrder -> VarOrder
-{-# INLINE varOrderDel #-}
-varOrderDel v vo = vo{ varOrderMap = Map.delete v (varOrderMap vo) }
-
-
--- | Retrieve the maximum-priority variable from the variable order, along
--- with the updated variable order.
-varOrderGet :: IAssignment -> VarOrder -> Maybe (Var, VarOrder)
+-- | Retrieve the maximum-priority variable from the variable order.
+varOrderGet :: IAssignment -> FrozenVarOrder -> Maybe Var
 {-# INLINE varOrderGet #-}
-varOrderGet mFr vo =
+varOrderGet mFr (FrozenVarOrder voFr) =
     let (v, _activity) = List.maximumBy (comparing snd) candidates
     in if List.null candidates then Nothing
-       else Just (v, v `varOrderAdd` vo)
+       else Just v
   where
-    assocs = Map.assocs (varOrderMap vo)
-    (candidates, _unfit) = List.partition ((`isUndefUnder` mFr) . fst) assocs
+    varAssocs = assocs voFr
+    (candidates, _unfit) = List.partition ((`isUndefUnder` mFr) . fst) varAssocs
 
 
 
 -- | Guard a transition action.  If the boolean is true, return the action
--- given as an argument.  Otherwise, return @Nothing@.
+-- given as an argument.  Otherwise, return `Nothing'.
 (==>) :: (Monad m) => Bool -> m a -> Maybe (m a)
-(==>) b amb = if b then Just $ amb else Nothing
+(==>) b amb = guard b >> return amb
 
 infixr 6 ==>
 
@@ -946,8 +925,6 @@ infixr 6 ==>
 (>=>) :: (Monad m) => Maybe a -> (a -> m b) -> Maybe (m b)
 {-# INLINE (>=>) #-}
 (>=>) = flip fmap
--- Nothing >=> _ = Nothing
--- Just x  >=> f = Just $ f x
 
 infixr 6 >=>
 

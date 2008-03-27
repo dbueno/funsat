@@ -1,5 +1,7 @@
 * Sat todo file
 
+* TODO Recursive learning/parallel stuff
+
 * TODO Learned clause deletion
 
 * DONE Make "bad" bag use bitset

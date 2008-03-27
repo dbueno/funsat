@@ -49,10 +49,10 @@ main =
          where
            parseAndSolve contents = do
               let cnf = asCNF $ ParseCNF.parseCNF path contents
-              Set.map seqList (clauses cnf)
-                `seq` putStrLn ("Solving " ++ path ++ "...")
               putStrLn $ show (numVars cnf) ++ " variables, "
                          ++ show (numClauses cnf) ++ " clauses"
+              Set.map seqList (clauses cnf)
+                `seq` putStrLn ("Solving " ++ path ++ "...")
               let solution = solve1 cnf
               putStrLn $ show solution
               case solution of

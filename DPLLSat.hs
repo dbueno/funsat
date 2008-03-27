@@ -926,18 +926,6 @@ a1 >< a2 =
 
 infixl 5 ><
 
--- | Generate two distinct random numbers.
-_random2 :: (Eq a, Random a, RandomGen g) => (a, a) -> State g (a, a)
-_random2 range = do
-  gen <- get
-  let (r1, g1) = randomR range gen
-  let (r2, g2) = findDistinct g1
-      findDistinct g =
-          let (r2', g') = randomR range g
-          in if r1 == r2' then findDistinct g' else (r2', g')
-  put g2
-  return (r1, r2)
-
 -- | Whether a list contains a single element.
 isSingle :: [a] -> Bool
 {-# INLINE isSingle #-}

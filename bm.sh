@@ -13,13 +13,13 @@ time $DSAT -verify 2>&1
 
 NSAT=1000
 echo "Testing $NSAT satisfiable problems (20 vars)"
-time ls -1 ./sat-bm/uf20/*.cnf | head -$NSAT | while read F; do $DSAT $F; done 2>&1 | grep -1 -i "unsatisfiable\\|assertion"
+time ls -1 ./tests/problems/uf20/*.cnf | head -$NSAT | while read F; do $DSAT $F; done 2>&1 | grep -1 -i "unsatisfiable\\|assertion"
 
 NSAT=400
 echo "Testing $NSAT satisfiable problems (50 vars)"
-time ls -1 ./sat-bm/uf50/*.cnf | head -$NSAT | while read F; do $DSAT $F; done 2>&1 | grep -1 -i "unsatisfiable\\|assertion"
+time ls -1 ./tests/problems/uf50/*.cnf | head -$NSAT | while read F; do $DSAT $F; done 2>&1 | grep -1 -i "unsatisfiable\\|assertion"
 
 NUNSAT=300
 echo "Testing $NUNSAT unsatisfiable problems (50 vars)"
-time ls -1 ./sat-bm/uuf50/*.cnf | head -$NUNSAT | while read F; do $DSAT $F; done 2>&1 | grep -1 -i "satisfiable[:]\\|assertion"
+time ls -1 ./tests/problems/uuf50/*.cnf | head -$NUNSAT | while read F; do $DSAT $F; done 2>&1 | grep -1 -i "satisfiable[:]\\|assertion"
 

@@ -275,7 +275,7 @@ stepToSolution stepAction = do
         s{ dpllConfig = c{ configRestart = ceiling (configRestartBump c
                                                    * fromIntegral (configRestart c))
                            } }
-      lvl :: FrozenLevelArray <- gets level >>= lift . freeze
+      lvl :: FrozenLevelArray <- gets level >>= lift . unsafeFreeze
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
       compact

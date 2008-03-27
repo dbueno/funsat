@@ -679,21 +679,6 @@ backJump m (_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
         numDecisionsToUndo = length dl - btLevel
         (undone_ld : dl') = drop (numDecisionsToUndo - 1) dl
         undoneLits = takeWhile (\lit -> levelArr ! (var lit) > btLevel) (trail s)
---    mFr <- lift $ unsafeFreezeAss m
---     trace ("bt: " ++ show (length dl) ++ "/" ++ show btLevel
---                  ++ ", l = " ++ show l ++ ", undone_ld = " ++ show undone_ld
---                  ++ ", conflict = " ++ show conflict
---                  ++ "\n  trail = " ++ show (trail s)
---                  ++ "\n  mFr = " ++ showAssignment mFr
---                  ++ "\n  dl = " ++ show dl
---                  ++ "\n  dl' = " ++ show dl'
---                  ++ "\n  levelArr = " ++ show levelArr
---                  ++ "\n  bad = " ++ show bad
---                  ++ "\n  numConfl = " ++ show (numConfl s)
---                  ++ "\n  learnt clause: " ++ show learntCl
---                  ++ ", " ++ show (learntCl `statusUnder` mFr)
---                  ++ "\n  reason = " ++ Map.showTree (reason s)) $
---     trace ("  new m = " ++ showAssignment m') $
     forM_ undoneLits $ const (undoOne m)
     mFr <- lift $ unsafeFreezeAss m
     assert (numDecisionsToUndo > 0) $

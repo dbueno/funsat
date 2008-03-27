@@ -862,20 +862,6 @@ clearQueue :: DPLLMonad s ()
 {-# INLINE clearQueue #-}
 clearQueue = modify $ \s -> s{propQ = Seq.empty}
 
--- | @src `copyOver` tgt@ copies all of @src@ over @tgt@.  The arrays must
--- have the same range size (i.e. the same length) but, not necessarily the
--- same indices.  The first position of the @src@ is copied to the first
--- position of @tgt@, etc.
-copyOver :: (Ix i, MArray a e m) => a i e -> a i e -> m ()
-copyOver src tgt = do
-  src_b <- getBounds src
-  tgt_b <- getBounds tgt
-  when (rangeSize src_b /= rangeSize tgt_b) $ error "copyOver: bounds incompatible"
-  sequence_ [do src_i <- readArray src si
-                writeArray tgt ti src_i
-             | si <- range src_b
-             | ti <- range tgt_b]
-
 -- | Same as @newArray@, but helping along the type checker.
 newSTUArray :: (MArray (STUArray s) e (ST s), Ix i)
                => (i, i) -> e -> ST s (STUArray s i e)

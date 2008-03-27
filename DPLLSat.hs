@@ -972,10 +972,9 @@ data Stats = Stats
 
 instance Show Stats where
     show s =
-        ("#c " ++ show (statsNumConfl s)
-         ++ "/#l " ++ show (statsNumLearnt s)
-         ++ " (avg " ++ printf "%.2f" (statsAvgLearntLen s)
-         ++ " lits)      ")
+        "#c " ++ show (statsNumConfl s)
+        ++ "/#l " ++ show (statsNumLearnt s)
+        ++ " (avg len " ++ printf "%.2f" (statsAvgLearntLen s) ++ ")"
 
 extractStats :: DPLLMonad s Stats
 extractStats = do

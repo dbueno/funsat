@@ -121,7 +121,7 @@ import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
 import Data.Int (Int64)
-import Data.List (intercalate, nub, tails)
+import Data.List (intercalate, nub, tails, sortBy)
 import Data.Map (Map)
 import Data.Maybe
 import Data.Ord (comparing)
@@ -200,7 +200,7 @@ data DPLLConfig = Cfg
 
 -- | A default configuration based on the formula to solve.
 defaultConfig :: CNF -> DPLLConfig
-defaultConfig f = Cfg { configRestart = max 300 (fromIntegral $ numVars f `div` 2)
+defaultConfig _f = Cfg { configRestart = 100
                       , configRestartBump = 1.5 }
 
 -- * Preprocessing
@@ -264,7 +264,7 @@ stepToSolution stepAction = do
     case step of
       Left m -> do when restart
                      (do stats <- extractStats
-                         mytrace (show stats) $
+                         trace (show stats) $
                           resetState m)
                    stepToSolution (solveStep m)
       Right s -> return s
@@ -278,6 +278,7 @@ stepToSolution stepAction = do
       lvl :: FrozenLevelArray <- gets level >>= lift . freeze
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
+      compact
 
 {-# INLINE mytrace #-}
 mytrace msg expr = unsafePerformIO $ do
@@ -793,6 +794,23 @@ unsat maybeConflict (SC{cnf=cnf, dl=dl, bad=bad}) = isUnsat
 
 
 -- ** Helpers
+
+-- | Keep the smaller half of the learnt clauses.
+compact :: DPLLMonad s ()
+compact = do
+  n <- numVars `liftM` gets cnf
+  lArr <- gets learnt
+  clauses <- lift $ (nub . Fl.concat) `liftM`
+             sequence [ do val <- readArray lArr v ; writeArray lArr v []
+                           return val
+                        | v <- [L (- n) .. L n] ]
+  let clauses' = take (length clauses `div` 2)
+                 $ sortBy (comparing (length . snd)) clauses
+  lift $ forM_ clauses'
+           (\ wCl@(r, _) -> do
+              (x, y) <- readSTRef r
+              readArray lArr x >>= writeArray lArr x . (wCl:)
+              readArray lArr y >>= writeArray lArr y . (wCl:))
               
 
 -- | Add clause to the watcher lists, unless clause is a singleton; if clause
@@ -953,7 +971,7 @@ data Stats = Stats
 
 instance Show Stats where
     show s =
-        ("\r#c " ++ show (statsNumConfl s)
+        ("#c " ++ show (statsNumConfl s)
          ++ "/#l " ++ show (statsNumLearnt s)
          ++ " (avg " ++ show (statsAvgLearntLen s)
          ++ " lits)      ")

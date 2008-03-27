@@ -716,7 +716,7 @@ backJump m (_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
     -- Perform a BFS on the reverse implication graph, returning the first
     -- literals satisfying p.  Each literal will be passed to p at most once,
     -- and no antecedents of p are explored.  Only literals above decision level
-    -- 0 which are not the conflict liteal are passed to p.
+    -- 0 which are not the conflict literal are passed to p.
     bfsPick :: FrozenLevelArray
             -> Forest Lit -> ((Lit, Int) -> Forest Lit -> Bool) -> [Lit]
     bfsPick levelArr ts p = bfsPicker BitSet.empty p ts

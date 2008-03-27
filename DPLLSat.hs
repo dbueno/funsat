@@ -77,6 +77,19 @@ instance Model Lit Clause Assignment accounts for 12% of time.  These occur in
 the call graph under unitPropLit.  So clearly I need a *better way of
 searching for the next unit literal*.
 
+* Bibliography
+
+''Abstract DPLL and DPLL Modulo Theories''
+
+''Chaff: Engineering an Efficient SAT solver''
+
+''An Extensible SAT-solver'' by Niklas Een, Niklas Sorensson
+
+''Efficient Conflict Driven Learning in a Boolean Satisfiability Solver'' by
+Zhang, Madigan, Moskewicz, Malik
+
+''SAT-MICRO: petit mais costaud!'' by Conchon, Kanig, and Lescuyer
+
 -}
 module DPLLSat
 #ifndef TESTING

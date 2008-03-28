@@ -22,10 +22,10 @@ Executable dsat
  Other-modules:       DPLLSat Properties
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , parallel, fingertree, ArrayRef
+                      , fingertree
 Library
  Exposed-modules:     DPLLSat
  Ghc-options:         -W -DTESTING -cpp
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , parallel, fingertree, ArrayRef
+                      , fingertree

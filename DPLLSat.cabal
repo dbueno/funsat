@@ -19,13 +19,13 @@ Executable dsat
  Ghc-options:         -W -DTESTING -cpp
  Ghc-prof-options:    -prof -auto-all
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Data.Heap.Finger Properties
+ Other-modules:       DPLLSat Properties
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , parallel, fingertree
+                      , parallel, fingertree, ArrayRef
 Library
- Exposed-modules:     DPLLSat Data.Heap.Finger
+ Exposed-modules:     DPLLSat
  Ghc-options:         -W -DTESTING -cpp
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , parallel, fingertree
+                      , parallel, fingertree, ArrayRef

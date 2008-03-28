@@ -1,6 +1,13 @@
 -*- mode: outline -*-
 
 * A DPLL-style SAT solver in pure haskell
+Install using the typical Cabal procedure:
+
+$ ./Setup.lhs configure
+$ ./Setup.lhs build
+
+This will produce a binary called dsat at ./dist/build/dsat/dsat and a
+standalone library interface for the solver.
 
 ** Dependencies
 All the dependences are cabal-ised and available from hackage.  URLs below.

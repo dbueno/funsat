@@ -174,7 +174,6 @@ solve cfg g fIn =
     SC{ cnf=f, dl=[], bad=BitSet.empty, rnd=g
       , watches=undefined, learnt=undefined, propQ=Seq.empty
       , trail=[], numConfl=0, level=undefined
-      , totalConfl=0
       , reason=Map.empty, varOrder=undefined
       , dpllConfig=cfg }
   where
@@ -250,7 +249,7 @@ solveStep m = do
           -- Unit propagation may reveal conflicts; check.
        >< maybeConfl              >=> backJump m
           -- No conflicts.  Decide.
-       >< select mFr voFr (bad s) >=> decide m
+       >< select mFr voFr >=> decide m
     where
       -- Take the step chosen by the transition guards above.
       newState stepMaybe =
@@ -285,7 +284,6 @@ stepToSolution stepAction = do
       Right s -> return s
   where
     resetState m = do
-      modify $ \s -> s{ numConfl = 0 }
       -- Require more conflicts before next restart.
       modifySlot dpllConfig $ \s c ->
         s{ dpllConfig = c{ configRestart = ceiling (configRestartBump c
@@ -294,7 +292,7 @@ stepToSolution stepAction = do
       lvl :: FrozenLevelArray <- gets level >>= lift . unsafeFreeze
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
-      --compact
+      compact
 
 {-# INLINE mytrace #-}
 mytrace msg expr = unsafePerformIO $ do
@@ -554,8 +552,6 @@ data DPLLStateContents s = SC
       -- ^ For each variable, the clause that (was unit and) implied its value.
     , numConfl :: Int64
       -- ^ The number of conflicts that have occurred since the last restart.
-    , totalConfl :: Int64
-      -- ^ The number of conflicts that have occurred.
     , varOrder :: VarOrder s
     , rnd :: StdGen              -- ^ random source
     , dpllConfig :: DPLLConfig
@@ -657,7 +653,7 @@ bcp m = do
 --
 -- Select a decision variable, if possible, and return it and the adjusted
 -- `VarOrder'.
-select :: IAssignment -> FrozenVarOrder -> BadBag -> Maybe Var
+select :: IAssignment -> FrozenVarOrder -> Maybe Var
 select = varOrderGet
 
 -- | Assign given decision variable.  Records the current assignment before
@@ -685,8 +681,7 @@ backJump :: MAssignment s
             -- clause @c@.
          -> DPLLMonad s (Maybe (MAssignment s))
 backJump m (_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
-    modify $ \s -> s{ numConfl = numConfl s + 1
-                    , totalConfl = totalConfl s + 1 }
+    modify $ \s -> s{numConfl = numConfl s + 1}
     levelArr :: FrozenLevelArray <- do s <- get
                                        lift $ unsafeFreeze (level s)
     learntCl <- analyse levelArr
@@ -707,8 +702,8 @@ backJump m (_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
       s{ dl  = dl'
        , bad = if null dl' then bad `with` var undone_ld else bad }
     forM_ conflict (bump . var)
-    watchClause m learntCl True
     enqueue m (negate (head dl)) (Just learntCl)
+    watchClause m learntCl True
     return $ if conflictAt0 then Nothing else Just m
   where
     -- Returns learnt clause.
@@ -831,7 +826,7 @@ watchClause :: MAssignment s
 {-# INLINE watchClause #-}
 watchClause m c isLearnt = do
   case c of
-    [] -> error "watchClause of empty clause?"
+    [] -> return True
     [l] -> enqueue m l (Just c)
     _ -> do
       let p = (negate (c !! 0), negate (c !! 1))
@@ -910,16 +905,15 @@ varOrderMod v f = do
 
 
 -- | Retrieve the maximum-priority variable from the variable order.
-varOrderGet :: IAssignment -> FrozenVarOrder -> BadBag -> Maybe Var
+varOrderGet :: IAssignment -> FrozenVarOrder -> Maybe Var
 {-# INLINE varOrderGet #-}
-varOrderGet mFr (FrozenVarOrder voFr) badSet =
+varOrderGet mFr (FrozenVarOrder voFr) =
     let (v, _activity) = List.maximumBy (comparing snd) candidates
     in if List.null candidates then Nothing
        else Just v
   where
     varAssocs = assocs voFr
-    (candidates, _unfit) = List.partition isFit varAssocs
-    isFit (v, _) = v `isUndefUnder` mFr && not (v `BitSet.member` badSet)
+    (candidates, _unfit) = List.partition ((`isUndefUnder` mFr) . fst) varAssocs
 
 
 
@@ -987,7 +981,7 @@ extractStats = do
   let learnts = (nub . Fl.concat)
         [ map snd (learntArr!i) | i <- (range . bounds) learntArr ] :: [Clause]
       stats =
-        Stats { statsNumConfl = fromIntegral (totalConfl s)
+        Stats { statsNumConfl = fromIntegral (numConfl s)
               , statsNumLearnt = fromIntegral $ length learnts
               , statsAvgLearntLen =
                 fromIntegral (foldl' (+) 0 (map length learnts))

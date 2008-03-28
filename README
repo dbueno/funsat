@@ -1,0 +1,17 @@
+-*- mode: outline -*-
+
+* A DPLL-style SAT solver in pure haskell
+
+** Dependencies
+All the dependences are cabal-ised and available from hackage.  URLs below.
+
+*** parse-dimacs
+A haskell CNF file parser.
+
+http://hackage.haskell.org/cgi-bin/hackage-scripts/package/parse-dimacs
+
+*** bitset
+http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset
+
+*** fingertree
+http://hackage.haskell.org/cgi-bin/hackage-scripts/package/fingertree

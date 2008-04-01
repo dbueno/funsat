@@ -800,9 +800,9 @@ compact = do
   n <- numVars `liftM` gets cnf
   lArr <- gets learnt
   clauses <- lift $ (nub . Fl.concat) `liftM`
-             sequence [ do val <- readArray lArr v ; writeArray lArr v []
-                           return val
-                        | v <- [L (- n) .. L n] ]
+             forM [L (- n) .. L n]
+                (\v -> do val <- readArray lArr v ; writeArray lArr v []
+                          return val)
   let clauses' = take (length clauses `div` 2)
                  $ sortBy (comparing (length . snd)) clauses
   lift $ forM_ clauses'

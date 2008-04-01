@@ -794,6 +794,8 @@ unsat maybeConflict (SC{cnf=cnf, dl=dl, bad=bad}) = isUnsat
 
 -- ** Helpers
 
+-- *** Clause compaction
+
 -- | Keep the smaller half of the learnt clauses.
 compact :: DPLLMonad s ()
 compact = do
@@ -810,7 +812,8 @@ compact = do
               (x, y) <- readSTRef r
               modifyArray lArr x $ const (wCl:)
               modifyArray lArr y $ const (wCl:))
-              
+
+-- *** Unit propagation              
 
 -- | Add clause to the watcher lists, unless clause is a singleton; if clause
 -- is a singleton, `enqueue's fact and returns `False' if fact is in conflict,
@@ -879,17 +882,7 @@ clearQueue :: DPLLMonad s ()
 {-# INLINE clearQueue #-}
 clearQueue = modify $ \s -> s{propQ = Seq.empty}
 
--- | Same as @newArray@, but helping along the type checker.
-newSTUArray :: (MArray (STUArray s) e (ST s), Ix i)
-               => (i, i) -> e -> ST s (STUArray s i e)
-newSTUArray = newArray
-
-newSTArray :: (MArray (STArray s) e (ST s), Ix i)
-              => (i, i) -> e -> ST s (STArray s i e)
-newSTArray = newArray
-
-showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
-                                                  (a!i) /= 0])
+-- *** Dynamic variable ordering
 
 -- | Modify priority of variable; takes care of @Double@ overflow.
 varOrderMod :: Var -> (Double -> Double) -> DPLLMonad s ()
@@ -916,6 +909,7 @@ varOrderGet mFr (FrozenVarOrder voFr) =
     (candidates, _unfit) = List.partition ((`isUndefUnder` mFr) . fst) varAssocs
 
 
+-- *** Generic state transition notation
 
 -- | Guard a transition action.  If the boolean is true, return the action
 -- given as an argument.  Otherwise, return `Nothing'.
@@ -943,13 +937,10 @@ a1 >< a2 =
 
 infixl 5 ><
 
--- | Whether a list contains a single element.
-isSingle :: [a] -> Bool
-{-# INLINE isSingle #-}
-isSingle [_] = True
-isSingle _   = False
+-- *** Misc
 
-
+-- | Modify a value inside the state.
+modifySlot :: (MonadState s m) => (s -> a) -> (s -> a -> s) -> m ()
 {-# INLINE modifySlot #-}
 modifySlot slot f = modify $ \s -> f s (slot s)
 
@@ -959,6 +950,24 @@ modifySlot slot f = modify $ \s -> f s (slot s)
 modifyArray :: (Monad m, MArray a e m, Ix i) => a i e -> i -> (i -> e -> e) -> m ()
 {-# INLINE modifyArray #-}
 modifyArray arr i f = readArray arr i >>= writeArray arr i . (f i)
+
+-- | Same as @newArray@, but helping along the type checker.
+newSTUArray :: (MArray (STUArray s) e (ST s), Ix i)
+               => (i, i) -> e -> ST s (STUArray s i e)
+newSTUArray = newArray
+
+newSTArray :: (MArray (STArray s) e (ST s), Ix i)
+              => (i, i) -> e -> ST s (STArray s i e)
+newSTArray = newArray
+
+showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
+                                                  (a!i) /= 0])
+
+-- | Whether a list contains a single element.
+isSingle :: [a] -> Bool
+{-# INLINE isSingle #-}
+isSingle [_] = True
+isSingle _   = False
 
 initialActivity :: Double
 initialActivity = 1.0

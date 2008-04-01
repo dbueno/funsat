@@ -738,7 +738,7 @@ backJump m (_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
                   -> ((Lit, Int) -> Forest Lit -> Bool) -> Forest Lit -> [Lit]
         bfsPicker _ _ [] = []
         bfsPicker seen p (t:ts) =
-            if isSeen then bfsPicker seen' p ts
+            if isSeen then bfsPicker seen p ts
             else if litLevel > 0 && p (lit, litLevel) antecedents
             then lit : bfsPicker seen' p ts
             else bfsPicker seen' p (ts ++ antecedents)

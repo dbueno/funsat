@@ -597,9 +597,9 @@ bcpLit m l = do
     -- return that and don't update anything else.
     c <- runErrorT $ do
            {-# SCC "bcpWatches" #-} forM_ (tails clauses) (updateWatches
-             (\ f l -> lift . lift $ readArray ws l >>= writeArray ws l . f))
+             (\ f l -> lift . lift $ modifyArray ws l (const f)))
            {-# SCC "bcpLearnts" #-} forM_ (tails learnts) (updateWatches
-             (\ f l -> lift . lift $ readArray ls l >>= writeArray ls l . f))
+             (\ f l -> lift . lift $ modifyArray ls l (const f)))
     case c of
       Left conflict -> return $ Just conflict
       Right _       -> return Nothing
@@ -808,8 +808,8 @@ compact = do
   lift $ forM_ clauses'
            (\ wCl@(r, _) -> do
               (x, y) <- readSTRef r
-              readArray lArr x >>= writeArray lArr x . (wCl:)
-              readArray lArr y >>= writeArray lArr y . (wCl:))
+              modifyArray lArr x $ const (wCl:)
+              modifyArray lArr y $ const (wCl:))
               
 
 -- | Add clause to the watcher lists, unless clause is a singleton; if clause
@@ -832,8 +832,8 @@ watchClause m c isLearnt = do
       let p = (negate (c !! 0), negate (c !! 1))
       r <- lift $ newSTRef p
       let annCl = (r, c)
-          addCl arr = do readArray arr (fst p) >>= writeArray arr (fst p) . (annCl:)
-                         readArray arr (snd p) >>= writeArray arr (snd p) . (annCl:)
+          addCl arr = do modifyArray arr (fst p) $ const (annCl:)
+                         modifyArray arr (snd p) $ const (annCl:)
       get >>= \s -> lift $ if isLearnt then addCl (learnt s) else addCl (watches s)
       return True
 
@@ -901,7 +901,7 @@ varOrderMod v f = do
   where
     rescaleActivities vo = lift $ do
         indices <- range `liftM` getBounds vo
-        forM_ indices (\i -> readArray vo i >>= writeArray vo i . (* 1e-100))
+        forM_ indices (\i -> modifyArray vo i $ const (* 1e-100))
 
 
 -- | Retrieve the maximum-priority variable from the variable order.
@@ -952,6 +952,13 @@ isSingle _   = False
 
 {-# INLINE modifySlot #-}
 modifySlot slot f = modify $ \s -> f s (slot s)
+
+-- | @modifyArray arr i f@ applies the function @f@ to the index @i@ and the
+-- current value of the array at index @i@, then writes the result into @i@ in
+-- the array.
+modifyArray :: (Monad m, MArray a e m, Ix i) => a i e -> i -> (i -> e -> e) -> m ()
+{-# INLINE modifyArray #-}
+modifyArray arr i f = readArray arr i >>= writeArray arr i . (f i)
 
 initialActivity :: Double
 initialActivity = 1.0

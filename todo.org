@@ -1,8 +1,12 @@
 * Sat todo file
 
-* TODO Recursive learning/parallel stuff
+* TODO VSIDS bumping should happen for each variable encountered
+while generating the learnt clause.
 
-* TODO Learned clause deletion
+* TODO [#C] Recursive learning/parallel stuff
+
+* DONE Learned clause deletion
+  CLOSED: [2008-04-03 Thu 12:18]
 
 * DONE Make "bad" bag use bitset
   CLOSED: [2008-03-18 Tue 10:11]

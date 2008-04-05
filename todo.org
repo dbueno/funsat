@@ -1,5 +1,20 @@
 * Sat todo file
 
+* TODO [#A] Debug clause learning
+Currently, bugs.
+
+** There is a confusion between reasons and actual assigned variables
+When asking for the level of a variable in the current assignment, the
+conflict variable should be treated specially -- it's at the current level.
+Otherwise, you can just ask for the level of the variable.
+
+Say the conflicting literals is -20.  Then 20 is in the current assignment ---
+that's why -20 conflicts.  Now, suppose you expand a literal `x' whose reason
+contains -20 -- that is, since 20 is true, -20 was in a clause which became
+unit, and propagated `x'.  Asking for the level of -20 is wrong -- when asking
+for the level of a *reason*, we always want the level of the corresponding
+variable, so that we don't confuse it with the conflicting literal.
+
 * TODO VSIDS bumping should happen for each variable encountered
 while generating the learnt clause.
 

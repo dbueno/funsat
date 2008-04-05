@@ -133,6 +133,10 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
+import Data.Graph.Inductive.Tree( Gr )
+import Data.Graph.Inductive.Graph( DynGraph )
+import Data.Graph.Inductive.Basic( grev )
+import Data.Graph.Inductive.Graphviz
 import Data.Int (Int64)
 import Data.List (intercalate, nub, tails, sortBy)
 import Data.Map (Map)
@@ -143,11 +147,14 @@ import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.Tree
 import Debug.Trace (trace)
+import Prelude hiding (sum, concatMap, elem)
 import System.Random
 import System.IO.Unsafe (unsafePerformIO)
 import System.IO (hPutStr, stderr)
 import Text.Printf( printf )
 import qualified Data.BitSet as BitSet
+import qualified Data.Graph.Inductive.Graph as Graph
+import qualified Data.Graph.Inductive.Query.BFS as BFS
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -325,7 +332,7 @@ newtype Lit = L {unLit :: Int} deriving (Eq, Ord, Enum, Ix)
 inLit f = L . f . unLit
 
 instance Show Lit where
-    show l = if ul < 0 then "~" ++ show (abs ul) else show ul
+    show l = show ul
         where ul = unLit l
 instance Read Lit where
     readsPrec i s = map (\(i,s) -> (L i, s)) (readsPrec i s :: [(Int, String)])
@@ -501,6 +508,14 @@ isFalseUnder x m = isFalse $ x `statusUnder` m
 isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
                   && not (Fl.any (`isTrueUnder` m) c)
 
+-- Precondition: clause is unit.
+getUnit :: (Model a m) => [a] -> m -> a
+getUnit c m = case filter (not . (`isFalseUnder` m)) c of
+                [u] -> u
+                _   -> error "getUnit: not unit"
+
+type Level = Int
+
 -- | A /level array/ maintains a record of the decision level of each variable
 -- in the solver.  If @level@ is such an array, then @level[i] == j@ means the
 -- decision level for var number @i@ is @j@.  @j@ must be non-negative when
@@ -508,13 +523,13 @@ isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
 --
 -- Whenever an assignment of variable @v@ is made at decision level @i@,
 -- @level[unVar v]@ is set to @i@.
-type LevelArray s = STUArray s Var Int
+type LevelArray s = STUArray s Var Level
 -- | Immutable version.
-type FrozenLevelArray = UArray Var Int
+type FrozenLevelArray = UArray Var Level
 
 -- | Value of the `level' array if corresponding variable unassigned.  Had
 -- better be less that 0.
-noLevel :: Int
+noLevel :: Level
 noLevel = -1
 
 -- | The VSIDS-like dynamic variable ordering.
@@ -680,75 +695,167 @@ backJump :: MAssignment s
             -- ^ @(l, c)@, where attempting to assign @l@ conflicted with
             -- clause @c@.
          -> DPLLMonad s (Maybe (MAssignment s))
-backJump m (_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
-    modify $ \s -> s{numConfl = numConfl s + 1}
+backJump m c@(_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
+    theTrail <- gets trail
+    trace ("********** conflict: " ++ show c ++ "\n"
+          ++ "trail: " ++ show theTrail ++ "\n"
+          ++ "dlits: " ++ show dl) (
+     modify $ \s -> s{numConfl = numConfl s + 1})
     levelArr :: FrozenLevelArray <- do s <- get
                                        lift $ unsafeFreeze (level s)
-    learntCl <- analyse levelArr
-    s  <- get
-    let levels = map ((levelArr !) . var) (learntCl `without` negate (head dl))
-        conflictAt0 = if null levels then False else 0 == List.maximum levels
-        btLevel = if null levels then length dl - 1 else List.maximum levels
+    (learntCl, btLevel) <-
+        do mFr <- lift $ unsafeFreezeAss m
+           analyse mFr levelArr dl c
+    s <- (if isSingle learntCl then trace ("single learnt: " ++ show learntCl)
+          else id) get
+    let conflictAt0 = 0 == btLevel -- not reliable because btLevel == 0 could
+                                   -- mean just undo the topmost decision
         numDecisionsToUndo = length dl - btLevel
         (undone_ld : dl') = drop (numDecisionsToUndo - 1) dl
-        undoneLits = takeWhile (\lit -> levelArr ! (var lit) > btLevel) (trail s)
-    forM_ undoneLits $ const (undoOne m)
+        undoneLits = takeWhile (\lit -> levelArr ! (var lit) > btLevel) (trail s) 
+    forM_ undoneLits $ const (undoOne m) -- backtrack
     mFr <- lift $ unsafeFreezeAss m
-    assert (numDecisionsToUndo > 0) $
+    trace ("new mFr: " ++ showAssignment mFr) $
+     assert (numDecisionsToUndo > 0) $
      assert (not (null learntCl)) $
      assert (learntCl `isUnitUnder` mFr) $
-     assert (learntCl `contains` negate (head dl)) $
-     modify $ \s ->
+     modify $ \s ->             -- undo decisions
       s{ dl  = dl'
        , bad = if null dl' then bad `with` var undone_ld else bad }
     forM_ conflict (bump . var)
-    enqueue m (negate (head dl)) (Just learntCl)
+    enqueue m (getUnit learntCl mFr) (Just learntCl) -- learntCl is asserting
     watchClause m learntCl True
-    return $ if conflictAt0 then Nothing else Just m
+    return $ Just m
+
+-- | /O(V + E)/ Analyse a the conflict graph and produce a learnt clause.  We
+-- use the First UIP cut of the conflict graph.
+analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
+        -> DPLLMonad s (Clause, Int) -- ^ learnt clause and backtrack level
+analyse mFr levelArr dlits c@(cLit, _cClause) = do
+    st <- get
+    trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
+    let impForest :: Forest Lit = makeImpForest (reason st) c
+        conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
+                     :: Gr CGNodeAnnot ()
+        (learntCl, btLevel) = bfsPick BitSet.empty
+                                      (numCurrentLevel (map rootLabel impForest))
+                                      impForest
+
+    return $ trace ("learnt: " ++ show (nub learntCl, btLevel)) $
+             trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
+             (nub learntCl, btLevel)
   where
-    -- Returns learnt clause.
-    analyse levelArr = do
-      st <- get
-      let impForest :: Forest Lit = makeImpForest (reason st)
-          learntCl = negate (head (dl st)):rel_sat levelArr (dl st) impForest
-      return . nub $ learntCl
-
-    -- Unfold the implication graph backwards from the conflict.
-    makeImpForest reasonM = unfoldForest (impliedBy reasonM) conflict
-    impliedBy reasonM lit = (lit, Map.findWithDefault [] (var lit) reasonM)
-
-    -- STRATEGY 1: Find the decision literals responsible for current conflict.
-    _findDecisions levelArr _ ts =
-        bfsPick levelArr ts (\ _ antecedents -> null antecedents)
-
-    -- STRATEGY 2: Rel_sat.
-    rel_sat levelArr dlits ts =
-        let currentDecLev = length dlits
-        in bfsPick levelArr ts (\ (_, lev) _ -> lev < currentDecLev)
-
-    -- Perform a BFS on the reverse implication graph, returning the first
-    -- literals satisfying p.  Each literal will be passed to p at most once,
-    -- and no antecedents of p are explored.  Only literals above decision level
-    -- 0 which are not the conflict literal are passed to p.
-    bfsPick :: FrozenLevelArray
-            -> Forest Lit -> ((Lit, Int) -> Forest Lit -> Bool) -> [Lit]
-    bfsPick levelArr ts p = bfsPicker BitSet.empty p ts
+    -- count: number of literals from current decision level left to process
+    bfsPick _ count ts
+        | trace ("(" ++ show count ++ ") ts: " ++ show (map rootLabel ts))
+          $ False = undefined
+    bfsPick _ 0 _  = error "analyse: bfsPick says count is 0?!"
+    bfsPick _ _ [] = ([], 0)
+    bfsPick seen 1 ts =         -- UIP is in ts
+        let ([uipNode], rest) =
+                List.partition
+                  (\t -> currentLevel == (levelV . var . rootLabel) t) ts
+            restAdded = grabDecisions rest
+        in ( rootLabel uipNode : restAdded, maxDecs restAdded )
+    bfsPick seen count (t:ts) =
+        if isSeen then bfsPick seen count ts
+        else if litLevel == currentLevel && var lit `elem` dvars
+             then -- this means the UIP is the decision var
+                  trace ("  --> restDecisions = " ++ show restDecisions) $
+                  (lit : restDecisions, maxDecs (restDecisions `without` lit))
+             else if litLevel == currentLevel then
+                  bfsPick seen' count' (ts ++ antecedents)
+             else if litLevel > 0
+             then let (lits, btLevel) = bfsPick seen' count ts
+                  in (lit : lits, max btLevel litLevel)
+             else bfsPick seen' count ts
       where
-        bfsPicker :: BitSet Var
-                  -> ((Lit, Int) -> Forest Lit -> Bool) -> Forest Lit -> [Lit]
-        bfsPicker _ _ [] = []
-        bfsPicker seen p (t:ts) =
-            if isSeen then bfsPicker seen p ts
-            else if litLevel > 0 && p (lit, litLevel) antecedents
-            then lit : bfsPicker seen' p ts
-            else bfsPicker seen' p (ts ++ antecedents)
-            
-          where
-            litLevel    = levelArr ! (var lit)
-            isSeen      = seen `contains` var lit
-            seen'       = seen `with` var lit
-            lit         = rootLabel t
-            antecedents = subForest t
+        count'      = count + numCurrentLevel (map rootLabel antecedents) - 1
+        litLevel    = levelV $ var lit
+        isSeen      = seen `contains` lit
+        seen'       = seen `with` lit :: BitSet Lit
+        lit         = rootLabel t
+        antecedents =
+            filter (\t -> not (rootLabel t `elem` map rootLabel ts)
+                          && not (seen' `contains` rootLabel t)) $
+            subForest t
+        restDecisions = nub $ grabDecisions ts
+
+    -- helpers
+    currentLevel    = length dlits
+    numCurrentLevel = length . filter ((currentLevel ==) . levelV . var)
+    levelL l        = if l == cLit then currentLevel else levelV (var l)
+    levelV v        = levelArr!v
+    dvars       = map var dlits
+    grabDecisions [] = []
+    grabDecisions (t:ts) =
+        if (var . rootLabel) t `elem` dvars
+        then rootLabel t : grabDecisions ts
+        else grabDecisions (ts ++ subForest t)
+    maxDecs ls  = foldl' max 0 (map (levelV . var) ls)
+
+-- | Annotate each variable in the conflict graph with literal (indicating its
+-- assignment) and decision level.  The only reason we make a new datatype for
+-- this is for its `Show' instance.
+data CGNodeAnnot = CGNA Lit Level
+instance Show CGNodeAnnot where
+    show (CGNA l lev) = show l ++ " (" ++ show lev ++ ")"
+
+-- | Creates the conflict graph, where each node is labeled by its literal and
+-- level.
+--
+-- Useful for getting pretty graphviz output of a conflict.
+mkConflGraph :: DynGraph gr =>
+                IAssignment
+             -> FrozenLevelArray
+             -> Map Var Clause
+             -> [Lit]           -- ^ decision lits, in rev. chron. order
+             -> (Lit, Clause)   -- ^ conflict info
+             -> gr CGNodeAnnot ()
+mkConflGraph mFr lev reasonMap dlits (cLit, confl) =
+    Graph.mkGraph nodes edges
+  where
+    -- we pick out all the variables from the conflict graph, specially adding
+    -- both literals of the conflict variable, so that that variable has two
+    -- nodes in the graph.
+    nodes = ((unLit cLit, CGNA cLit (-1)) :) $
+            ((negate (unLit cLit), CGNA (negate cLit) (lev!(var cLit))) :) $
+            -- annotate each node with its literal and level
+            map (\v -> (unVar v, CGNA (varToLit v) (lev!v))) $
+            -- only include variables which are defined in mFr, and not conflict
+            filter (\v -> v /= var cLit &&
+                          (v `isTrueUnder` mFr || v `isFalseUnder` mFr)) $
+            -- only include the variables in the conflict graph
+            nub $ map var $ concatMap flatten impForest ++ confl
+    -- edges are from variables (i.e. the number is > 0) that provide a reason
+    -- for their destination variable.
+    edges = [ (x, y, ())
+            | (x, CGNA xLit _) <- nodes, (y, CGNA yLit _) <- nodes,
+              -- no edges between equal nodes
+              x /= y && x > 0 &&
+              x /= negate y && -- only occurs when x and y refer to `cLit',
+                               -- in which case should be no edge
+              if y == unLit cLit
+              then -- edges to `cLit' are from `confl', the conflicting clause
+                   negate (unLit xLit) `elem` map unLit confl
+              else -- otherwise edges are from reasons
+                   negate (unLit xLit) `elem`
+                       map unLit (Map.findWithDefault [] (var yLit) reasonMap)
+            ]
+    impForest = makeImpForest reasonMap (cLit, confl)
+    varToLit v = (if v `isTrueUnder` mFr then id else negate) $ L (unVar v)
+
+-- | Unfold the implication graph backwards from the conflicting literal.
+-- There is no root for the conflicting literal (but there is one for its
+-- negation).
+makeImpForest :: Map Var Clause -> (Lit, Clause) -> Forest Lit
+makeImpForest reasonMap (cLit, conflicting) =
+    unfoldForest (impliedBy reasonMap) [negate cLit]
+    ++ unfoldForest (impliedBy reasonMap) (conflicting `without` cLit)
+    where
+      impliedBy reasonMap lit =
+          (lit, filter ((var lit /=) . var) $
+                Map.findWithDefault [] (var lit) reasonMap)
 
 -- | Delete the assignment to last-assigned literal.  Undoes the trail, the
 -- assignment, sets `noLevel', undoes reason.
@@ -830,7 +937,10 @@ watchClause :: MAssignment s
 watchClause m c isLearnt = do
   case c of
     [] -> return True
-    [l] -> enqueue m l (Just c)
+    [l] -> do result <- enqueue m l (Just c)
+              levelArr <- gets level
+              lift $ writeArray levelArr (var l) 0
+              return result
     _ -> do
       let p = (negate (c !! 0), negate (c !! 1))
       r <- lift $ newSTRef p

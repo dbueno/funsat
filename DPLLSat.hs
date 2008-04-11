@@ -147,7 +147,7 @@ import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.Tree
 import Debug.Trace (trace)
-import Prelude hiding (sum, concatMap, elem)
+import Prelude hiding (sum, concatMap, elem, foldr, foldl)
 import System.Random
 import System.IO.Unsafe (unsafePerformIO)
 import System.IO (hPutStr, stderr)
@@ -735,13 +735,32 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
     st <- get
     trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
     let impForest :: Forest Lit = makeImpForest (reason st) c
-        conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
-                     :: Gr CGNodeAnnot ()
+        rConflGraph = grev conflGraph
+        bfsNodes = BFS.bfsn (map unLit [cLit, negate cLit]) rConflGraph
         (learntCl, btLevel) = bfsPick BitSet.empty
                                       (numCurrentLevel (map rootLabel impForest))
                                       impForest
+        nodeLevel cgNode =
+            if cgNode == unLit cLit then currentLevel else levelV (V (abs cgNode))
+        thd (_,_,x) = x
+        annotatedBfs = reverse . thd $ foldl combineCounts ( Set.empty :: Set Int
+                                                           , Set.empty
+                                                           , []) bfsNodes
+        combineCounts (seen, set, nodes) cgNode =
+            let set' = (set `Set.union`
+                        (Set.fromList $ -- unseen successors of curr lev
+                         filter (\i -> nodeLevel i == currentLevel
+                                       && not (seen `contains` i)) $
+                         Graph.suc rConflGraph cgNode)) `without` cgNode
+                seen' = seen `with` cgNode
+            in (seen', set', (cgNode, set') : nodes)
+        conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
+                     :: Gr CGNodeAnnot ()
 
     return $ trace ("learnt: " ++ show (nub learntCl, btLevel)) $
+             trace ("bfsNodes: " ++ show bfsNodes) $
+             trace ("annotated bfs: " ++ show annotatedBfs) $
+             outputConflict (graphviz' conflGraph) $
              trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
              (nub learntCl, btLevel)
   where
@@ -793,6 +812,13 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
         then rootLabel t : grabDecisions ts
         else grabDecisions (ts ++ subForest t)
     maxDecs ls  = foldl' max 0 (map (levelV . var) ls)
+    outputConflict g x = unsafePerformIO $ do writeFile "conflict.dot" g
+                                              return x
+
+-- firstUIP conflGraph = argmin distanceFromConfl . intersect domConfl domAssigned
+--     where domConfl    = Dom.dom conflGraph conflNode
+--           domAssigned = Dom.dom conflGraph (negate conflNode)
+--           distanceFromConfl x = SP.spLength x conflNode
 
 -- | Annotate each variable in the conflict graph with literal (indicating its
 -- assignment) and decision level.  The only reason we make a new datatype for
@@ -1116,6 +1142,11 @@ extractStats = do
 
 unsafeFreezeWatchArray :: WatchArray s -> ST s (Array Lit [WatchedPair s])
 unsafeFreezeWatchArray = freeze
+
+-- | Count the number of elements in the list that satisfy the predicate.
+count :: (a -> Bool) -> [a] -> Int
+count p = foldl' f 0
+    where f x y = x + (if p y then 1 else 0)
 
 ---------- TESTING ----------
 

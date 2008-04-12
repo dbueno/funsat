@@ -23,6 +23,8 @@ module Properties where
 import DPLLSat hiding ( (==>) )
 
 import Control.Monad (replicateM, liftM)
+import Control.Monad.ST( runST )
+import Data.STRef( newSTRef )
 import Data.Array.Unboxed
 import Data.BitSet (hash)
 import Data.Bits
@@ -30,6 +32,7 @@ import Data.Foldable hiding (sequence_)
 import Data.List (nub, splitAt, unfoldr, delete, sort)
 import Data.Maybe
 import Debug.Trace
+import Language.CNF.Parse.ParseDIMACS( parseCNF )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
                       , sum, concat )
 import System.Random
@@ -39,6 +42,8 @@ import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.Heap.Finger as H
 import qualified Test.QuickCheck as QC
+import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
+
 
 main :: IO ()
 main = do
@@ -65,6 +70,7 @@ main = do
       check config prop_undefUnderImpliesNegUndef
       check config prop_litHash
       check config prop_varHash
+      check config prop_count
 
       -- Add more tests above here.  Setting the rng keeps the SAT instances
       -- the same even if more tests are added above.  Reproducible results
@@ -179,6 +185,18 @@ prop_varHash (k :: Var) l =
 (<==>) = iff
 infixl 3 <==>
 
+
+-- newtype WPTest s = WPTest (WatchedPair s)
+
+-- instance Arbitrary (WPTest s) where
+--     arbitrary = sized sizedWPTest
+--         where sizedWPTest n = do
+--                 [lit1, lit2] <- 2 `uniqElts` 1
+--                 clause :: Clause <- arbitrary
+--                 return $ runST $
+--                          do r <- newSTRef (lit1, lit2)
+--                             return (r, lit1 : lit2 : clause)
+
 -- ** Max heap
 
 newtype Nat = Nat { unNat :: Int }
@@ -241,6 +259,20 @@ prop_heap_extract_max (xsIn :: [H.Info Nat Nat]) =
         heap = H.fromList xs
         xs = nub xsIn
 
+prop_count p xs =
+    label "prop_count" $
+    count p xs == length (filter p xs)
+        where types = xs :: [Int]
+
+prop_argmin f x y =
+    label "prop_argmin" $
+    f x /= f y ==>
+      argmin f x y == m
+  where m = if f x < f y then x else y
+
+instance Show (a -> b) where
+    show = const "<fcn>"
+
 -- * Helpers
 
 
@@ -257,8 +289,8 @@ _findA p a = (a !) `fmap` find (p . (a !)) (range . bounds $ a)
 
 -- Generate exactly n distinct, random things from given enum, starting at
 -- element given.  Obviously only really works for infinite enumerations.
-_uniqElts :: (Enum a) => Int -> a -> Gen [a]
-_uniqElts n x =
+uniqElts :: (Enum a) => Int -> a -> Gen [a]
+uniqElts n x =
     do is <- return [x..]
        choices <-
            sequence $ map
@@ -466,4 +498,16 @@ getCNF :: Int -> IO CNF
 getCNF maxVars = do g <- newStdGen
                     return (generate (maxVars * 3) g arbitrary)
 
+prob :: IO ParseCNF.CNF
+prob = do let file = "./tests/problems/uf20/uf20-0119.cnf"
+          s <- readFile file
+          return $ parseCNF file s
+
+
+-- | Convert parsed CNF to internal representation.
+asCNF :: ParseCNF.CNF -> CNF
+asCNF (ParseCNF.CNF v c is) =
+    CNF {numVars = v
+        ,numClauses = c
+        ,clauses = Set.fromList . map (map fromIntegral) $ is}
 

@@ -134,11 +134,11 @@ import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
 import Data.Graph.Inductive.Tree( Gr )
-import Data.Graph.Inductive.Graph( DynGraph )
+import Data.Graph.Inductive.Graph( DynGraph, Graph )
 import Data.Graph.Inductive.Basic( grev )
 import Data.Graph.Inductive.Graphviz
 import Data.Int (Int64)
-import Data.List (intercalate, nub, tails, sortBy)
+import Data.List (intercalate, nub, tails, sortBy, intersect, foldl1', (\\))
 import Data.Map (Map)
 import Data.Maybe
 import Data.Ord (comparing)
@@ -147,7 +147,7 @@ import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.Tree
 import Debug.Trace (trace)
-import Prelude hiding (sum, concatMap, elem, foldr, foldl)
+import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
 import System.Random
 import System.IO.Unsafe (unsafePerformIO)
 import System.IO (hPutStr, stderr)
@@ -155,6 +155,8 @@ import Text.Printf( printf )
 import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.BFS as BFS
+import qualified Data.Graph.Inductive.Query.SP as SP
+import qualified Data.Graph.Inductive.Query.Dominators as Dom
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -708,7 +710,7 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
            analyse mFr levelArr dl c
     s <- (if isSingle learntCl then trace ("single learnt: " ++ show learntCl)
           else id) get
-    let conflictAt0 = 0 == btLevel -- not reliable because btLevel == 0 could
+    let _conflictAt0 = 0 == btLevel -- not reliable because btLevel == 0 could
                                    -- mean just undo the topmost decision
         numDecisionsToUndo = length dl - btLevel
         (undone_ld : dl') = drop (numDecisionsToUndo - 1) dl
@@ -734,91 +736,86 @@ analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
 analyse mFr levelArr dlits c@(cLit, _cClause) = do
     st <- get
     trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
-    let impForest :: Forest Lit = makeImpForest (reason st) c
-        rConflGraph = grev conflGraph
-        bfsNodes = BFS.bfsn (map unLit [cLit, negate cLit]) rConflGraph
-        (learntCl, btLevel) = bfsPick BitSet.empty
-                                      (numCurrentLevel (map rootLabel impForest))
-                                      impForest
-        nodeLevel cgNode =
-            if cgNode == unLit cLit then currentLevel else levelV (V (abs cgNode))
-        thd (_,_,x) = x
-        annotatedBfs = reverse . thd $ foldl combineCounts ( Set.empty :: Set Int
-                                                           , Set.empty
-                                                           , []) bfsNodes
-        combineCounts (seen, set, nodes) cgNode =
-            let set' = (set `Set.union`
-                        (Set.fromList $ -- unseen successors of curr lev
-                         filter (\i -> nodeLevel i == currentLevel
-                                       && not (seen `contains` i)) $
-                         Graph.suc rConflGraph cgNode)) `without` cgNode
-                seen' = seen `with` cgNode
-            in (seen', set', (cgNode, set') : nodes)
+    let _impForest :: Forest Lit = makeImpForest (reason st) c
+        (learntCl, btLevel) =
+            cutLearn mFr levelArr (uipCut conflGraph (firstUIP conflGraph))
         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
-                     :: Gr CGNodeAnnot ()
+                     :: Gr CGNodeAnnot Int
 
-    return $ trace ("learnt: " ++ show (nub learntCl, btLevel)) $
-             trace ("bfsNodes: " ++ show bfsNodes) $
-             trace ("annotated bfs: " ++ show annotatedBfs) $
-             outputConflict (graphviz' conflGraph) $
+    return $ outputConflict (graphviz' conflGraph) $
              trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
-             (nub learntCl, btLevel)
+             trace ("learnt: " ++ show (learntCl, btLevel)) $
+             (learntCl, btLevel)
   where
-    -- count: number of literals from current decision level left to process
-    bfsPick _ count ts
-        | trace ("(" ++ show count ++ ") ts: " ++ show (map rootLabel ts))
-          $ False = undefined
-    bfsPick _ 0 _  = error "analyse: bfsPick says count is 0?!"
-    bfsPick _ _ [] = ([], 0)
-    bfsPick seen 1 ts =         -- UIP is in ts
-        let ([uipNode], rest) =
-                List.partition
-                  (\t -> currentLevel == (levelV . var . rootLabel) t) ts
-            restAdded = grabDecisions rest
-        in ( rootLabel uipNode : restAdded, maxDecs restAdded )
-    bfsPick seen count (t:ts) =
-        if isSeen then bfsPick seen count ts
-        else if litLevel == currentLevel && var lit `elem` dvars
-             then -- this means the UIP is the decision var
-                  trace ("  --> restDecisions = " ++ show restDecisions) $
-                  (lit : restDecisions, maxDecs (restDecisions `without` lit))
-             else if litLevel == currentLevel then
-                  bfsPick seen' count' (ts ++ antecedents)
-             else if litLevel > 0
-             then let (lits, btLevel) = bfsPick seen' count ts
-                  in (lit : lits, max btLevel litLevel)
-             else bfsPick seen' count ts
-      where
-        count'      = count + numCurrentLevel (map rootLabel antecedents) - 1
-        litLevel    = levelV $ var lit
-        isSeen      = seen `contains` lit
-        seen'       = seen `with` lit :: BitSet Lit
-        lit         = rootLabel t
-        antecedents =
-            filter (\t -> not (rootLabel t `elem` map rootLabel ts)
-                          && not (seen' `contains` rootLabel t)) $
-            subForest t
-        restDecisions = nub $ grabDecisions ts
+
+    uipCut conflGraph uip =
+        Cut { reasonSide   = Graph.nodes conflGraph \\ impliedByUIP
+            , conflictSide = impliedByUIP
+            , cutUIP       = uip
+            , cutGraph     = conflGraph }
+        where
+          -- transitively implied, and not including the UIP
+          impliedByUIP = tail $ BFS.bfs uip conflGraph
+    firstUIP conflGraph = trace ("--> uips = " ++ show uips) $
+                          trace ("--> domConfl = " ++ show domConfl) $
+                          trace ("--> domAssigned = " ++ show domAssigned) $
+                          trace ("--> lastd = " ++ show (abs $ unLit lastd)) $
+                          argminimum distanceFromConfl uips :: Graph.Node
+        where
+          uips        = intersect domConfl domAssigned :: [Graph.Node]
+          domConfl    = filter (\i -> levelN i == currentLevel) $
+                        fromJust $ lookup conflNode domFromLastd
+          domAssigned = filter (\i -> levelN i == currentLevel) $
+                        fromJust $ lookup (negate conflNode) domFromLastd
+          domFromLastd = Dom.dom conflGraph (abs $ unLit lastd)
+          distanceFromConfl x = SP.spLength x conflNode conflGraph :: Int
 
     -- helpers
+    lastd = head dlits
+    conflNode       = unLit cLit
     currentLevel    = length dlits
-    numCurrentLevel = length . filter ((currentLevel ==) . levelV . var)
-    levelL l        = if l == cLit then currentLevel else levelV (var l)
-    levelV v        = levelArr!v
-    dvars       = map var dlits
+    _numCurrentLevel = length . filter ((currentLevel ==) . levelV . var)
+    levelN i = if i == unLit cLit then currentLevel else (levelV . V . abs) i
+    _levelL l = if l == cLit then currentLevel else levelV (var l)
+    levelV v = levelArr!v
+    dvars    = map var dlits
     grabDecisions [] = []
     grabDecisions (t:ts) =
         if (var . rootLabel) t `elem` dvars
         then rootLabel t : grabDecisions ts
         else grabDecisions (ts ++ subForest t)
-    maxDecs ls  = foldl' max 0 (map (levelV . var) ls)
+    _maxDecs ls = foldl' max 0 (map (levelV . var) ls)
     outputConflict g x = unsafePerformIO $ do writeFile "conflict.dot" g
                                               return x
 
--- firstUIP conflGraph = argmin distanceFromConfl . intersect domConfl domAssigned
---     where domConfl    = Dom.dom conflGraph conflNode
---           domAssigned = Dom.dom conflGraph (negate conflNode)
---           distanceFromConfl x = SP.spLength x conflNode
+-- | The union of the reason side and the conflict side are all the nodes in
+-- the `cutGraph'.
+data Cut f gr a b =
+    Cut { reasonSide :: f Graph.Node
+        -- ^ The reason side contains at least the decision variables.
+        , conflictSide :: f Graph.Node
+        -- ^ The conflict side contains the conflicting literal.
+        , cutUIP :: Graph.Node
+        , cutGraph :: gr a b }
+
+checkCut :: (Graph gr) => Cut [] gr a b -> Bool
+checkCut cut = Graph.nodes (cutGraph cut) == reasonSide cut ++ conflictSide cut
+
+-- | Generate a learned clause from a cut of the graph.
+cutLearn :: (Graph gr, Foldable f) => IAssignment -> FrozenLevelArray
+         -> Cut f gr a b -> (Clause, Int)
+cutLearn a levelArr cut =
+    ( clause
+    , maximum (map (levelArr!) . (`without` V (cutUIP cut)) . map var $
+               clause) )
+  where
+    clause =
+        foldl' (\ls i ->
+                    if any (`elem` conflictSide cut) (Graph.suc (cutGraph cut) i)
+                    then L (negate $ a!(V i)):ls
+                    else ls)
+               [] (reasonSide cut)
+
 
 -- | Annotate each variable in the conflict graph with literal (indicating its
 -- assignment) and decision level.  The only reason we make a new datatype for
@@ -837,7 +834,7 @@ mkConflGraph :: DynGraph gr =>
              -> Map Var Clause
              -> [Lit]           -- ^ decision lits, in rev. chron. order
              -> (Lit, Clause)   -- ^ conflict info
-             -> gr CGNodeAnnot ()
+             -> gr CGNodeAnnot Int
 mkConflGraph mFr lev reasonMap dlits (cLit, confl) =
     Graph.mkGraph nodes edges
   where
@@ -855,7 +852,7 @@ mkConflGraph mFr lev reasonMap dlits (cLit, confl) =
             nub $ map var $ concatMap flatten impForest ++ confl
     -- edges are from variables (i.e. the number is > 0) that provide a reason
     -- for their destination variable.
-    edges = [ (x, y, ())
+    edges = [ (x, y, 1)
             | (x, CGNA xLit _) <- nodes, (y, CGNA yLit _) <- nodes,
               -- no edges between equal nodes
               x /= y && x > 0 &&
@@ -1147,6 +1144,12 @@ unsafeFreezeWatchArray = freeze
 count :: (a -> Bool) -> [a] -> Int
 count p = foldl' f 0
     where f x y = x + (if p y then 1 else 0)
+
+argmin :: Ord b => (a -> b) -> a -> a -> a
+argmin f x y = if f x <= f y then x else y
+
+argminimum :: Ord b => (a -> b) -> [a] -> a
+argminimum f = foldl1' (argmin f)
 
 ---------- TESTING ----------
 

@@ -913,15 +913,6 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
         new = filter ((var lit /=) . var) $ Map.findWithDefault [] (var lit) reasonMap
         seen' = var lit `BitSet.insert` seen
 
-unfoldSet :: (Ord e) => (s -> (e, [s])) -> [s] -> Set e
-unfoldSet g ss = let (es, sss) = unzip $ map g ss
-                 in foldl' (flip Set.insert) Set.empty es
-                    `Set.union` mapUnion (unfoldSet g) sss
-    -- mapUnion defined to avoid intermediate lists expected with Set.unions
-    -- (map f ...)
-  where mapUnion _f []    = Set.empty
-        mapUnion f (x:xs) = f x `Set.union` mapUnion f xs
-
 -- | Unfold the implication graph backwards from the conflicting literal.
 -- There is no root for the conflicting literal (but there is one for its
 -- negation).

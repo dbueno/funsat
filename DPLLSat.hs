@@ -682,10 +682,8 @@ decide m v = do
 
 -- *** Backtracking
 
--- | Non-chronological backtracking.  The current implementation finds all the
--- decision literals responsible for the current conflict, and the learnt
--- clause is derived from these.  The learnt clause is also here added to the
--- database and the asserting literal is enqueued.
+-- | Non-chronological backtracking.  The current returns the learned clause
+-- implied by the first unique implication point cut of the conflict graph.
 backJump :: MAssignment s
          -> (Lit, Clause)
             -- ^ @(l, c)@, where attempting to assign @l@ conflicted with
@@ -721,10 +719,10 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     watchClause m learntCl True
     return $ Just m
 
--- | Analyse a the conflict graph and produce a learnt clause.  We use the
+-- | Analyse a the conflict graph and produce a learned clause.  We use the
 -- First UIP cut of the conflict graph.
 analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
-        -> DPLLMonad s (Clause, Int) -- ^ learnt clause and new decision level
+        -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision level
 analyse mFr levelArr dlits c@(cLit, _cClause) = do
     st <- get
 --     trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
@@ -774,7 +772,8 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
                                               return x
 
 -- | The union of the reason side and the conflict side are all the nodes in
--- the `cutGraph'.
+-- the `cutGraph' (excepting, perhaps, the nodes on the reason side at
+-- decision level 0, which should never be present in a learned clause).
 data Cut f gr a b =
     Cut { reasonSide :: f Graph.Node
         -- ^ The reason side contains at least the decision variables.
@@ -793,9 +792,9 @@ instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
 uipCut :: (Graph gr) =>
           [Lit]                 -- ^ decision literals
        -> FrozenLevelArray
-       -> gr a b
-       -> Graph.Node            -- ^ unassigned implied conflicting node
-       -> Graph.Node            -- ^ must be a UIP in the conflict graph
+       -> gr a b                -- ^ conflict graph
+       -> Graph.Node            -- ^ unassigned, implied conflicting node
+       -> Graph.Node            -- ^ a UIP in the conflict graph
        -> Cut Set gr a b
 uipCut dlits levelArr conflGraph conflNode uip =
     Cut { reasonSide   = Set.filter (\i -> levelArr!(V i) > 0) $
@@ -984,7 +983,7 @@ unsat maybeConflict (SC{dl=dl}) = isUnsat
 
 -- *** Clause compaction
 
--- | Keep the smaller half of the learnt clauses.
+-- | Keep the smaller half of the learned clauses.
 compact :: DPLLMonad s ()
 compact = do
   n <- numVars `liftM` gets cnf
@@ -1012,7 +1011,7 @@ compact = do
 -- Currently the watched literals in each clause are the first two.
 watchClause :: MAssignment s
             -> Clause
-            -> Bool             -- ^ Is this clause learnt?
+            -> Bool             -- ^ Is this clause learned?
             -> DPLLMonad s Bool
 {-# INLINE watchClause #-}
 watchClause m c isLearnt = do

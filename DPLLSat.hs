@@ -898,7 +898,6 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
     nodeSet = (`without` var cLit) $
               collectNodeSet BitSet.empty Set.empty
                                           (negate cLit : confl `without` cLit)
---     impliedBy lit | trace ("<<impliedBy " ++ show lit ++ ">>") $ False = undefined
     varToLit v = (if v `isTrueUnder` mFr then id else negate) $ L (unVar v)
 
     collectNodeSet :: BitSet Var -> Set Var -> [Lit] -> Set Var

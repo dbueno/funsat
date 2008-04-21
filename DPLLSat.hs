@@ -135,10 +135,9 @@ import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
 import Data.Graph.Inductive.Tree( Gr )
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
-import Data.Graph.Inductive.Basic( grev )
 import Data.Graph.Inductive.Graphviz
 import Data.Int (Int64)
-import Data.List (intercalate, nub, tails, sortBy, intersect, foldl1', (\\))
+import Data.List (intercalate, nub, tails, sortBy, intersect, foldl1', (\\), sort)
 import Data.Map (Map)
 import Data.Maybe
 import Data.Ord (comparing)
@@ -156,7 +155,6 @@ import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.BFS as BFS
 import qualified Data.Graph.Inductive.Query.SP as SP
-import qualified Data.Graph.Inductive.Query.Dominators as Dom
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -180,7 +178,7 @@ solve cfg g fIn =
                   isUnsat <- initialState initialAssignment
                   if isUnsat then return (Right Unsat)
                    else solveStep initialAssignment)
-    SC{ cnf=f, dl=[], bad=BitSet.empty, rnd=g
+    SC{ cnf=f, dl=[], rnd=g
       , watches=undefined, learnt=undefined, propQ=Seq.empty
       , trail=[], numConfl=0, level=undefined
       , reason=Map.empty, varOrder=undefined
@@ -540,8 +538,6 @@ newtype VarOrder s = VarOrder { varOrderArr :: STUArray s Var Double }
 newtype FrozenVarOrder = FrozenVarOrder (UArray Var Double)
     deriving Show
 
-type BadBag = BitSet Var
-
 -- | Each pair of watched literals is paired with its clause.
 type WatchedPair s = (STRef s (Lit, Lit), Clause)
 type WatchArray s = STArray s Lit [WatchedPair s]
@@ -552,8 +548,6 @@ data DPLLStateContents s = SC
     { cnf :: CNF                -- ^ The problem.
     , dl :: [Lit]
       -- ^ The decision level (last decided literal on front).
-    , bad :: BadBag
-      -- ^ Bag of /bad/ variables.
     , watches :: WatchArray s
       -- ^ Invariant: if @l@ maps to @((x, y), c)@, then @x == l || y == l@.
     , learnt :: WatchArray s
@@ -697,94 +691,85 @@ backJump :: MAssignment s
             -- ^ @(l, c)@, where attempting to assign @l@ conflicted with
             -- clause @c@.
          -> DPLLMonad s (Maybe (MAssignment s))
-backJump m c@(_, conflict) = get >>= \(SC{dl=dl, bad=bad}) -> do
-    theTrail <- gets trail
-    trace ("********** conflict: " ++ show c ++ "\n"
-          ++ "trail: " ++ show theTrail ++ "\n"
-          ++ "dlits: " ++ show dl) (
-     modify $ \s -> s{numConfl = numConfl s + 1})
+backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
+    _theTrail <- gets trail
+--     trace ("********** conflict = " ++ show c ++ "\n"
+--           ++ "trail = " ++ show theTrail ++ "\n"
+--           ++ "dlits = " ++ show dl ++ "\n"
+--          ++ "reason: " ++ Map.showTree reason
+--           ) (
+    modify $ \s -> s{numConfl = numConfl s + 1}
     levelArr :: FrozenLevelArray <- do s <- get
                                        lift $ unsafeFreeze (level s)
-    (learntCl, btLevel) <-
+    (learntCl, newLevel) <-
         do mFr <- lift $ unsafeFreezeAss m
            analyse mFr levelArr dl c
-    s <- (if isSingle learntCl then trace ("single learnt: " ++ show learntCl)
-          else id) get
-    let _conflictAt0 = 0 == btLevel -- not reliable because btLevel == 0 could
-                                   -- mean just undo the topmost decision
-        numDecisionsToUndo = length dl - btLevel
-        (undone_ld : dl') = drop (numDecisionsToUndo - 1) dl
-        undoneLits = takeWhile (\lit -> levelArr ! (var lit) > btLevel) (trail s) 
+    s <- get
+    let numDecisionsToUndo = length dl - newLevel
+        dl' = drop numDecisionsToUndo dl
+        undoneLits = takeWhile (\lit -> levelArr ! (var lit) > newLevel) (trail s) 
     forM_ undoneLits $ const (undoOne m) -- backtrack
     mFr <- lift $ unsafeFreezeAss m
-    trace ("new mFr: " ++ showAssignment mFr) $
-     assert (numDecisionsToUndo > 0) $
+    assert (numDecisionsToUndo > 0) $
      assert (not (null learntCl)) $
      assert (learntCl `isUnitUnder` mFr) $
-     modify $ \s ->             -- undo decisions
-      s{ dl  = dl'
-       , bad = if null dl' then bad `with` var undone_ld else bad }
+     modify $ \s -> s{ dl  = dl' } -- undo decisions
     forM_ conflict (bump . var)
     enqueue m (getUnit learntCl mFr) (Just learntCl) -- learntCl is asserting
+    _mFr <- lift $ unsafeFreezeAss m
+--     trace ("new mFr: " ++ showAssignment _mFr) $ return ()
     watchClause m learntCl True
     return $ Just m
 
--- | /O(V + E)/ Analyse a the conflict graph and produce a learnt clause.  We
--- use the First UIP cut of the conflict graph.
+-- | Analyse a the conflict graph and produce a learnt clause.  We use the
+-- First UIP cut of the conflict graph.
 analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
-        -> DPLLMonad s (Clause, Int) -- ^ learnt clause and backtrack level
+        -> DPLLMonad s (Clause, Int) -- ^ learnt clause and new decision level
 analyse mFr levelArr dlits c@(cLit, _cClause) = do
     st <- get
-    trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
-    let _impForest :: Forest Lit = makeImpForest (reason st) c
-        (learntCl, btLevel) =
-            cutLearn mFr levelArr (uipCut conflGraph (firstUIP conflGraph))
+--     trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
+    let (learntCl, newLevel) = cutLearn mFr levelArr firstUIPCut
+        firstUIPCut = uipCut dlits levelArr conflGraph (unLit cLit)
+                      (firstUIP conflGraph)
         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
                      :: Gr CGNodeAnnot Int
-
-    return $ outputConflict (graphviz' conflGraph) $
-             trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
-             trace ("learnt: " ++ show (learntCl, btLevel)) $
-             (learntCl, btLevel)
+--     outputConflict (graphviz' conflGraph) $
+--     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
+--     trace ("cut: " ++ show firstUIPCut) $
+--     trace ("learnt: " ++ show (learntCl, newLevel)) $
+    return $ (learntCl, newLevel)
   where
-
-    uipCut conflGraph uip =
-        Cut { reasonSide   = Graph.nodes conflGraph \\ impliedByUIP
-            , conflictSide = impliedByUIP
-            , cutUIP       = uip
-            , cutGraph     = conflGraph }
-        where
-          -- transitively implied, and not including the UIP
-          impliedByUIP = tail $ BFS.bfs uip conflGraph
-    firstUIP conflGraph = trace ("--> uips = " ++ show uips) $
-                          trace ("--> domConfl = " ++ show domConfl) $
-                          trace ("--> domAssigned = " ++ show domAssigned) $
-                          trace ("--> lastd = " ++ show (abs $ unLit lastd)) $
+    firstUIP conflGraph = -- trace ("--> uips = " ++ show uips) $
+--                           trace ("--> dom " ++ show conflNode
+--                                  ++ " = " ++ show domConfl) $
+--                           trace ("--> dom " ++ show (negate conflNode)
+--                                  ++ " = " ++ show domAssigned) $
                           argminimum distanceFromConfl uips :: Graph.Node
         where
-          uips        = intersect domConfl domAssigned :: [Graph.Node]
-          domConfl    = filter (\i -> levelN i == currentLevel) $
+          uips        = domConfl `intersect` domAssigned :: [Graph.Node]
+          -- `domConfl' never gives us vacuous dominators since there is by
+          -- construction a path on the current decision level to the implied,
+          -- conflicting node.  OTOH, there might be no path from dec. var. to
+          -- the assigned literal which is conflicting (negate conflNode).
+          domConfl    = filter (\i -> levelN i == currentLevel && i /= conflNode) $
                         fromJust $ lookup conflNode domFromLastd
-          domAssigned = filter (\i -> levelN i == currentLevel) $
-                        fromJust $ lookup (negate conflNode) domFromLastd
-          domFromLastd = Dom.dom conflGraph (abs $ unLit lastd)
+          domAssigned =
+              -- if assigned conflict node is not implied by the current-level
+              -- dec var, then the only dominator we should list of it should
+              -- be the dec var.
+              if negate conflNode `elem` BFS.bfs (abs $ unLit lastd) conflGraph
+              then 
+                  filter (\i -> levelN i == currentLevel && i /= conflNode) $
+                  fromJust $ lookup (negate conflNode) domFromLastd
+              else [(abs $ unLit lastd)]
+          domFromLastd = dom conflGraph (abs $ unLit lastd)
           distanceFromConfl x = SP.spLength x conflNode conflGraph :: Int
 
     -- helpers
-    lastd = head dlits
-    conflNode       = unLit cLit
-    currentLevel    = length dlits
-    _numCurrentLevel = length . filter ((currentLevel ==) . levelV . var)
-    levelN i = if i == unLit cLit then currentLevel else (levelV . V . abs) i
-    _levelL l = if l == cLit then currentLevel else levelV (var l)
-    levelV v = levelArr!v
-    dvars    = map var dlits
-    grabDecisions [] = []
-    grabDecisions (t:ts) =
-        if (var . rootLabel) t `elem` dvars
-        then rootLabel t : grabDecisions ts
-        else grabDecisions (ts ++ subForest t)
-    _maxDecs ls = foldl' max 0 (map (levelV . var) ls)
+    lastd        = head dlits
+    conflNode    = unLit cLit
+    currentLevel = length dlits
+    levelN i = if i == unLit cLit then currentLevel else ((levelArr!) . V . abs) i
     outputConflict g x = unsafePerformIO $ do writeFile "conflict.dot" g
                                               return x
 
@@ -797,24 +782,61 @@ data Cut f gr a b =
         -- ^ The conflict side contains the conflicting literal.
         , cutUIP :: Graph.Node
         , cutGraph :: gr a b }
+instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
+    show (Cut { conflictSide = c, cutUIP = uip }) =
+        "Cut (c=" ++ show c ++ ", uip=" ++ show uip ++ ")"
 
-checkCut :: (Graph gr) => Cut [] gr a b -> Bool
-checkCut cut = Graph.nodes (cutGraph cut) == reasonSide cut ++ conflictSide cut
+-- | Generate a cut using the given UIP node.  The cut generated contains
+-- exactly the (transitively) implied nodes starting with (but not including)
+-- the UIP on the conflict side, with the rest of the nodes on the reason
+-- side.
+uipCut :: (Graph gr) =>
+          [Lit]                 -- ^ decision literals
+       -> FrozenLevelArray
+       -> gr a b
+       -> Graph.Node            -- ^ unassigned implied conflicting node
+       -> Graph.Node            -- ^ must be a UIP in the conflict graph
+       -> Cut Set gr a b
+uipCut dlits levelArr conflGraph conflNode uip =
+    Cut { reasonSide   = Set.filter (\i -> levelArr!(V i) > 0) $
+                         allNodes Set.\\ impliedByUIP
+        , conflictSide = impliedByUIP
+        , cutUIP       = uip
+        , cutGraph     = conflGraph }
+    where
+      -- The UIP may not imply the assigned conflict variable, so add it
+      -- manually, unless it's a decision variable.
+      extraNode = if L (negate conflNode) `elem` dlits
+                  then conflNode -- idempotent addition
+                  else negate conflNode
+      -- Transitively implied, and not including the UIP.  
+      impliedByUIP = Set.insert extraNode $
+                     Set.fromList $ tail $ BFS.bfs uip conflGraph
+      allNodes = Set.fromList $ Graph.nodes conflGraph
 
--- | Generate a learned clause from a cut of the graph.
+
+-- | Generate a learned clause from a cut of the graph.  Returns a pair of the
+-- learned clause and the decision level to which to backtrack.
 cutLearn :: (Graph gr, Foldable f) => IAssignment -> FrozenLevelArray
          -> Cut f gr a b -> (Clause, Int)
 cutLearn a levelArr cut =
     ( clause
-    , maximum (map (levelArr!) . (`without` V (cutUIP cut)) . map var $
-               clause) )
+      -- The new decision level is the max level of all variables in the
+      -- clause, excluding the uip (which is always at the current decision
+      -- level).
+    , maximum0 (map (levelArr!) . (`without` V (cutUIP cut)) . map var $ clause) )
   where
+    -- The clause is composed of the variables on the reason side which have
+    -- at least one successor on the conflict side.  The value of the variable
+    -- is the negation of its value under the current assignment.
     clause =
         foldl' (\ls i ->
                     if any (`elem` conflictSide cut) (Graph.suc (cutGraph cut) i)
                     then L (negate $ a!(V i)):ls
                     else ls)
                [] (reasonSide cut)
+    maximum0 [] = 0            -- maximum0 has 0 as its max for the empty list
+    maximum0 xs = maximum xs
 
 
 -- | Annotate each variable in the conflict graph with literal (indicating its
@@ -822,6 +844,7 @@ cutLearn a levelArr cut =
 -- this is for its `Show' instance.
 data CGNodeAnnot = CGNA Lit Level
 instance Show CGNodeAnnot where
+    show (CGNA (L 0) _) = "lam"
     show (CGNA l lev) = show l ++ " (" ++ show lev ++ ")"
 
 -- | Creates the conflict graph, where each node is labeled by its literal and
@@ -835,38 +858,73 @@ mkConflGraph :: DynGraph gr =>
              -> [Lit]           -- ^ decision lits, in rev. chron. order
              -> (Lit, Clause)   -- ^ conflict info
              -> gr CGNodeAnnot Int
-mkConflGraph mFr lev reasonMap dlits (cLit, confl) =
+mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
+--     trace ("nodeSet = " ++ show nodeSet) $
     Graph.mkGraph nodes edges
   where
     -- we pick out all the variables from the conflict graph, specially adding
     -- both literals of the conflict variable, so that that variable has two
     -- nodes in the graph.
-    nodes = ((unLit cLit, CGNA cLit (-1)) :) $
+    nodes = ((0, CGNA (L 0) (-1)) :) $ -- lambda node
+            ((unLit cLit, CGNA cLit (-1)) :) $
             ((negate (unLit cLit), CGNA (negate cLit) (lev!(var cLit))) :) $
             -- annotate each node with its literal and level
             map (\v -> (unVar v, CGNA (varToLit v) (lev!v))) $
-            -- only include variables which are defined in mFr, and not conflict
-            filter (\v -> v /= var cLit &&
-                          (v `isTrueUnder` mFr || v `isFalseUnder` mFr)) $
-            -- only include the variables in the conflict graph
-            nub $ map var $ concatMap flatten impForest ++ confl
+            toList nodeSet
     -- edges are from variables (i.e. the number is > 0) that provide a reason
-    -- for their destination variable.
+    -- for their destination variable, or from conflicting lits to lambda.
     edges = [ (x, y, 1)
             | (x, CGNA xLit _) <- nodes, (y, CGNA yLit _) <- nodes,
+              xLit /= L 0 &&    -- no edge from lambda
               -- no edges between equal nodes
-              x /= y && x > 0 &&
+              x /= y &&
               x /= negate y && -- only occurs when x and y refer to `cLit',
                                -- in which case should be no edge
               if y == unLit cLit
               then -- edges to `cLit' are from `confl', the conflicting clause
                    negate (unLit xLit) `elem` map unLit confl
+              else if y == 0
+              then -- edges to lambda from conflicting lits
+                   abs x == (abs . unLit) cLit
               else -- otherwise edges are from reasons
                    negate (unLit xLit) `elem`
                        map unLit (Map.findWithDefault [] (var yLit) reasonMap)
             ]
-    impForest = makeImpForest reasonMap (cLit, confl)
+    -- node set includes all variables reachable from conflict, but not
+    -- conflicting vars.  This node set construction needs a `seen' set
+    -- because it might infinite loop otherwise.  The reason is that the
+    -- `reason' array might implicitly represent a cyclic graph (which logic
+    -- is perfectly capable of expressing) but which is "not helpful" for the
+    -- implication graph.  So you cut a hole in the cycle at an arbitrary
+    -- point (i.e. by ignoring the already-seen node when you discover the
+    -- cycle).
+    nodeSet = (`without` var cLit) $
+              collectNodeSet BitSet.empty Set.empty
+                                          (negate cLit : confl `without` cLit)
+--     impliedBy lit | trace ("<<impliedBy " ++ show lit ++ ">>") $ False = undefined
     varToLit v = (if v `isTrueUnder` mFr then id else negate) $ L (unVar v)
+
+    collectNodeSet :: BitSet Var -> Set Var -> [Lit] -> Set Var
+    collectNodeSet _ set [] = set
+    collectNodeSet seen set (lit:lits) =
+        if haveSeen
+        then collectNodeSet seen set lits
+        else newSet `seq`
+             collectNodeSet seen' newSet (lits ++ new)
+      where
+        haveSeen = var lit `BitSet.member` seen
+        newSet = var lit `Set.insert` set
+        new = filter ((var lit /=) . var) $ Map.findWithDefault [] (var lit) reasonMap
+        seen' = var lit `BitSet.insert` seen
+
+unfoldSet :: (Ord e) => (s -> (e, [s])) -> [s] -> Set e
+unfoldSet g ss = let (es, sss) = unzip $ map g ss
+                 in foldl' (flip Set.insert) Set.empty es
+                    `Set.union` mapUnion (unfoldSet g) sss
+    -- mapUnion defined to avoid intermediate lists expected with Set.unions
+    -- (map f ...)
+  where mapUnion _f []    = Set.empty
+        mapUnion f (x:xs) = f x `Set.union` mapUnion f xs
 
 -- | Unfold the implication graph backwards from the conflicting literal.
 -- There is no root for the conflicting literal (but there is one for its
@@ -916,9 +974,9 @@ varInc = 1.0
 -- test whether we've made all possible decisions, too.
 unsat :: Maybe a -> DPLLStateContents s -> Bool
 {-# INLINE unsat #-}
-unsat maybeConflict (SC{cnf=cnf, dl=dl, bad=bad}) = isUnsat
+unsat maybeConflict (SC{dl=dl}) = isUnsat
     where isUnsat = (null dl && isJust maybeConflict)
-                    || BitSet.size bad == numVars cnf
+                    -- or BitSet.size bad == numVars cnf
 
 
 
@@ -1150,6 +1208,38 @@ argmin f x y = if f x <= f y then x else y
 
 argminimum :: Ord b => (a -> b) -> [a] -> a
 argminimum f = foldl1' (argmin f)
+
+-- Replace buggy dominators code with my own.
+
+type DomSets = [(Graph.Node,[Graph.Node],[Graph.Node])]
+
+intersection :: [[Graph.Node]] -> [Graph.Node]
+intersection cs = foldr intersect (head cs) cs
+
+getdomv :: [Graph.Node] -> DomSets -> [[Graph.Node]]
+getdomv vs  ds = [z|(w,_,z)<-ds,v<-vs,v==w]
+
+builddoms :: DomSets -> [Graph.Node] -> DomSets
+builddoms ds []     = ds
+builddoms ds (v:vs) = builddoms ((fs++[(n,p,sort(n:idv))])++(tail rs)) vs
+                      where idv     = intersection ((q \\ [n]):getdomv p ds)
+                            (n,p,q) = head rs
+                            (fs,rs) = span (\(x,_,_)->x/=v) ds
+
+domr :: DomSets -> [Graph.Node] -> DomSets
+domr ds vs|xs == ds  = ds
+          |otherwise = domr xs vs
+           where xs = (builddoms ds vs)
+
+{-|
+Finds the dominators relationship for a given graph and an initial
+node. For each node v, it returns the list of dominators of v.
+-}
+dom :: Graph gr => gr a b -> Graph.Node -> [(Graph.Node,[Graph.Node])]
+dom g u = map (\(x,_,z)->(x,z)) (domr ld n')
+           where ld    = (u,[],[u]):map (\v->(v,Graph.pre g v,n)) (n')
+                 n'    = n\\[u]
+                 n     = Graph.nodes g
 
 ---------- TESTING ----------
 

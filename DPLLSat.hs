@@ -690,9 +690,9 @@ backJump :: MAssignment s
 backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     _theTrail <- gets trail
 --     trace ("********** conflict = " ++ show c ++ "\n"
---           ++ "trail = " ++ show theTrail ++ "\n"
+--           ++ "trail = " ++ show _theTrail ++ "\n"
 --           ++ "dlits = " ++ show dl ++ "\n"
---          ++ "reason: " ++ Map.showTree reason
+--          ++ "reason: " ++ Map.showTree _reason
 --           ) (
     modify $ \s -> s{numConfl = numConfl s + 1}
     levelArr :: FrozenLevelArray <- do s <- get
@@ -729,10 +729,10 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
                       (firstUIP conflGraph)
         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
                      :: Gr CGNodeAnnot Int
---     outputConflict (graphviz' conflGraph) $
+--     outputConflict (graphviz' conflGraph) $ return ()
 --     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
---     trace ("cut: " ++ show firstUIPCut) $
---     trace ("learnt: " ++ show (learntCl, newLevel)) $
+--     trace ("cut: " ++ show firstUIPCut) $ return ()
+--     trace ("learnt: " ++ show (learntCl, newLevel)) $ return ()
     return $ (learntCl, newLevel)
   where
     firstUIP conflGraph = -- trace ("--> uips = " ++ show uips) $
@@ -795,20 +795,20 @@ uipCut :: (Graph gr) =>
        -> Graph.Node            -- ^ a UIP in the conflict graph
        -> Cut Set gr a b
 uipCut dlits levelArr conflGraph conflNode uip =
-    Cut { reasonSide   = Set.filter (\i -> levelArr!(V i) > 0) $
+    Cut { reasonSide   = Set.filter (\i -> levelArr!(V $ abs i) > 0) $
                          allNodes Set.\\ impliedByUIP
         , conflictSide = impliedByUIP
         , cutUIP       = uip
         , cutGraph     = conflGraph }
     where
-      -- The UIP may not imply the assigned conflict variable, so add it
-      -- manually, unless it's a decision variable.
-      extraNode = if L (negate conflNode) `elem` dlits
-                  then conflNode -- idempotent addition
-                  else negate conflNode
       -- Transitively implied, and not including the UIP.  
       impliedByUIP = Set.insert extraNode $
                      Set.fromList $ tail $ BFS.bfs uip conflGraph
+      -- The UIP may not imply the assigned conflict variable, so add it
+      -- manually, unless it's a decision variable or the UIP itself.
+      extraNode = if L (negate conflNode) `elem` dlits || negate conflNode == uip
+                  then conflNode -- idempotent addition
+                  else negate conflNode
       allNodes = Set.fromList $ Graph.nodes conflGraph
 
 
@@ -821,7 +821,7 @@ cutLearn a levelArr cut =
       -- The new decision level is the max level of all variables in the
       -- clause, excluding the uip (which is always at the current decision
       -- level).
-    , maximum0 (map (levelArr!) . (`without` V (cutUIP cut)) . map var $ clause) )
+    , maximum0 (map (levelArr!) . (`without` V (abs $ cutUIP cut)) . map var $ clause) )
   where
     -- The clause is composed of the variables on the reason side which have
     -- at least one successor on the conflict side.  The value of the variable
@@ -829,7 +829,7 @@ cutLearn a levelArr cut =
     clause =
         foldl' (\ls i ->
                     if any (`elem` conflictSide cut) (Graph.suc (cutGraph cut) i)
-                    then L (negate $ a!(V i)):ls
+                    then L (negate $ a!(V $ abs i)):ls
                     else ls)
                [] (reasonSide cut)
     maximum0 [] = 0            -- maximum0 has 0 as its max for the empty list

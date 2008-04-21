@@ -586,8 +586,6 @@ type DPLLMonad s = StateT (DPLLStateContents s) (ST s)
 
 -- *** Boolean constraint propagation
 
-type ConflictMonad s = ErrorT (Lit, Clause) (DPLLMonad s)
-
 -- | Assign a new literal, and enqueue any implied assignments.  If a conflict
 -- is detected, return @Just (impliedLit, conflictingClause)@; otherwise
 -- return @Nothing@.  The @impliedLit@ is implied by the clause, but conflicts

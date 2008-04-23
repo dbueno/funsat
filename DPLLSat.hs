@@ -886,12 +886,13 @@ mkConflGraph :: DynGraph gr =>
              -> gr CGNodeAnnot ()
 mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
 --     trace ("nodeSet = " ++ show nodeSet) $
-    Graph.mkGraph nodes edges
+    {-# SCC "mkCG mkGraph" #-} Graph.mkGraph nodes edges
   where
     -- we pick out all the variables from the conflict graph, specially adding
     -- both literals of the conflict variable, so that that variable has two
     -- nodes in the graph.
-    nodes = ((0, CGNA (L 0) (-1)) :) $ -- lambda node
+    nodes = {-# SCC "mkCG nodes" #-}
+            ((0, CGNA (L 0) (-1)) :) $ -- lambda node
             ((unLit cLit, CGNA cLit (-1)) :) $
             ((negate (unLit cLit), CGNA (negate cLit) (lev!(var cLit))) :) $
             -- annotate each node with its literal and level
@@ -899,7 +900,8 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
             toList nodeSet
     -- edges are from variables (i.e. the number is > 0) that provide a reason
     -- for their destination variable, or from conflicting lits to lambda.
-    edges = [ (x, y, ())
+    edges = {-# SCC "mkCG edges" #-}
+            [ (x, y, ())
             | (x, CGNA xLit _) <- nodes, (y, CGNA yLit _) <- nodes,
               xLit /= L 0 &&    -- no edge from lambda
               x /= y &&         -- no edges between equal nodes
@@ -916,6 +918,7 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
                        map unLit (Map.findWithDefault [] (var yLit) reasonMap)
                    && lev!(var xLit) <= lev!(var yLit)
             ]
+          
     -- node set includes all variables reachable from conflict, but not
     -- conflicting vars.  This node set construction needs a `seen' set
     -- because it might infinite loop otherwise.  The reason is that the
@@ -924,14 +927,40 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
     -- implication graph.  So you cut a hole in the cycle at an arbitrary
     -- point (i.e. by ignoring the already-seen node when you discover the
     -- cycle).
-    nodeSet = (`without` var cLit) $
+    nodeSet = {-# SCC "mkCG nodeSet" #-}
+              (`without` var cLit) $
               collectNodeSet BitSet.empty Set.empty
                                           (negate cLit : confl `without` cLit)
+    (nodeSet', edges') =
+        mkGr BitSet.empty (Set.empty, [(unLit cLit, 0, ())
+                                      ,((negate . unLit) cLit, 0, ())])
+                          (negate cLit : confl)
     varToLit v = (if v `isTrueUnder` mFr then id else negate) $ L (unVar v)
 
-    collectNodeSet :: BitSet Var -> Set Var -> [Lit] -> Set Var
+    -- seed with both conflicting literals
+    mkGr _ ne [] = ne
+    mkGr (seen :: BitSet Var) ne@(nodes, edges) (lit:lits) =
+        if haveSeen && var cLit /= var lit
+        then mkGr seen ne lits
+        else newNodes `seq` newEdges `seq`
+             mkGr seen' (newNodes, newEdges) (lits ++ new)
+      where
+        haveSeen = var lit `BitSet.member` seen
+        newNodes = var lit `Set.insert` nodes
+        newEdges = [ ( unLit x
+                     , if var lit == var cLit -- preserve sign of conflicting lit
+                       then unLit lit
+                       else (abs . unLit) lit
+                     , () )
+                   | x <- new ] ++ edges
+        new = filter ((var lit /=) . var) $
+              filter ((<= litLevel) . (lev!) . var) $
+              Map.findWithDefault [] (var lit) reasonMap
+        seen' = var lit `BitSet.insert` seen
+        litLevel = if lit == cLit then length _dlits else lev!(var lit)
+
     collectNodeSet _ set [] = set
-    collectNodeSet seen set (lit:lits) =
+    collectNodeSet (seen :: BitSet Var) set (lit:lits) =
         if haveSeen
         then collectNodeSet seen set lits
         else newSet `seq`

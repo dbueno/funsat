@@ -133,9 +133,10 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
-import Data.Graph.Inductive.Tree( Gr )
+import Data.Graph.Inductive.Basic( grev )
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
 import Data.Graph.Inductive.Graphviz
+import Data.Graph.Inductive.Tree( Gr )
 import Data.Int (Int64)
 import Data.List (intercalate, nub, tails, sortBy, intersect, foldl1', (\\), sort)
 import Data.Map (Map)
@@ -689,9 +690,9 @@ backJump :: MAssignment s
          -> DPLLMonad s (Maybe (MAssignment s))
 backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     _theTrail <- gets trail
-    trace ("********** conflict = " ++ show c) $ return ()
+--     trace ("********** conflict = " ++ show c) $ return ()
 --     trace ("trail = " ++ show _theTrail) $ return ()
-    trace ("dlits (" ++ show (length dl) ++ ") = " ++ show dl) $ return ()
+--     trace ("dlits (" ++ show (length dl) ++ ") = " ++ show dl) $ return ()
 --          ++ "reason: " ++ Map.showTree _reason
 --           ) (
     modify $ \s -> s{numConfl = numConfl s + 1}
@@ -712,7 +713,7 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
      modify $ \s -> s{ dl  = dl' } -- undo decisions
     forM_ conflict (bump . var)
     _mFr <- lift $ unsafeFreezeAss m
-    trace ("new mFr: " ++ showAssignment _mFr) $ return ()
+--     trace ("new mFr: " ++ showAssignment _mFr) $ return ()
     -- TODO once I'm sure this works I don't need getUnit, I can just use the
     -- uip of the cut.
     enqueue m (getUnit learntCl mFr) (Just learntCl) -- learntCl is asserting
@@ -721,19 +722,31 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
 
 
 -- analyse' :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
---         -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision level
+--         -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision
+--                                      -- level
 -- analyse' mFr levelArr dlits c@(cLit, _cClause) = do
 --     st <- get
 --     let (learntCl, newLevel) = cutLearn mFr levelArr firstUIPCut
---         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
---                      :: Gr CGNodeAnnot Int
 --         firstUIPCut = undefined
+
+--         backBFS (seen :: BitSet Var) = undefined
+--         -- node x top. l.t. y
+--         x <| y = let (_prec_x, xsuff) = break (==x) tsNodes
+--                  in y `elem` xsuff
+--         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
+--                      :: Gr CGNodeAnnot ()
+--         rconflGraph = grev conflGraph
+--         bfsNodes = BFS.bfs 0 rconflGraph
+--         tsNodes  = DFS.topsort rconflGraph
+
 --     return $ (learntCl, newLevel)
+                  
 
 -- | Analyse a the conflict graph and produce a learned clause.  We use the
 -- First UIP cut of the conflict graph.
 analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
-        -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision level
+        -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision
+                                     -- level
 analyse mFr levelArr dlits c@(cLit, _cClause) = do
     st <- get
 --     trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
@@ -742,17 +755,19 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
                       (firstUIP conflGraph)
         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
                      :: Gr CGNodeAnnot ()
-    outputConflict (graphviz' conflGraph) $ return ()
+        topSortNodes = DFS.topsort (grev conflGraph)
+--     outputConflict (graphviz' conflGraph) $ return ()
 --     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
-    trace ("cut: " ++ show firstUIPCut) $ return ()
-    trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
+--     trace ("cut: " ++ show firstUIPCut) $ return ()
+--     trace ("topSort: " ++ show topSortNodes) $ return ()
+--     trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
     return $ (learntCl, newLevel)
   where
-    firstUIP conflGraph = trace ("--> uips = " ++ show uips) $
-                          trace ("--> dom " ++ show conflNode
-                                 ++ " = " ++ show domConfl) $
-                          trace ("--> dom " ++ show (negate conflNode)
-                                 ++ " = " ++ show domAssigned) $
+    firstUIP conflGraph = -- trace ("--> uips = " ++ show uips) $
+--                           trace ("--> dom " ++ show conflNode
+--                                  ++ " = " ++ show domConfl) $
+--                           trace ("--> dom " ++ show (negate conflNode)
+--                                  ++ " = " ++ show domAssigned) $
                           argminimum distanceFromConfl uips :: Graph.Node
         where
           uips        = domConfl `intersect` domAssigned :: [Graph.Node]
@@ -924,8 +939,11 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
       where
         haveSeen = var lit `BitSet.member` seen
         newSet = var lit `Set.insert` set
-        new = filter ((var lit /=) . var) $ Map.findWithDefault [] (var lit) reasonMap
+        new = filter ((var lit /=) . var) $
+              filter ((<= litLevel) . (lev!) . var) $
+              Map.findWithDefault [] (var lit) reasonMap
         seen' = var lit `BitSet.insert` seen
+        litLevel = lev!(var lit)
 
 -- | Unfold the implication graph backwards from the conflicting literal.
 -- There is no root for the conflicting literal (but there is one for its

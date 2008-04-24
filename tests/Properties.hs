@@ -40,7 +40,6 @@ import Test.QuickCheck hiding (defaultConfig)
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
-import qualified Data.Heap.Finger as H
 import qualified Test.QuickCheck as QC
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 
@@ -55,9 +54,6 @@ main = do
 --              else return ()
 
       --setStdGen (mkStdGen 42)
-      check config prop_heap_member_out
-      check config prop_heap_member
-      check config prop_heap_extract_max
       check config prop_randAssign
       check config prop_allIsTrueUnderA
       check config prop_noneIsFalseUnderA
@@ -217,47 +213,10 @@ instance Arbitrary Nat where
     arbitrary = sized $ \n -> do i <- choose (0, n)
                                  return (fromIntegral i)
 
-newtype TestHeap = HT { theHeap :: H.Heap Nat Nat }
-    deriving Show
-
-emptyNatHeap :: TestHeap
-emptyNatHeap = HT H.empty
 
 -- sanity checking for Arbitrary Nat instance.
 prop_nat (xs :: [Nat]) = trivial (null xs) $ sum xs >= 0
 prop_nat1 (xs :: [Nat]) = trivial (null xs) $ unNat (sum xs) == sum (map unNat xs)
-
-instance Arbitrary (H.Info Nat Nat) where
-    arbitrary = do n <- arbitrary
-                   return (H.Info { H.key = n, H.datum = n })
-
-instance Arbitrary TestHeap where
-    arbitrary = sized $ \n ->
-                do xs <- vector n
-                   return $ HT (foldl' (flip H.insert) H.empty xs)
-
-prop_heap_member_out x (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_member_out" $
-    (x `H.member` heap) `iff` (x `elem` xs)
-  where heap = H.fromList xs
-        xs = nub xsIn 
-
-prop_heap_member (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_member" $
-    all (\y -> y `H.member` heap) xs
-  where heap = H.fromList xs
-        xs   = nub xsIn
-
-prop_heap_extract_max (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_extract_max" $
-    trivial (null xs) $
-    sort xs == maxs
-  where (maxs, _) =
-            foldl' (\ (xs, h) _ -> let (x, h') = H.extractMax h
-                                   in (x : xs, h'))
-            ([], heap) xs
-        heap = H.fromList xs
-        xs = nub xsIn
 
 prop_count p xs =
     label "prop_count" $
@@ -511,3 +470,11 @@ asCNF (ParseCNF.CNF v c is) =
         ,numClauses = c
         ,clauses = Set.fromList . map (map fromIntegral) $ is}
 
+
+-- import qualified Data.ByteString.Char8 as B
+
+-- hStrictGetContents :: Handle -> IO String
+-- hStrictGetContents h = do
+--    bs <- B.hGetContents h
+--    hClose h -- not sure if this is required; ByteString documentation isn't clear.
+--    return $ B.unpack bs -- lazy unpack into String

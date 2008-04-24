@@ -1,6 +1,10 @@
 * Sat todo file
 
-* TODO [#A] Debug clause learning
+* TODO Problem simplification
+** Whenever we restart, remove the negations of all unit facts from each clause.
+
+* DONE [#A] Debug clause learning
+  CLOSED: [2008-04-24 Thu 15:57]
 Currently, bugs.
 
 ** There is a confusion between reasons and actual assigned variables

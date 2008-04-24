@@ -2,12 +2,7 @@
             ,MultiParamTypeClasses
             ,FunctionalDependencies
             ,FlexibleInstances
-            ,FlexibleContexts
-            ,GeneralizedNewtypeDeriving
-            ,TypeSynonymInstances
-            ,TypeOperators
-            ,ParallelListComp #-}
-{-# OPTIONS -cpp #-}
+            ,FlexibleContexts #-}
 
 {-|
 

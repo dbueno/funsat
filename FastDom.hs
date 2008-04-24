@@ -1,7 +1,6 @@
-module FastDom
-    ( dom
-    , iDom ) where
--- from a patch to the dominators lib on ghc's trac
+
+-- From a patch to the dominators lib on ghc's trac; should be incorporated
+-- into fgl in GHC sooner or later.
 
 -- Find Dominators of a graph.
 --
@@ -11,6 +10,9 @@ module FastDom
 -- Keith D. Cooper, Timothy J. Harvey, Ken Kennedy,
 -- "A Simple, Fast Dominance Algorithm",
 -- (http://citeseer.ist.psu.edu/cooper01simple.html)
+module FastDom
+    ( dom
+    , iDom ) where
 
 import Data.Graph.Inductive.Graph
 import Data.Graph.Inductive.Query.DFS

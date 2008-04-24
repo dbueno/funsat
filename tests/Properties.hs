@@ -22,14 +22,12 @@ module Properties where
 
 import DPLLSat hiding ( (==>) )
 
-import Control.Monad (replicateM, liftM)
-import Control.Monad.ST( runST )
-import Data.STRef( newSTRef )
+import Control.Monad (replicateM)
 import Data.Array.Unboxed
 import Data.BitSet (hash)
 import Data.Bits
 import Data.Foldable hiding (sequence_)
-import Data.List (nub, splitAt, unfoldr, delete, sort)
+import Data.List (nub, splitAt, unfoldr, delete)
 import Data.Maybe
 import Debug.Trace
 import Language.CNF.Parse.ParseDIMACS( parseCNF )
@@ -37,6 +35,7 @@ import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concat
                       , sum, concat )
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
+import Utils( count, argmin )
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
@@ -221,7 +220,7 @@ prop_nat1 (xs :: [Nat]) = trivial (null xs) $ unNat (sum xs) == sum (map unNat x
 prop_count p xs =
     label "prop_count" $
     count p xs == length (filter p xs)
-        where types = xs :: [Int]
+        where _types = xs :: [Int]
 
 prop_argmin f x y =
     label "prop_argmin" $

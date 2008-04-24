@@ -9,7 +9,7 @@ Description:
 
 Stability:           alpha
 License:             LGPL
-License-file:        COPYING
+License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
@@ -19,7 +19,7 @@ Executable dsat
  Ghc-options:         -W -DTESTING -cpp
  Ghc-prof-options:    -prof -auto-all
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties FastDom
+ Other-modules:       DPLLSat Properties FastDom Utils
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
                       , fingertree, fgl
@@ -28,7 +28,7 @@ Executable dsat-prof
  Main-is:             Main.hs
  Ghc-options:         -W -DTESTING -cpp -prof -auto-all
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties FastDom
+ Other-modules:       DPLLSat Properties FastDom Utils
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
                       , fingertree, fgl
@@ -36,6 +36,7 @@ Executable dsat-prof
 
 Library
  Exposed-modules:     DPLLSat
+ Other-modules:       FastDom Utils
  Ghc-options:         -W -DTESTING -cpp
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset

@@ -16,12 +16,23 @@
 
 {-|
 
-Goal: A reasonably efficient, easy-to-understand modern sat solver.  I
-want it to be as close as possible to the description of a basic, modern
-solver from /Abstract DPLL and Abstract DPLL Modulo Theories/, while retaining
-some efficient optimisations.
+Goal: A reasonably efficient, easy-to-understand modern sat solver.  I want it
+as architecturally simple as the description in /Abstract DPLL and Abstract
+DPLL Modulo Theories/ is conceptually, while retaining some efficient
+optimisations.
 
-            Current state: decision heuristic/code cleanup/tests.
+            Current state: decision heuristic\/code cleanup\/tests.
+
+* 24 Apr 2008 16:47:56
+
+After some investigating, mad coding, and cursing, First UIP clause learning
+has been implemented.  For conceptual clarity, though, it is implemented in
+terms of an explicit conflict graph, explicit dominator calculation, and
+explicit cuts.  Profiling shows that for conflict-heavy problems,
+conflict-clause generation is no more a bottleneck than boolean constraint
+propagation.
+
+This can and will be improved later.
 
 * 15 Dec 2007 22:46:11
 
@@ -133,25 +144,22 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
-import Data.Graph.Inductive.Basic( grev )
+--import Data.Graph.Inductive.Basic( grev )
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
-import Data.Graph.Inductive.Graphviz
 import Data.Graph.Inductive.Tree( Gr )
 import Data.Int (Int64)
-import Data.List (intercalate, nub, tails, sortBy, intersect, foldl1', (\\), sort)
+import Data.List (intercalate, nub, tails, sortBy, intersect)
 import Data.Map (Map)
 import Data.Maybe
 import Data.Ord (comparing)
 import Data.STRef
 import Data.Sequence (Seq)
 import Data.Set (Set)
-import Data.Tree
 import Debug.Trace (trace)
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
 import System.Random
-import System.IO.Unsafe (unsafePerformIO)
-import System.IO (hPutStr, stderr)
 import Text.Printf( printf )
+import Utils
 import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.BFS as BFS
@@ -301,11 +309,6 @@ stepToSolution stepAction = do
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
       compact
-
-{-# INLINE mytrace #-}
-mytrace msg expr = unsafePerformIO $ do
-    hPutStr stderr msg
-    return expr
 
 instance Show Solution where
    show (Sat a) = "satisfiable: " ++ showAssignment a
@@ -793,10 +796,6 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
     currentLevel = length dlits
     levelN i = if i == unLit cLit then currentLevel else ((levelArr!) . V . abs) i
 
-
-outputConflict fn g x = unsafePerformIO $ do writeFile fn g
-                                             return x
-
 -- | The union of the reason side and the conflict side are all the nodes in
 -- the `cutGraph' (excepting, perhaps, the nodes on the reason side at
 -- decision level 0, which should never be present in a learned clause).
@@ -937,24 +936,6 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
             if var l == var cLit -- preserve sign of conflicting lit
             then unLit l
             else (abs . unLit) l
-
-traceShow x = trace (show x) x
-
-p .&&. q = \x -> p x && q x
-p .||. q = \x -> p x || q x
-not' p   = not . p
-
--- | Unfold the implication graph backwards from the conflicting literal.
--- There is no root for the conflicting literal (but there is one for its
--- negation).
-makeImpForest :: Map Var Clause -> (Lit, Clause) -> Forest Lit
-makeImpForest reasonMap (cLit, conflicting) =
-    unfoldForest (impliedBy reasonMap) [negate cLit]
-    ++ unfoldForest (impliedBy reasonMap) (conflicting `without` cLit)
-    where
-      impliedBy reasonMap lit =
-          (lit, filter ((var lit /=) . var) $
-                Map.findWithDefault [] (var lit) reasonMap)
 
 -- | Delete the assignment to last-assigned literal.  Undoes the trail, the
 -- assignment, sets `noLevel', undoes reason.
@@ -1148,35 +1129,8 @@ infixl 5 ><
 
 -- *** Misc
 
--- | Modify a value inside the state.
-modifySlot :: (MonadState s m) => (s -> a) -> (s -> a -> s) -> m ()
-{-# INLINE modifySlot #-}
-modifySlot slot f = modify $ \s -> f s (slot s)
-
--- | @modifyArray arr i f@ applies the function @f@ to the index @i@ and the
--- current value of the array at index @i@, then writes the result into @i@ in
--- the array.
-modifyArray :: (Monad m, MArray a e m, Ix i) => a i e -> i -> (i -> e -> e) -> m ()
-{-# INLINE modifyArray #-}
-modifyArray arr i f = readArray arr i >>= writeArray arr i . (f i)
-
--- | Same as @newArray@, but helping along the type checker.
-newSTUArray :: (MArray (STUArray s) e (ST s), Ix i)
-               => (i, i) -> e -> ST s (STUArray s i e)
-newSTUArray = newArray
-
-newSTArray :: (MArray (STArray s) e (ST s), Ix i)
-              => (i, i) -> e -> ST s (STArray s i e)
-newSTArray = newArray
-
 showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
                                                   (a!i) /= 0])
-
--- | Whether a list contains a single element.
-isSingle :: [a] -> Bool
-{-# INLINE isSingle #-}
-isSingle [_] = True
-isSingle _   = False
 
 initialActivity :: Double
 initialActivity = 1.0
@@ -1215,49 +1169,6 @@ extractStats = do
 
 unsafeFreezeWatchArray :: WatchArray s -> ST s (Array Lit [WatchedPair s])
 unsafeFreezeWatchArray = freeze
-
--- | Count the number of elements in the list that satisfy the predicate.
-count :: (a -> Bool) -> [a] -> Int
-count p = foldl' f 0
-    where f x y = x + (if p y then 1 else 0)
-
-argmin :: Ord b => (a -> b) -> a -> a -> a
-argmin f x y = if f x <= f y then x else y
-
-argminimum :: Ord b => (a -> b) -> [a] -> a
-argminimum f = foldl1' (argmin f)
-
--- Replace buggy dominators code with my own.
-
-type DomSets = [(Graph.Node,[Graph.Node],[Graph.Node])]
-
-intersection :: [[Graph.Node]] -> [Graph.Node]
-intersection cs = foldr intersect (head cs) cs
-
-getdomv :: [Graph.Node] -> DomSets -> [[Graph.Node]]
-getdomv vs  ds = [z|(w,_,z)<-ds,v<-vs,v==w]
-
-builddoms :: DomSets -> [Graph.Node] -> DomSets
-builddoms ds []     = ds
-builddoms ds (v:vs) = builddoms ((fs++[(n,p,sort(n:idv))])++(tail rs)) vs
-                      where idv     = intersection ((q \\ [n]):getdomv p ds)
-                            (n,p,q) = head rs
-                            (fs,rs) = span (\(x,_,_)->x/=v) ds
-
-domr :: DomSets -> [Graph.Node] -> DomSets
-domr ds vs|xs == ds  = ds
-          |otherwise = domr xs vs
-           where xs = (builddoms ds vs)
-
-{-|
-Finds the dominators relationship for a given graph and an initial
-node. For each node v, it returns the list of dominators of v.
--}
-dom :: Graph gr => gr a b -> Graph.Node -> [(Graph.Node,[Graph.Node])]
-dom g u = map (\(x,_,z)->(x,z)) (domr ld n')
-           where ld    = (u,[],[u]):map (\v->(v,Graph.pre g v,n)) (n')
-                 n'    = n\\[u]
-                 n     = Graph.nodes g
 
 ---------- TESTING ----------
 

@@ -19,10 +19,21 @@ Executable dsat
  Ghc-options:         -W -DTESTING -cpp
  Ghc-prof-options:    -prof -auto-all
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties
+ Other-modules:       DPLLSat Properties FastDom
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
                       , fingertree, fgl
+
+Executable dsat-prof
+ Main-is:             Main.hs
+ Ghc-options:         -W -DTESTING -cpp -prof -auto-all
+ Hs-source-dirs:      . tests
+ Other-modules:       DPLLSat Properties FastDom
+ Build-Depends:       base, parsec, containers, pretty, mtl
+                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , fingertree, fgl
+
+
 Library
  Exposed-modules:     DPLLSat
  Ghc-options:         -W -DTESTING -cpp

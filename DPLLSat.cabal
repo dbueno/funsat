@@ -22,7 +22,7 @@ Executable dsat
  Other-modules:       DPLLSat Properties FastDom Utils
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , fingertree, fgl
+                      , fgl
 
 Executable dsat-prof
  Main-is:             Main.hs
@@ -31,7 +31,7 @@ Executable dsat-prof
  Other-modules:       DPLLSat Properties FastDom Utils
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , fingertree, fgl
+                      , fgl
 
 
 Library
@@ -40,4 +40,4 @@ Library
  Ghc-options:         -W -DTESTING -cpp
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , fingertree, fgl
+                      , fgl

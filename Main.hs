@@ -21,16 +21,16 @@ module Main where
     Copyright 2008 Denis Bueno
 -}
 
-import DPLLSat( solve1
-              , CNF
-              , GenCNF(..)
-              , Solution(..)
-              , verify )
 import Control.Monad ( when, forM_ )
 import Data.Foldable ( fold, toList )
 import Data.List ( intercalate )
 import Data.Monoid
 import Data.Set ( Set )
+import DPLLSat( solve1
+              , CNF
+              , GenCNF(..)
+              , Solution(..)
+              , verify )
 import System.Console.GetOpt
 import System.Environment ( getArgs )
 import System.Exit ( ExitCode(..), exitWith )

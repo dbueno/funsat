@@ -133,7 +133,7 @@ seqList l@(x:xs) = x `seq` seqList xs `seq` l
 -- | Convert parsed CNF to internal representation.
 asCNF :: ParseCNF.CNF -> CNF
 asCNF (ParseCNF.CNF v c is) =
-    CNF {numVars = v
-        ,numClauses = c
-        ,clauses = Set.fromList . map (map fromIntegral) $ is}
+    CNF { numVars = v
+        , numClauses = c
+        , clauses = Set.fromList . map (map fromIntegral) $ is }
 

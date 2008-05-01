@@ -72,6 +72,7 @@ validOptions =
     , Option [] ["print-features"] (NoArg PrintFeatures)
              "Print the optimisations the SAT solver supports." ]
 
+disableF :: Feature -> RunOptions
 disableF = Disable . Set.singleton
 
 data RunOptions = Disable (Set Feature) -- disable certain features

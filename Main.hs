@@ -26,14 +26,14 @@ import DPLLSat( solve1
               , GenCNF(..)
               , Solution(..)
               , verify )
-import System.Console.GetOpt
-import System.Environment ( getArgs )
-import System.Exit ( ExitCode(..), exitWith )
 import Control.Monad ( when, forM_ )
 import Data.Foldable ( fold, toList )
 import Data.List ( intercalate )
 import Data.Monoid
 import Data.Set ( Set )
+import System.Console.GetOpt
+import System.Environment ( getArgs )
+import System.Exit ( ExitCode(..), exitWith )
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 

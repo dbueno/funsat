@@ -26,8 +26,14 @@ import DPLLSat( solve1
               , GenCNF(..)
               , Solution(..)
               , verify )
+import System.Console.GetOpt
 import System.Environment ( getArgs )
-import Control.Monad ( when )
+import System.Exit ( ExitCode(..), exitWith )
+import Control.Monad ( when, forM_ )
+import Data.Foldable ( fold, toList )
+import Data.List ( intercalate )
+import Data.Monoid
+import Data.Set ( Set )
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 
@@ -36,18 +42,70 @@ import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 import qualified Properties
 #endif
 
+data Feature = WatchedLiterals
+             | ClauseLearning
+             | Restarts
+             | VSIDS
+               deriving (Eq, Ord)
+instance Show Feature where
+    show WatchedLiterals = "watched literals"
+    show ClauseLearning  = "conflict clause learning"
+    show Restarts        = "restarts"
+    show VSIDS           = "dynamic variable ordering"
+
+allFeatures :: Set Feature
+allFeatures = Set.fromList [WatchedLiterals, ClauseLearning, Restarts, VSIDS]
+
+
+validOptions :: [OptDescr RunOptions]
+validOptions =
+    [ Option [] ["no-clause-learning"] (NoArg $ disableF ClauseLearning)
+             "Use naivest clause learning."
+    , Option [] ["no-watched-literals"] (NoArg $ disableF WatchedLiterals)
+             "Just traverse the formula to find unit clauses."
+    , Option [] ["no-vsids"] (NoArg $ disableF VSIDS)
+             "Use static variable ordering."
+    , Option [] ["no-restarts"] (NoArg $ disableF Restarts)
+             "Never restart."
+    , Option [] ["verify"] (NoArg RunTests)
+             "Run unit tests."
+    , Option [] ["print-features"] (NoArg PrintFeatures)
+             "Print the optimisations the SAT solver supports." ]
+
+disableF = Disable . Set.singleton
+
+data RunOptions = Disable (Set Feature) -- disable certain features
+                | RunTests      -- run unit tests
+                | PrintFeatures
+-- Combines features, choosing only RunTests and PrintFeatures if present,
+-- otherwise combining sets of features to disable.
+instance Monoid RunOptions where
+    mempty = Disable Set.empty
+    mappend o@PrintFeatures _ = o
+    mappend o@RunTests _ = o
+    mappend (Disable s) (Disable s') = Disable (s `Set.union` s')
+    mappend (Disable _) o = o   -- non-feature selection options override
+
+parseOptions :: [String] -> IO (RunOptions, [FilePath])
+parseOptions args = do
+    let (runoptionss, filepaths, errors) = getOpt RequireOrder validOptions args
+    when (not (null errors)) $ do { mapM_ putStr errors ;
+                                    putStrLn (usageInfo usageHeader validOptions) ;
+                                    exitWith (ExitFailure 1) }
+    return $ (fold runoptionss, filepaths)
+
 main :: IO ()
-main =
-    getArgs >>= \args ->
-    case args of
-      [] -> putStrLn usage
+main = do
+    (opts, files) <- getArgs >>= parseOptions
+    case opts of
 #ifdef TESTING
-      "-verify":_         -> Properties.main
+      RunTests -> Properties.main
 #endif
-      "-print-features":_ -> putStrLn features
-      path:_ -> readFile path >>= parseAndSolve
+      PrintFeatures -> putStrLn $ intercalate ", " $ map show $ toList allFeatures
+      Disable features -> forM_ files $
+                          \path -> readFile path >>= parseAndSolve path
          where
-           parseAndSolve contents = do
+           parseAndSolve path contents = do
               let cnf = asCNF $ ParseCNF.parseCNF path contents
               putStrLn $ show (numVars cnf) ++ " variables, "
                          ++ show (numClauses cnf) ++ " clauses"
@@ -66,9 +124,7 @@ main =
                 Unsat -> return ()
 
 
-usage = "Usage:\ndsat <cnf-filename>"
-
-features = "watched literals, conflict clause learning, non-chronological backtracking, restarts"
+usageHeader = "Usage: dsat [options] <cnf-filename> ... <cnf-filename>"
 
 seqList l@[] = l
 seqList l@(x:xs) = x `seq` seqList xs `seq` l

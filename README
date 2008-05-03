@@ -12,13 +12,13 @@ standalone library interface for the solver.
 ** Dependencies
 All the dependences are cabal-ised and available from hackage.  URLs below.
 
-*** parse-dimacs
+They're also available in subdirectories.
+
+*** parse-dimacs [cnf]
 A haskell CNF file parser.
 
 http://hackage.haskell.org/cgi-bin/hackage-scripts/package/parse-dimacs
 
-*** bitset
+*** bitset [bitset]
 http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset
 
-*** fingertree
-http://hackage.haskell.org/cgi-bin/hackage-scripts/package/fingertree

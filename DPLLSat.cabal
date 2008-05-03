@@ -16,7 +16,9 @@ Build-type:          Simple
 
 Executable dsat
  Main-is:             Main.hs
- Ghc-options:         -W -DTESTING -cpp
+ Ghc-options:         -W
+ Extensions:          CPP
+ CPP-options:         -DTESTING
  Ghc-prof-options:    -prof -auto-all
  Hs-source-dirs:      . tests
  Other-modules:       DPLLSat Properties FastDom Utils
@@ -26,7 +28,9 @@ Executable dsat
 
 Executable dsat-prof
  Main-is:             Main.hs
- Ghc-options:         -W -DTESTING -cpp -prof -auto-all
+ Ghc-options:         -W -prof -auto-all
+ Extensions:          CPP
+ CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
  Other-modules:       DPLLSat Properties FastDom Utils
  Build-Depends:       base, parsec, containers, pretty, mtl
@@ -37,7 +41,9 @@ Executable dsat-prof
 Library
  Exposed-modules:     DPLLSat
  Other-modules:       FastDom Utils
- Ghc-options:         -W -DTESTING -cpp
+ Ghc-options:         -W
+ CPP-options:         -DTESTING
+ Extensions:          CPP
  Hs-source-dirs:      . tests
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset

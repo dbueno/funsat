@@ -1,6 +1,6 @@
 -*- mode: outline -*-
 
-* A DPLL-style SAT solver in pure haskell
+* A DPLL-style SAT solver in pure Haskell
 Install using the typical Cabal procedure:
 
 $ ./Setup.lhs configure

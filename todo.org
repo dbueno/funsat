@@ -1,5 +1,8 @@
 * Sat todo file
 
+* TODO There is a bug in mkConflGraph
+mkConflGraph' is the old code that seemed to work, but it's much slower.
+
 * TODO Problem simplification
 ** Whenever we restart, remove the negations of all unit facts from each clause.
 

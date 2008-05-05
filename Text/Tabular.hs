@@ -11,9 +11,9 @@ If the input matrix is mal-formed, the largest well-formed submatrix is
 chosen.  That is, elements along too-long dimensions are chopped off.
 
 -}
-module Text.Tabular( T(..), mkTable ) where
+module Text.Tabular( T(..), mkTable, combine, unTable ) where
 
-import Data.List( tails, intercalate )
+import Data.List( intercalate )
 
 newtype T a = T [Row a]            -- table is a list of rows
 newtype Row a = Row [Cell a]
@@ -30,6 +30,13 @@ mkTable rows = T $ mkRows rows
     mkRows rows = [ Row (map mkCell (zip widths row)) | row <- rows ]
     mkCell      = uncurry Cell
 
+unTable :: T a -> [[a]]
+unTable (T rows) = [ map cellData r | (Row r) <- rows ]
+
+combine :: (Show a) => T a -> T a -> T a
+-- slow impl but works
+combine t t' = mkTable (unTable t ++ unTable t')
+
 -- returns a list of the widths of each column
 colWidths :: (Show a) => [[a]] -> [Int]
 colWidths = map (maximum . map (length . show)) . zipn
@@ -42,7 +49,6 @@ instance (Show a) => Show (T a) where
             where
               colStrings = [ padString (cellWidth c) (show d)
                              | c@(Cell {cellData=d}) <- cols ]
-              maxColWidth = maximum (0:map length colStrings)
 
 padString maxWidth str = str ++ replicate padLen ' '
     where padLen = maxWidth - length str

@@ -1,10 +1,11 @@
 * Sat todo file
 
-* TODO There is a bug in mkConflGraph
+* TODO There is a bug in mkConflGraph				       :ARCHIVE:
 mkConflGraph' is the old code that seemed to work, but it's much slower.
 
 * TODO Bug fixed
-decision list wasn't reset on restarts
+** decision list wasn't reset on restarts
+** propQ wasn't reset on restarts
 
 * TODO Problem simplification
 ** Whenever we restart, remove the negations of all unit facts from each clause.

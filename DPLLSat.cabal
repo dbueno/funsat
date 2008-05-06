@@ -21,10 +21,10 @@ Executable dsat
  CPP-options:         -DTESTING
  Ghc-prof-options:    -prof -auto-all
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties FastDom Utils
+ Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , fgl
+                      , fgl, time
 
 Executable dsat-prof
  Main-is:             Main.hs
@@ -32,10 +32,10 @@ Executable dsat-prof
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties FastDom Utils
+ Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
-                      , fgl
+                      , fgl, time
 
 
 Library

@@ -140,13 +140,14 @@ main = do
                       Tabular.mkTable
                        [[ Stupid "Real time "
                         , Stupid $ show (diffUTCTime endingTime startingTime)]]
-              putStrLn "Verifying..."
               case solution of
-                Sat m -> case verify m cnf of
-                           Just problemClauses ->
-                             do putStrLn "VERIFICATION ERROR!"
-                                print problemClauses
-                           Nothing -> return ()
+                Sat m -> do
+                  putStrLn "Verifying..."
+                  case verify m cnf of
+                    Just problemClauses ->
+                        do putStrLn "VERIFICATION ERROR!"
+                           print problemClauses
+                    Nothing -> return ()
 #ifdef TESTING
 --                               putStrLn $
 --                                 "Minimal erroneous CNF:\n"

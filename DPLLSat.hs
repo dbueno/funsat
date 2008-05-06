@@ -108,8 +108,11 @@ module DPLLSat
         , solve1
         , DPLLConfig(..)
         , Solution(..)
+        , Stats(..)
         , CNF
         , GenCNF(..)
+        , NonStupidString(..)
+        , statTable
         , verify
         )
 #endif
@@ -144,8 +147,8 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
---import Data.Graph.Inductive.Basic( grev )
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
+import Data.Graph.Inductive.Graphviz
 import Data.Graph.Inductive.Tree( Gr )
 import Data.Int (Int64)
 import Data.List (intercalate, nub, tails, sortBy, intersect)
@@ -170,26 +173,28 @@ import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified FastDom as Dom
+import qualified Text.Tabular as Tabular
 
 -- * Interface
 
 -- | Run the DPLL-based SAT solver on the given CNF instance.
-solve :: DPLLConfig -> StdGen -> CNF -> Solution
+solve :: DPLLConfig -> StdGen -> CNF -> (Solution, Stats)
 solve cfg g fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
     -- starting with an initial assignment.
-#ifdef TRACE
-    trace ("input " ++ show f) $
-#endif
+--     trace ("input " ++ show f) $
     runST $
-    evalStateT (stepToSolution $ do
-                  initialAssignment <- lift $ newSTUArray (V 1, V (numVars f)) 0
-                  isUnsat <- initialState initialAssignment
-                  if isUnsat then return (Right Unsat)
-                   else solveStep initialAssignment)
-    SC{ cnf=f, dl=[], rnd=g
+    evalStateT (do sol <- stepToSolution $ do
+                     initialAssignment <- lift $ newSTUArray (V 1, V (numVars f)) 0
+                     isUnsat <- initialState initialAssignment
+                     if isUnsat then return (Right Unsat)
+                      else solveStep initialAssignment
+                   stats <- extractStats
+                   return (sol, stats))
+    SC{ cnf=f{clauses = Set.empty}, dl=[], rnd=g
       , watches=undefined, learnt=undefined, propQ=Seq.empty
-      , trail=[], numConfl=0, level=undefined
+      , trail=[], numConfl=0, level=undefined, numConflTotal=0
+      , numDecisions=0, numImpl=0
       , reason=Map.empty, varOrder=undefined
       , dpllConfig=cfg }
   where
@@ -197,7 +202,6 @@ solve cfg g fIn =
     -- If returns True, then problem is unsat.
     initialState :: MAssignment s -> DPLLMonad s Bool
     initialState m = do
-      f <- gets cnf
       initialLevel <- lift $ newSTUArray (V 1, V (numVars f)) noLevel
       modify $ \s -> s{level = initialLevel}
       initialWatches <- lift $ newSTArray (L (- (numVars f)), L (numVars f)) []
@@ -217,7 +221,7 @@ solve cfg g fIn =
 
 -- | Solve with a constant random seed and default configuration
 -- `defaultConfig' (for debugging).
-solve1 :: CNF -> Solution
+solve1 :: CNF -> (Solution, Stats)
 solve1 f = solve (defaultConfig f) (mkStdGen 1) f
 
 -- | Configuration parameters for the solver.
@@ -225,13 +229,19 @@ data DPLLConfig = Cfg
     { configRestart :: Int64      -- ^ Number of conflicts before a restart.
     , configRestartBump :: Double -- ^ `configRestart' is altered after each
                                   -- restart by multiplying it by this value.
-    }
+    , configUseVSIDS :: Bool      -- ^ If true, use dynamic variable ordering.
+    , configUseWatchedLiterals :: Bool -- ^ If true, use watched literals
+                                       -- scheme.
+    , configUseRestarts :: Bool }
                   deriving Show
 
 -- | A default configuration based on the formula to solve.
 defaultConfig :: CNF -> DPLLConfig
 defaultConfig _f = Cfg { configRestart = 100
-                      , configRestartBump = 1.5 }
+                       , configRestartBump = 1.5
+                       , configUseVSIDS = True
+                       , configUseWatchedLiterals = True
+                       , configUseRestarts = True }
 
 -- * Preprocessing
 
@@ -255,7 +265,11 @@ simplifyDB _mFr = undefined
 -- new state.
 solveStep :: MAssignment s -> DPLLMonad s (Step s)
 solveStep m = do
-    maybeConfl <- bcp m
+    lift (unsafeFreezeAss m) >>= solveStepInvariants
+    conf <- gets dpllConfig
+    -- let selector = if configUseVSIDS conf then select else selectStatic
+    let bcper = if configUseWatchedLiterals conf then bcp else bcpDumb
+    maybeConfl <- bcper m
     mFr <- lift $ unsafeFreezeAss m
     s <- get
     voFr <- FrozenVarOrder `liftM` lift (unsafeFreeze . varOrderArr . varOrder $ s)
@@ -275,6 +289,17 @@ solveStep m = do
            -- A step to do => do it, then see what it says.
            Just step -> step >>= return . maybe (Right Unsat) Left
 
+-- | Check data structure invariants.  Unless @-fno-ignore-asserts@ is passed,
+-- this should be optimised away to nothing.
+solveStepInvariants :: IAssignment -> DPLLMonad s ()
+{-# INLINE solveStepInvariants #-}
+solveStepInvariants _m = assert True $ do
+  s <- get
+  -- no dups in decision list or trail
+  assert ((length . dl) s == (length . nub . dl) s) $
+   assert ((length . trail) s == (length . nub . trail) s) $
+   return ()
+
 
 -- | A state transition, or /step/, produces either an intermediate assignment
 -- (using `Left') or a solution to the instance.
@@ -289,12 +314,14 @@ data Solution = Sat IAssignment | Unsat deriving (Eq)
 stepToSolution :: DPLLMonad s (Step s) -> DPLLMonad s Solution
 stepToSolution stepAction = do
     step <- stepAction
+    useRestarts <- gets (configUseRestarts . dpllConfig)
     restart <- uncurry ((>=)) `liftM`
                gets (numConfl &&& (configRestart . dpllConfig))
     case step of
-      Left m -> do when restart
+      Left m -> do when (useRestarts && restart)
                      (do stats <- extractStats
-                         trace (show stats) $
+                         trace ("Restarting...") $
+                          trace (statSummary stats) $
                           resetState m)
                    stepToSolution (solveStep m)
       Right s -> return s
@@ -308,6 +335,7 @@ stepToSolution stepAction = do
       lvl :: FrozenLevelArray <- gets level >>= lift . unsafeFreeze
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
+      modify $ \s -> s{ dl = [], propQ = Seq.empty }
       compact
 
 instance Show Solution where
@@ -509,11 +537,13 @@ isFalseUnder x m = isFalse $ x `statusUnder` m
     where isFalse (Right False) = True
           isFalse _             = False
 
+-- isUnitUnder c m | trace ("isUnitUnder " ++ show c ++ " " ++ showAssignment m) $ False = undefined
 isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
                   && not (Fl.any (`isTrueUnder` m) c)
 
 -- Precondition: clause is unit.
-getUnit :: (Model a m, Show a) => [a] -> m -> a
+-- getUnit :: (Model a m, Show a, Show m) => [a] -> m -> a
+-- getUnit c m | trace ("getUnit " ++ show c ++ " " ++ showAssignment m) $ False = undefined
 getUnit c m = case filter (not . (`isFalseUnder` m)) c of
                 [u] -> u
                 xs   -> error $ "getUnit: not unit: " ++ show xs
@@ -565,8 +595,14 @@ data DPLLStateContents s = SC
       -- ^ Chronological trail of assignments, last-assignment-at-head.
     , reason :: Map Var Clause
       -- ^ For each variable, the clause that (was unit and) implied its value.
-    , numConfl :: Int64
+    , numConfl :: !Int64
       -- ^ The number of conflicts that have occurred since the last restart.
+    , numConflTotal :: !Int64
+      -- ^ The total number of conflicts.
+    , numDecisions :: !Int64
+      -- ^ The total number of decisions.
+    , numImpl :: !Int64
+      -- ^ The total number of implications (propagations).
     , varOrder :: VarOrder s
     , rnd :: StdGen              -- ^ random source
     , dpllConfig :: DPLLConfig
@@ -640,6 +676,7 @@ bcpLit m l = do
              alter (annCl:) (negate l')
 
            Nothing -> do      -- all other lits false, clause is unit
+             lift $ modify $ \s -> s{ numImpl = numImpl s + 1 }
              alter (annCl:) l
              isConsistent <- lift $ enqueue m (negate q) (Just c)
              when (not isConsistent) $ do -- unit literal is conflicting
@@ -656,6 +693,26 @@ bcp m = do
    else do
      p <- dequeue
      bcpLit m p >>= maybe (bcp m) (return . Just)
+
+bcpDumb :: MAssignment s -> DPLLMonad s (Maybe (Lit, Clause))
+bcpDumb m = do
+  mFr <- lift $ freezeAss m
+  s <- get
+  let candidates = Set.filter (not . (`isTrueUnder` mFr)) (clauses . cnf $ s)
+  case find (`isFalseUnder` mFr) candidates of
+    Just fClause -> return $ Just (head fClause, fClause)
+    Nothing ->
+      case find (`isUnitUnder` mFr) candidates of
+        Nothing -> return Nothing
+        Just clause -> do
+          let unitLit = getUnit clause mFr
+          modify $ \s -> s{ numImpl = numImpl s + 1 }
+          isConsistent <- assert (unitLit `isUndefUnder` mFr) $
+                          enqueue m unitLit (Just clause)
+          clearQueue
+          if not isConsistent
+           then return $ Just (unitLit, clause)
+           else bcpDumb m
 
 
 -- *** Decisions
@@ -667,7 +724,11 @@ bcp m = do
 -- Select a decision variable, if possible, and return it and the adjusted
 -- `VarOrder'.
 select :: IAssignment -> FrozenVarOrder -> Maybe Var
+{-# INLINE select #-}
 select = varOrderGet
+
+selectStatic :: IAssignment -> a -> Maybe Var
+selectStatic m _ = find (`isUndefUnder` m) (range . bounds $ m)
 
 -- | Assign given decision variable.  Records the current assignment before
 -- deciding on the decision variable indexing the assignment.
@@ -675,8 +736,9 @@ decide :: MAssignment s -> Var -> DPLLMonad s (Maybe (MAssignment s))
 decide m v = do
   let ld = L (unVar v)
   (SC{dl=dl}) <- get
---   trace ("decide " ++ show ld) $
-  modify $ \s -> s{ dl = ld:dl }
+--   trace ("decide " ++ show ld) $ return ()
+  modify $ \s -> s{ dl = ld:dl
+                  , numDecisions = numDecisions s + 1 }
   enqueue m ld Nothing
   return $ Just m
 
@@ -698,7 +760,8 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
 --     trace ("dlits (" ++ show (length dl) ++ ") = " ++ show dl) $ return ()
 --          ++ "reason: " ++ Map.showTree _reason
 --           ) (
-    modify $ \s -> s{numConfl = numConfl s + 1}
+    modify $ \s -> s{ numConfl = numConfl s + 1
+                    , numConflTotal = numConflTotal s + 1 }
     levelArr :: FrozenLevelArray <- do s <- get
                                        lift $ unsafeFreeze (level s)
     (learntCl, newLevel) <-
@@ -715,8 +778,8 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
      assert (learntCl `isUnitUnder` mFr) $
      modify $ \s -> s{ dl  = dl' } -- undo decisions
     forM_ conflict (bump . var)
-    _mFr <- lift $ unsafeFreezeAss m
---     trace ("new mFr: " ++ showAssignment _mFr) $ return ()
+    mFr <- lift $ unsafeFreezeAss m
+--     trace ("new mFr: " ++ showAssignment mFr) $ return ()
     -- TODO once I'm sure this works I don't need getUnit, I can just use the
     -- uip of the cut.
     enqueue m (getUnit learntCl mFr) (Just learntCl) -- learntCl is asserting
@@ -758,10 +821,12 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
                       (firstUIP conflGraph)
         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
                      :: Gr CGNodeAnnot ()
---     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $
+--     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $ return ()
 --     trace ("cut: " ++ show firstUIPCut) $ return ()
 --     trace ("topSort: " ++ show topSortNodes) $ return ()
+--     trace ("dlits (" ++ show (length dlits) ++ "): " ++ show dlits) $ return ()
 --     trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
+--     outputConflict "conflict.dot" (graphviz' conflGraph) $ return ()
     return $ (learntCl, newLevel)
   where
     firstUIP conflGraph = -- trace ("--> uips = " ++ show uips) $
@@ -808,7 +873,7 @@ data Cut f gr a b =
         , cutGraph :: gr a b }
 instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
     show (Cut { conflictSide = c, cutUIP = uip }) =
-        "Cut (uip=" ++ show uip ++ ", c=" ++ show c ++ ")"
+        "Cut (uip=" ++ show uip ++ ", cSide=" ++ show c ++ ")"
 
 -- | Generate a cut using the given UIP node.  The cut generated contains
 -- exactly the (transitively) implied nodes starting with (but not including)
@@ -884,10 +949,7 @@ mkConflGraph :: DynGraph gr =>
              -> (Lit, Clause)   -- ^ conflict info
              -> gr CGNodeAnnot ()
 mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
--- outputConflict "conflict.dot" (graphviz' graph) $
---        outputConflict "orig-conflict.dot" (graphviz' origGraph) $
     Graph.mkGraph nodes' edges'
-    
   where
     -- we pick out all the variables from the conflict graph, specially adding
     -- both literals of the conflict variable, so that that variable has two
@@ -912,7 +974,6 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
 
     -- seed with both conflicting literals
     mkGr _ ne [] = ne
---     mkGr _ _ ls | trace ("mkGr " ++ show ls) $ False = undefined
     mkGr (seen :: Set Graph.Node) ne@(nodes, edges) (lit:lits) =
         if haveSeen
         then mkGr seen ne lits
@@ -927,7 +988,7 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
                      | x <- pred ] ++ edges
         pred = filterReason $
                if lit == cLit then confl else
-               Map.findWithDefault [] (var lit) reasonMap
+               Map.findWithDefault [] (var lit) reasonMap `without` lit
         filterReason = filter ( ((var lit /=) . var) .&&.
                                 ((<= litLevel lit) . litLevel) )
         seen' = seen `with` litNode lit
@@ -937,8 +998,11 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
             then unLit l
             else (abs . unLit) l
 
+
 -- | Delete the assignment to last-assigned literal.  Undoes the trail, the
 -- assignment, sets `noLevel', undoes reason.
+--
+-- Does /not/ touch `dl'.
 undoOne :: MAssignment s -> DPLLMonad s ()
 {-# INLINE undoOne #-}
 undoOne m = do
@@ -1000,7 +1064,7 @@ compact = do
               modifyArray lArr x $ const (wCl:)
               modifyArray lArr y $ const (wCl:))
 
--- *** Unit propagation              
+-- *** Unit propagation
 
 -- | Add clause to the watcher lists, unless clause is a singleton; if clause
 -- is a singleton, `enqueue's fact and returns `False' if fact is in conflict,
@@ -1015,25 +1079,34 @@ watchClause :: MAssignment s
             -> DPLLMonad s Bool
 {-# INLINE watchClause #-}
 watchClause m c isLearnt = do
+  conf <- gets dpllConfig
   case c of
     [] -> return True
     [l] -> do result <- enqueue m l (Just c)
               levelArr <- gets level
               lift $ writeArray levelArr (var l) 0
               return result
-    _ -> do
-      let p = (negate (c !! 0), negate (c !! 1))
-      r <- lift $ newSTRef p
-      let annCl = (r, c)
-          addCl arr = do modifyArray arr (fst p) $ const (annCl:)
-                         modifyArray arr (snd p) $ const (annCl:)
-      get >>= \s -> lift $ if isLearnt then addCl (learnt s) else addCl (watches s)
-      return True
+    _ -> if configUseWatchedLiterals conf then
+             do let p = (negate (c !! 0), negate (c !! 1))
+                r <- lift $ newSTRef p
+                let annCl = (r, c)
+                    addCl arr = do modifyArray arr (fst p) $ const (annCl:)
+                                   modifyArray arr (snd p) $ const (annCl:)
+                get >>= lift . addCl . (if isLearnt then learnt else watches)
+                return True
+         else do modify $ \s ->
+                     let cs = c `Set.insert` (clauses . cnf) s
+                     in s{ cnf = (cnf s){ clauses = cs
+                                        , numClauses = Set.size cs } }
+                 return True
 
 -- | Enqueue literal in the `propQ' and place it in the current assignment.
 -- If this conflicts with an existing assignment, returns @False@; otherwise
 -- returns @True@.  In case there is a conflict, the assignment is /not/
 -- altered.
+--
+-- Also records decision level, modifies trail, and records reason for
+-- assignment.
 enqueue :: MAssignment s
         -> Lit                  -- ^ The literal that has been assigned true.
         -> Maybe Clause  -- ^ The reason for enqueuing the literal.  Including
@@ -1041,6 +1114,7 @@ enqueue :: MAssignment s
                          -- map.
         -> DPLLMonad s Bool
 {-# INLINE enqueue #-}
+-- enqueue _m l _r | trace ("enqueue " ++ show l) $ False = undefined
 enqueue m l r = do
   mFr <- lift $ unsafeFreezeAss m
   case l `statusUnder` mFr of
@@ -1144,14 +1218,42 @@ instance Error () where
 
 data Stats = Stats
     { statsNumConfl :: Int64
+    , statsNumConflTotal :: Int64
     , statsNumLearnt :: Int64
-    , statsAvgLearntLen :: Double }
+    , statsAvgLearntLen :: Double
+    , statsNumDecisions :: Int64
+    , statsNumImpl :: Int64 }
+
+-- the show instance uses the wrapped string.
+newtype NonStupidString = Stupid { stupefy :: String }
+instance Show NonStupidString where
+    show = stupefy
 
 instance Show Stats where
-    show s =
-        "#c " ++ show (statsNumConfl s)
-        ++ "/#l " ++ show (statsNumLearnt s)
-        ++ " (avg len " ++ printf "%.2f" (statsAvgLearntLen s) ++ ")"
+    show = show . statTable
+
+statTable :: Stats -> Tabular.T NonStupidString
+statTable s =
+    Tabular.mkTable
+                   [ [Stupid "Num. Conflicts"
+                     ,Stupid $ show (statsNumConflTotal s)]
+                   , [Stupid "Num. Learned Clauses"
+                     ,Stupid $ show (statsNumLearnt s)]
+                   , [Stupid " --> Avg. Lits/Clause"
+                     ,Stupid $ show (statsAvgLearntLen s)]
+                   , [Stupid "Num. Decisions"
+                     ,Stupid $ show (statsNumDecisions s)]
+                   , [Stupid "Num. Propagations"
+                     ,Stupid $ show (statsNumImpl s)] ]
+
+statSummary :: Stats -> String
+statSummary s =
+     show (Tabular.mkTable
+           [[Stupid $ show (statsNumConflTotal s) ++ " Conflicts"
+            ,Stupid $ "| " ++ show (statsNumLearnt s) ++ " Learned Clauses"
+                      ++ " (avg " ++ printf "%.2f" (statsAvgLearntLen s)
+                      ++ " lits/clause)"]])
+
 
 extractStats :: DPLLMonad s Stats
 extractStats = do
@@ -1160,11 +1262,14 @@ extractStats = do
   let learnts = (nub . Fl.concat)
         [ map snd (learntArr!i) | i <- (range . bounds) learntArr ] :: [Clause]
       stats =
-        Stats { statsNumConfl = fromIntegral (numConfl s)
+        Stats { statsNumConfl = numConfl s
+              , statsNumConflTotal = numConflTotal s
               , statsNumLearnt = fromIntegral $ length learnts
               , statsAvgLearntLen =
                 fromIntegral (foldl' (+) 0 (map length learnts))
-                / fromIntegral (statsNumLearnt stats) }
+                / fromIntegral (statsNumLearnt stats)
+              , statsNumDecisions = numDecisions s
+              , statsNumImpl = numImpl s }
   return stats
 
 unsafeFreezeWatchArray :: WatchArray s -> ST s (Array Lit [WatchedPair s])
@@ -1179,8 +1284,15 @@ unsafeFreezeWatchArray = freeze
 -- Makes sure each slot in the assignment is either 0 or contains its
 -- (possibly negated) corresponding literal, and verifies that each clause is
 -- made true by the assignment.
-verify :: IAssignment -> CNF -> Bool
+verify :: IAssignment -> CNF -> Maybe [(Clause, Either () Bool)]
 verify m cnf =
    -- m is well-formed
-   Fl.all (\l -> m!(V l) == l || m!(V l) == negate l || m!(V l) == 0) [1..numVars cnf]
-   && Fl.all (`isTrueUnder` m) (clauses cnf)
+--    Fl.all (\l -> m!(V l) == l || m!(V l) == negate l || m!(V l) == 0) [1..numVars cnf]
+   let unsatClauses = toList $
+                      Set.filter (not . isTrue . snd) $
+                      Set.map (\c -> (c, c `statusUnder` m)) (clauses cnf)
+   in if null unsatClauses
+      then Nothing
+      else Just unsatClauses
+  where isTrue (Right True) = True
+        isTrue _            = False

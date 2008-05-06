@@ -22,20 +22,28 @@ module Main where
 -}
 
 import Control.Monad ( when, forM_ )
-import Data.Foldable ( fold, toList )
+import Data.Foldable ( fold, toList, elem )
 import Data.List ( intercalate )
 import Data.Monoid
 import Data.Set ( Set )
-import DPLLSat( solve1
+import DPLLSat( solve
+              , DPLLConfig(..)
+              , defaultConfig
               , CNF
               , GenCNF(..)
               , Solution(..)
-              , verify )
+              , verify
+              , NonStupidString(..)
+              , statTable )
+import Prelude hiding ( elem )
 import System.Console.GetOpt
 import System.Environment ( getArgs )
 import System.Exit ( ExitCode(..), exitWith )
+import System.Random ( mkStdGen )
+import Data.Time.Clock
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
+import qualified Text.Tabular as Tabular
 
 
 #ifdef TESTING
@@ -69,20 +77,22 @@ validOptions =
              "Never restart."
     , Option [] ["verify"] (NoArg RunTests)
              "Run unit tests."
-    , Option [] ["print-features"] (NoArg PrintFeatures)
+    , Option [] ["print-features"] (NoArg (PrintFeatures Set.empty))
              "Print the optimisations the SAT solver supports." ]
 
 disableF :: Feature -> RunOptions
 disableF = Disable . Set.singleton
 
-data RunOptions = Disable (Set Feature) -- disable certain features
-                | RunTests      -- run unit tests
-                | PrintFeatures
+data RunOptions = Disable (Set Feature)       -- disable certain features
+                | RunTests                    -- run unit tests
+                | PrintFeatures (Set Feature) -- disable certain features
 -- Combines features, choosing only RunTests and PrintFeatures if present,
 -- otherwise combining sets of features to disable.
 instance Monoid RunOptions where
     mempty = Disable Set.empty
-    mappend o@PrintFeatures _ = o
+    mappend (PrintFeatures f) (PrintFeatures f') = PrintFeatures (f `Set.union` f')
+    mappend (PrintFeatures f) (Disable f') = PrintFeatures (f `Set.union` f')
+    mappend o@(PrintFeatures _) _ = o
     mappend o@RunTests _ = o
     mappend (Disable s) (Disable s') = Disable (s `Set.union` s')
     mappend (Disable _) o = o   -- non-feature selection options override
@@ -102,9 +112,14 @@ main = do
 #ifdef TESTING
       RunTests -> Properties.main
 #endif
-      PrintFeatures -> putStrLn $ intercalate ", " $ map show $ toList allFeatures
-      Disable features -> forM_ files $
-                          \path -> readFile path >>= parseAndSolve path
+      PrintFeatures disabled ->
+          putStrLn $ intercalate ", " $ map show $
+                     toList (allFeatures Set.\\ disabled)
+      Disable features -> do
+        putStr "Enabled features: "
+        putStrLn $ intercalate ", " $ map show $
+                   toList (allFeatures Set.\\ features)
+        forM_ files $ \path -> readFile path >>= parseAndSolve path
          where
            parseAndSolve path contents = do
               let cnf = asCNF $ ParseCNF.parseCNF path contents
@@ -112,15 +127,30 @@ main = do
                          ++ show (numClauses cnf) ++ " clauses"
               Set.map seqList (clauses cnf)
                 `seq` putStrLn ("Solving " ++ path ++ "...")
-              let solution = solve1 cnf
-              putStrLn $ show solution
+              startingTime <- getCurrentTime
+              let cfg =
+                    (defaultConfig cnf)
+                    { configUseVSIDS = not $ VSIDS `elem` features
+                    , configUseWatchedLiterals = not $ WatchedLiterals `elem` features
+                    , configUseRestarts = not $ Restarts `elem` features }
+                  (solution, stats) = solve cfg (mkStdGen 1) cnf
+              endingTime <- solution `seq` getCurrentTime
+              print solution
+              print $ statTable stats `Tabular.combine`
+                      Tabular.mkTable
+                       [[ Stupid "Real time "
+                        , Stupid $ show (diffUTCTime endingTime startingTime)]]
+              putStrLn "Verifying..."
               case solution of
-                Sat m -> when (not $ verify m cnf) $
-                           do putStrLn "VERIFICATION ERROR!"
+                Sat m -> case verify m cnf of
+                           Just problemClauses ->
+                             do putStrLn "VERIFICATION ERROR!"
+                                print problemClauses
+                           Nothing -> return ()
 #ifdef TESTING
-                              putStrLn $
-                                "Minimal erroneous CNF:\n"
-                                ++ show (Properties.minimalError cnf)
+--                               putStrLn $
+--                                 "Minimal erroneous CNF:\n"
+--                                 ++ show (Properties.minimalError cnf)
 #endif TESTING
                 Unsat -> return ()
 

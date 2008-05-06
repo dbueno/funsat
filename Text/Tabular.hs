@@ -17,11 +17,11 @@ import Data.List( intercalate )
 
 newtype T a = T [Row a]            -- table is a list of rows
 newtype Row a = Row [Cell a]
-data Cell a = Cell { cellWidth :: Int
+data Cell a = Cell { cellWidth :: !Int
                    -- the width of a cell is the max of the widths of the
                    -- string representations of all the elements in the column
                    -- in which this cell occurs
-                   , cellData :: a } -- element printed in box of colWidth
+                   , cellData :: !a } -- element printed in box of colWidth
 
 mkTable :: (Show a) => [[a]] -> T a
 mkTable rows = T $ mkRows rows

@@ -232,7 +232,8 @@ data DPLLConfig = Cfg
     , configUseVSIDS :: Bool      -- ^ If true, use dynamic variable ordering.
     , configUseWatchedLiterals :: Bool -- ^ If true, use watched literals
                                        -- scheme.
-    , configUseRestarts :: Bool }
+    , configUseRestarts :: Bool
+    , configUseLearning :: Bool }
                   deriving Show
 
 -- | A default configuration based on the formula to solve.
@@ -241,7 +242,8 @@ defaultConfig _f = Cfg { configRestart = 100
                        , configRestartBump = 1.5
                        , configUseVSIDS = True
                        , configUseWatchedLiterals = True
-                       , configUseRestarts = True }
+                       , configUseRestarts = True
+                       , configUseLearning = True }
 
 -- * Preprocessing
 
@@ -766,7 +768,9 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
                                        lift $ unsafeFreeze (level s)
     (learntCl, newLevel) <-
         do mFr <- lift $ unsafeFreezeAss m
-           analyse mFr levelArr dl c
+           useLearning <- configUseLearning `liftM` gets dpllConfig
+           if useLearning then analyse mFr levelArr dl c
+                          else analyseDecision mFr levelArr dl c
     s <- get
     let numDecisionsToUndo = length dl - newLevel
         dl' = drop numDecisionsToUndo dl
@@ -806,7 +810,22 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
 --         tsNodes  = DFS.topsort rconflGraph
 
 --     return $ (learntCl, newLevel)
-                  
+
+
+-- Use the Decision first UIP clause, i.e, the crappiest one.
+analyseDecision :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
+                -> DPLLMonad s (Clause, Int)
+analyseDecision mFr levelArr dlits c@(cLit, _cClause) = do
+    st <- get
+    let decisionCut = uipCut dlits levelArr conflGraph (unLit cLit)
+                      (decisionUIP conflGraph)
+        conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
+                     :: Gr CGNodeAnnot ()
+    return $ cutLearn mFr levelArr decisionCut
+  where
+    decisionUIP :: (Graph gr) => gr CGNodeAnnot () -> Graph.Node
+    decisionUIP _ = abs . unLit $ head dlits
+
 
 -- | Analyse a the conflict graph and produce a learned clause.  We use the
 -- First UIP cut of the conflict graph.

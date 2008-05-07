@@ -1,3 +1,5 @@
+-- | Grovel over the result file given on the command-line and print a
+-- gnuplot-formatted data set to stdout.
 module Main where
 
 import Data.Maybe( mapMaybe )

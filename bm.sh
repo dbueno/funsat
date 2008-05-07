@@ -3,7 +3,7 @@
 DSAT=./dist/build/dsat/dsat
 RESULTS_DIR=bench-results/$(gdate +%F.%H%M)
 
-MAX_PROB_SECONDS="5"
+MAX_PROB_SECONDS="300"
 echo "Max time per problem:" $MAX_PROB_SECONDS "seconds"
 
 # Use expect to terminate process if it times out.

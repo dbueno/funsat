@@ -35,7 +35,7 @@ do
     find ./bench -iname "*.cnf" |
       while read FILE
       do
-          ( time $TIMED $CMD $FILE ) >> $OUTPUT 2>> $OUTPUT
+          ( $TIMED /usr/bin/time $CMD $FILE ) >> $OUTPUT 2>> $OUTPUT
           if [ "$?" -ne 0 ]
           then exit 1
           fi

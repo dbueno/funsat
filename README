@@ -6,8 +6,10 @@ Install using the typical Cabal procedure:
 $ ./Setup.lhs configure
 $ ./Setup.lhs build
 
-This will produce a binary called dsat at ./dist/build/dsat/dsat and a
-standalone library interface for the solver.
+This will produce a binary called funsat at ./dist/build/funsat/funsat and a
+standalone library interface for the solver.  If you feel like profiling the
+code, a profiling binary is automatically built in
+./dist/build/funsat-prof/funsat-prof.
 
 ** Dependencies
 All the dependences are cabal-ised and available from hackage.  URLs below.

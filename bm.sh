@@ -1,6 +1,6 @@
 # set -x
 
-DSAT=./dist/build/dsat/dsat
+DSAT=./dist/build/funsat/funsat
 RESULTS_DIR=bench-results/$(gdate +%F.%H%M)
 
 MAX_PROB_SECONDS="300"

@@ -1,21 +1,41 @@
-DSAT=./dist/build/dsat/dsat
-BMFILE=bm-$(gdate +%F.%H%M)
+# set -x
 
-OPTIONS=""
+DSAT=./dist/build/dsat/dsat
+RESULTS_DIR=bench-results/$(gdate +%F.%H%M)
+
+MAX_PROB_SECONDS="5"
+echo "Max time per problem:" $MAX_PROB_SECONDS "seconds"
+
+# Use expect to terminate process if it times out.
+TIMED="expect -f /Volumes/work/scripts/misc/timed-run $MAX_PROB_SECONDS"
+
+mkdir -p $RESULTS_DIR
 
 # record feature set
-echo "SAT solver features under test:"
-$DSAT --print-features $OPTIONS
 
-# NSAT=1000
-# echo "Testing $NSAT satisfiable problems (20 vars)"
-# time ls -1 ./tests/problems/uf20/*.cnf | head -$NSAT | while read F; do $DSAT $F $OPTIONS; done 2>&1 | grep -1 -i "unsatisfiable\\|assertion"
 
-# NSAT=1000
-# echo "Testing $NSAT satisfiable problems (50 vars)"
-# time ls -1 ./tests/problems/uf50/*.cnf | head -$NSAT | while read F; do $DSAT $F $OPTIONS; done 2>&1 | grep -1 -i "unsatisfiable\\|assertion"
+i=$((0))
+for options in ""                                    \
+               "--no-watched-literals"               \
+               "--no-restarts"                       \
+               "--no-clause-learning"                \
+               "--no-vsids"                          \
+               "--no-watched-literals --no-restarts" \
+               "--no-vsids --no-restarts"
+do
+    i=$(($i+1))
+    OUTPUT="$RESULTS_DIR/result.$i"
 
-# NUNSAT=1000
-# echo "Testing $NUNSAT unsatisfiable problems (50 vars)"
-# time ls -1 ./tests/problems/uuf50/*.cnf | head -$NUNSAT | while read F; do $DSAT $F $OPTIONS; done 2>&1 | grep -1 -i "satisfiable[:]\\|assertion"
+    CMD="$DSAT $options"
+    echo "-->" $CMD
 
+#     find ./bench -iname "*.cnf" -exec $TIMED $CMD 2>&1 > $OUTPUT \;
+    find ./bench -iname "*.cnf" |
+      while read FILE
+      do
+          ( time $TIMED $CMD $FILE ) >> $OUTPUT 2>> $OUTPUT
+          if [ "$?" -ne 0 ]
+          then exit 1
+          fi
+      done
+done

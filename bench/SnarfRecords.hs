@@ -40,7 +40,7 @@ userTimeRx = mkRegex "([[:digit:]]+[.][[:digit:]]+) user"
 findUserTime s =
     head `fmap` matchRegex userTimeRx s
 
-maxSecs = "300"
+maxSecs = "300.0"
 
 
 main = do
@@ -53,6 +53,6 @@ main = do
       showPair ([filename], maybeTime) =
           filename ++ " " ++
           case maybeTime of
-            Nothing -> maxSecs
+            Nothing -> maxSecs ++ " # No time information"
             Just time -> time
   mapM_ (putStrLn . showPair) pairs

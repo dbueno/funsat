@@ -1,7 +1,9 @@
-module SnarfRecords where
+module Main where
 
+import Data.Maybe( mapMaybe )
 import Text.Regex
 import Test.QuickCheck( quickCheck )
+import System.Environment( getArgs )
 
 -- | Assume the input contains @n>0@ records delimited at the start by
 -- whatever matches regexp.  Each element @s@ of @groups rx f s@ is the output
@@ -10,40 +12,45 @@ import Test.QuickCheck( quickCheck )
 --
 -- If the regex fails to match at all (i.e. @n=0@), the empty list is
 -- returned.
-groups :: Regex -> String -> [(String, String)]
+groups :: Regex -> String -> [([String], String)]
 groups markerRx s = snd $ groups' markerRx s
   where
     -- Returns the text before the match, if any match, in its first position.
     groups' markerRx s =
         case matchRegexAll markerRx s of
           Nothing -> (s, [])
-          Just (beforeMatch, matched, afterMatch, _submatches) ->
+          Just (beforeMatch, _matched, afterMatch, submatches) ->
               let (beforeNext, retList) = groups' markerRx afterMatch
-              in ( beforeMatch, (matched, beforeNext) : retList )
-
--- The grouping should just be a partition of the input string, or empty if
--- there is no match.
-prop_groups_partition rx s =
-    case matchRegex rx s of
-      Nothing -> True
-      Just _  -> s == (concat . map (uncurry (++))) (groups rx s)
-
--- Each group should begin with a match.
-prop_groups_matches rx s =
-    all rxMatchesStart (map (uncurry (++)) $ groups rx s)
-  where rxMatchesStart sub =
-            case matchRegexAll rx sub of
-              Nothing -> False
-              Just (beforeMatch, matched, afterMatch, _) ->
-                  beforeMatch == ""
-                  && sub == matched ++ afterMatch
-       
+              in ( beforeMatch, (submatches, beforeNext) : retList )
 
 
 
 
 
+------------------------------------------------------------------------------
+-- Main
 
----- Main
+satrunRx = mkRegex $
+  "Solving ([-_./a-zA-Z0-9]+[.]cnf)"-- ./bench/bf/bf0432-007.cnf
 
-main = undefined
+userTimeRx = mkRegex "([[:digit:]]+[.][[:digit:]]+) user"
+
+findUserTime s =
+    head `fmap` matchRegex userTimeRx s
+
+maxSecs = "300"
+
+
+main = do
+  [filename] <- getArgs
+  contents <- readFile filename
+  let results = groups satrunRx contents
+--   mapM_ (putStrLn . show) (map fst results)
+  let times = map findUserTime . map snd $ results
+      pairs = zip (map fst results) times
+      showPair ([filename], maybeTime) =
+          filename ++ " " ++
+          case maybeTime of
+            Nothing -> maxSecs
+            Just time -> time
+  mapM_ (putStrLn . showPair) pairs

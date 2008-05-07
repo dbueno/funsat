@@ -132,7 +132,8 @@ main = do
                     (defaultConfig cnf)
                     { configUseVSIDS = not $ VSIDS `elem` features
                     , configUseWatchedLiterals = not $ WatchedLiterals `elem` features
-                    , configUseRestarts = not $ Restarts `elem` features }
+                    , configUseRestarts = not $ Restarts `elem` features
+                    , configUseLearning = not $ ClauseLearning `elem` features }
                   (solution, stats) = solve cfg (mkStdGen 1) cnf
               endingTime <- solution `seq` getCurrentTime
               print solution

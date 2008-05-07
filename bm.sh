@@ -1,4 +1,6 @@
-# set -x
+# Script to run benchmarks on some pre-chosen, structured problems.  Results
+# are placed in the $RESULTS_DIR and simply contain the output of the SAT
+# solver as well as timing information.
 
 DSAT=./dist/build/funsat/funsat
 RESULTS_DIR=bench-results/$(gdate +%F.%H%M)

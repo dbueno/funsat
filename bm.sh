@@ -13,6 +13,8 @@ TIMED="expect -f /Volumes/work/scripts/misc/timed-run $MAX_PROB_SECONDS"
 
 mkdir -p $RESULTS_DIR
 
+echo "Timeout:" $MAX_PROB_SECONDS "seconds" >> $RESULTS_DIR/info
+
 # record feature set
 
 
@@ -20,7 +22,6 @@ i=$((0))
 for options in ""                                    \
                "--no-watched-literals"               \
                "--no-restarts"                       \
-               "--no-clause-learning"                \
                "--no-vsids"                          \
                "--no-watched-literals --no-restarts" \
                "--no-vsids --no-restarts"

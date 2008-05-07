@@ -1,4 +1,4 @@
-DSAT=./dist/build/dsat/dsat
+DSAT="./dist/build/funsat/funsat"
 BMFILE=bm-$(gdate +%F.%H%M)
 
 # record feature set

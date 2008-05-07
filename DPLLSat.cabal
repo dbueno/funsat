@@ -1,5 +1,5 @@
 Name:                DPLLSat
-Version:             0.2
+Version:             0.3
 Cabal-Version:       >= 1.2
 Description:
 
@@ -14,7 +14,7 @@ Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
 
-Executable dsat
+Executable funsat
  Main-is:             Main.hs
  Ghc-options:         -W
  Extensions:          CPP
@@ -26,7 +26,7 @@ Executable dsat
                       , random, array, QuickCheck, parse-dimacs, bitset
                       , fgl, time
 
-Executable dsat-prof
+Executable funsat-prof
  Main-is:             Main.hs
  Ghc-options:         -W -prof -auto-all
  Extensions:          CPP

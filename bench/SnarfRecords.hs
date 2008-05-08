@@ -2,6 +2,8 @@
 -- gnuplot-formatted data set to stdout.
 module Main where
 
+import Control.Monad
+import Data.List( foldl', intercalate, transpose )
 import Data.Maybe( mapMaybe )
 import Text.Regex
 import Test.QuickCheck( quickCheck )
@@ -9,7 +11,7 @@ import System.Environment( getArgs )
 
 -- | Assume the input contains @n>0@ records delimited at the start by
 -- whatever matches regexp.  Each element @s@ of @groups rx f s@ is the output
--- of @f@ when passed (1) a string that starts with a matche for @rx@ and (2)
+-- of @f@ when passed (1) a string that starts with a match for @rx@ and (2)
 -- the rest of the string up to (and not including) the next match of @rx@.
 --
 -- If the regex fails to match at all (i.e. @n=0@), the empty list is
@@ -44,15 +46,22 @@ maxSecs = "300.0"
 
 
 main = do
-  [filename] <- getArgs
-  contents <- readFile filename
-  let results = groups satrunRx contents
---   mapM_ (putStrLn . show) (map fst results)
-  let times = map findUserTime . map snd $ results
-      pairs = zip (map fst results) times
-      showPair ([filename], maybeTime) =
-          filename ++ " " ++
-          case maybeTime of
-            Nothing -> maxSecs ++ " # No time information"
-            Just time -> time
-  mapM_ (putStrLn . showPair) pairs
+  files@(_:_) <- getArgs
+  groupList <- forM files (\file -> readFile file >>= return . groups satrunRx)
+               :: IO [[([String], String)]]
+  let benchFiles = map (head . fst) $ head groupList
+      showTime maybeTime = case maybeTime of
+                             Nothing   -> maxSecs
+                             Just time -> time
+      labelRow = replicate (length files + 1) "LABEL" -- TODO: change me
+      dataMatrix =
+          (labelRow :)
+          . zipWith (:) benchFiles
+          . transpose
+          . reverse $ 
+          foldl' (\matrix grouping ->
+                      (map showTime . map findUserTime . map snd $ grouping)
+                      : matrix)
+                 [] groupList
+          :: [[String]]
+  forM_ dataMatrix $ putStrLn . intercalate " " 

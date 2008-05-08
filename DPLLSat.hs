@@ -758,7 +758,7 @@ backJump :: MAssignment s
 backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     _theTrail <- gets trail
 --     trace ("********** conflict = " ++ show c) $ return ()
-    trace ("trail = " ++ show _theTrail) $ return ()
+--     trace ("trail = " ++ show _theTrail) $ return ()
 --     trace ("dlits (" ++ show (length dl) ++ ") = " ++ show dl) $ return ()
 --          ++ "reason: " ++ Map.showTree _reason
 --           ) (
@@ -848,7 +848,7 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
 --     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $ return ()
 --     trace ("cut: " ++ show firstUIPCut) $ return ()
 --     trace ("topSort: " ++ show topSortNodes) $ return ()
-    trace ("dlits (" ++ show (length dlits) ++ "): " ++ show dlits) $ return ()
+--     trace ("dlits (" ++ show (length dlits) ++ "): " ++ show dlits) $ return ()
 --     trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
 --     outputConflict "conflict.dot" (graphviz' conflGraph) $ return ()
 --     m <- lift $ unsafeThawAss mFr

@@ -238,12 +238,12 @@ data DPLLConfig = Cfg
 
 -- | A default configuration based on the formula to solve.
 defaultConfig :: CNF -> DPLLConfig
-defaultConfig _f = Cfg { configRestart = 100
-                       , configRestartBump = 1.5
-                       , configUseVSIDS = True
-                       , configUseWatchedLiterals = True
-                       , configUseRestarts = True
-                       , configUseLearning = True }
+defaultConfig f = Cfg { configRestart = fromIntegral$max (numVars f `div` 10) 100
+                      , configRestartBump = 2
+                      , configUseVSIDS = True
+                      , configUseWatchedLiterals = True
+                      , configUseRestarts = True
+                      , configUseLearning = True }
 
 -- * Preprocessing
 

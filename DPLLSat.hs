@@ -791,26 +791,6 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     return $ Just m
 
 
--- analyse' :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
---         -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision
---                                      -- level
--- analyse' mFr levelArr dlits c@(cLit, _cClause) = do
---     st <- get
---     let (learntCl, newLevel) = cutLearn mFr levelArr firstUIPCut
---         firstUIPCut = undefined
-
---         backBFS (seen :: BitSet Var) = undefined
---         -- node x top. l.t. y
---         x <| y = let (_prec_x, xsuff) = break (==x) tsNodes
---                  in y `elem` xsuff
---         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
---                      :: Gr CGNodeAnnot ()
---         rconflGraph = grev conflGraph
---         bfsNodes = BFS.bfs 0 rconflGraph
---         tsNodes  = DFS.topsort rconflGraph
-
---     return $ (learntCl, newLevel)
-
 
 -- Use the Decision first UIP clause, i.e, the crappiest one.
 analyseDecision :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
@@ -826,6 +806,8 @@ analyseDecision mFr levelArr dlits c@(cLit, _cClause) = do
     decisionUIP :: (Graph gr) => gr CGNodeAnnot () -> Graph.Node
     decisionUIP _ = abs . unLit $ head dlits
 
+-- | @doWhile cmd test@ first runs @cmd@, then loops testing @test@ and
+-- executing @cmd@.  The traditional @do-while@ semantics, in other words.
 doWhile :: (Monad m) => m () -> m Bool -> m ()
 doWhile body test = do
   body
@@ -834,6 +816,8 @@ doWhile body test = do
 
 -- | Analyse a the conflict graph and produce a learned clause.  We use the
 -- First UIP cut of the conflict graph.
+--
+-- May undo part of the trail, but not past the current decision level.
 analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
         -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision
                                      -- level
@@ -851,46 +835,51 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
 --     trace ("dlits (" ++ show (length dlits) ++ "): " ++ show dlits) $ return ()
 --     trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
 --     outputConflict "conflict.dot" (graphviz' conflGraph) $ return ()
---     m <- lift $ unsafeThawAss mFr
-    return $ (learntCl, newLevel)
---     a <- firstUIPBFS m (numVars . cnf $ st) (reason st)
+--     return $ (learntCl, newLevel)
+    m <- lift $ unsafeThawAss mFr
+    a <- firstUIPBFS m (numVars . cnf $ st) (reason st)
 --     trace ("firstUIPBFS learned: " ++ show a) $ return ()
---     return a
+    return a
   where
     -- BFS by undoing the trail backward.  From Minisat paper.
     firstUIPBFS :: MAssignment s -> Int -> Map Var Clause -> DPLLMonad s (Clause, Int)
     firstUIPBFS m nVars reasonMap =  do
-      seenArr <- lift $ newSTUArray (V 1, V nVars) False
-      counterR <- lift $ newSTRef 0
-      pR <- lift $ newSTRef cLit
+      -- Literals we should process.
+      seenArr  <- lift $ newSTUArray (V 1, V nVars) False
+      counterR <- lift $ newSTRef 0 -- Number of unprocessed current-level
+                                    -- lits we know about.
+      pR <- lift $ newSTRef cLit -- Invariant: literal from current dec. lev.
       out_learnedR <- lift $ newSTRef []
       out_btlevelR <- lift $ newSTRef 0
       let reasonL l = (if l == cLit then _cClause
-                       else Map.findWithDefault [] (var l) reasonMap)
-                      `without` l
+                       else Map.findWithDefault [] (var l) reasonMap
+                            `without` l)
 
       (`doWhile` (lift (readSTRef counterR) >>= return . (> 0))) $
         do p <- lift $ readSTRef pR
-           -- Trace reason for p:
+           -- For each unseen reason,
+           -- * from the current level, bump counter
+           -- * from lower level, put in learned clause
            lift . forM_ (reasonL p) $ \q -> do
              seenq <- readArray seenArr (var q)
-             if not seenq
-              then do writeArray seenArr (var q) True
-                      if levelL q == currentLevel
-                       then modifySTRef counterR (+ 1)
-                       else if levelL q > 0
-                       then do modifySTRef out_learnedR (q:)
-                               modifySTRef out_btlevelR $ max (levelL q)
-                       else return ()
-
-              else return ()
+             when (not seenq) $
+               do writeArray seenArr (var q) True
+                  if levelL q == currentLevel
+                   then modifySTRef counterR (+ 1)
+                   else if levelL q > 0
+                   then do modifySTRef out_learnedR (q:)
+                           modifySTRef out_btlevelR $ max (levelL q)
+                   else return ()
            -- Select next literal to look at:
            (`doWhile` (lift (readSTRef pR >>= readArray seenArr . var)
                        >>= return . not)) $ do
-             trl <- gets trail
-             let p = head trl
+             p <- head `liftM` gets trail -- a dec. var. only if the counter =
+                                          -- 1, i.e., loop terminates now
              lift $ writeSTRef pR p
              undoOne m
+           -- Invariant states p is from current level, so when we're done
+           -- with it, we've thrown away one lit. from counting toward
+           -- counter.
            lift $ modifySTRef counterR (\c -> c - 1)
       p <- lift $ readSTRef pR
       lift $ modifySTRef out_learnedR (negate p:)
@@ -928,7 +917,7 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
     lastd        = head dlits
     conflNode    = unLit cLit
     currentLevel = length dlits
-    levelL l = if l == cLit then currentLevel else levelArr!(var l)
+    levelL l = levelArr!(var l)
     levelN i = if i == unLit cLit then currentLevel else ((levelArr!) . V . abs) i
 
 -- | The union of the reason side and the conflict side are all the nodes in

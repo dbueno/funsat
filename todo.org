@@ -1,9 +1,12 @@
 * Sat todo file
 
+* TODO Derive resolution proof of UNSAT in order to aid debugging      :feature:
+
 * TODO There is a bug in mkConflGraph				       :ARCHIVE:
 mkConflGraph' is the old code that seemed to work, but it's much slower.
 
-* TODO Bug fixed
+* DONE Bug fixed
+  CLOSED: [2008-05-08 Thu 22:17]
 ** decision list wasn't reset on restarts
 ** propQ wasn't reset on restarts
 

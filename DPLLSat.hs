@@ -151,7 +151,7 @@ import Data.Graph.Inductive.Graph( DynGraph, Graph )
 import Data.Graph.Inductive.Graphviz
 import Data.Graph.Inductive.Tree( Gr )
 import Data.Int (Int64)
-import Data.List (intercalate, nub, tails, sortBy, intersect)
+import Data.List (intercalate, nub, tails, sortBy, intersect, sort)
 import Data.Map (Map)
 import Data.Maybe
 import Data.Ord (comparing)
@@ -226,20 +226,20 @@ solve1 f = solve (defaultConfig f) (mkStdGen 1) f
 
 -- | Configuration parameters for the solver.
 data DPLLConfig = Cfg
-    { configRestart :: Int64      -- ^ Number of conflicts before a restart.
-    , configRestartBump :: Double -- ^ `configRestart' is altered after each
+    { configRestart :: !Int64      -- ^ Number of conflicts before a restart.
+    , configRestartBump :: !Double -- ^ `configRestart' is altered after each
                                   -- restart by multiplying it by this value.
-    , configUseVSIDS :: Bool      -- ^ If true, use dynamic variable ordering.
-    , configUseWatchedLiterals :: Bool -- ^ If true, use watched literals
+    , configUseVSIDS :: !Bool      -- ^ If true, use dynamic variable ordering.
+    , configUseWatchedLiterals :: !Bool -- ^ If true, use watched literals
                                        -- scheme.
-    , configUseRestarts :: Bool
-    , configUseLearning :: Bool }
+    , configUseRestarts :: !Bool
+    , configUseLearning :: !Bool }
                   deriving Show
 
 -- | A default configuration based on the formula to solve.
 defaultConfig :: CNF -> DPLLConfig
-defaultConfig f = Cfg { configRestart = fromIntegral$max (numVars f `div` 10) 100
-                      , configRestartBump = 2
+defaultConfig f = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
+                      , configRestartBump = 1.5
                       , configUseVSIDS = True
                       , configUseWatchedLiterals = True
                       , configUseRestarts = True
@@ -256,8 +256,23 @@ preprocessCNF f = f{clauses = simpClauses (clauses f)}
 
 -- | Simplify the clause database.  Eventually should supersede, probably,
 -- `preprocessCNF'.
+--
+-- Precondition: no decisions.
 simplifyDB :: IAssignment -> DPLLMonad s ()
-simplifyDB _mFr = undefined
+simplifyDB mFr = do
+  -- For each clause in the database, remove it if satisfied; if it contains a
+  -- literal whose negation is assigned, delete that literal.
+  n <- numVars `liftM` gets cnf
+  s <- get
+  lift . forM_ [V 1 .. V n] $ \i -> when (mFr!i /= 0) $ do
+    let l = L (mFr!i)
+        filterL _i = map (\(p, c) -> (p, filter (/= negate l) c))
+    -- Remove unsat literal `negate l' from clauses.
+    modifyArray (watches s) l filterL
+    modifyArray (learnt s) l filterL
+    -- Clauses containing `l' are Sat.
+    writeArray (watches s) (negate l) []
+    writeArray (learnt s) (negate l) []
 
 -- * Internals
 
@@ -269,7 +284,7 @@ solveStep :: MAssignment s -> DPLLMonad s (Step s)
 solveStep m = do
     lift (unsafeFreezeAss m) >>= solveStepInvariants
     conf <- gets dpllConfig
-    -- let selector = if configUseVSIDS conf then select else selectStatic
+    let selector = if configUseVSIDS conf then select else selectStatic
     let bcper = if configUseWatchedLiterals conf then bcp else bcpDumb
     maybeConfl <- bcper m
     mFr <- lift $ unsafeFreezeAss m
@@ -281,7 +296,7 @@ solveStep m = do
           -- Unit propagation may reveal conflicts; check.
        >< maybeConfl              >=> backJump m
           -- No conflicts.  Decide.
-       >< select mFr voFr >=> decide m
+       >< selector mFr voFr >=> decide m
     where
       -- Take the step chosen by the transition guards above.
       newState stepMaybe =
@@ -329,6 +344,7 @@ stepToSolution stepAction = do
       Right s -> return s
   where
     resetState m = do
+      modify $ \s -> s{ numConfl = 0 }
       -- Require more conflicts before next restart.
       modifySlot dpllConfig $ \s c ->
         s{ dpllConfig = c{ configRestart = ceiling (configRestartBump c
@@ -338,7 +354,8 @@ stepToSolution stepAction = do
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
       modify $ \s -> s{ dl = [], propQ = Seq.empty }
-      compact
+      compactDB
+      lift (unsafeFreezeAss m) >>= simplifyDB
 
 instance Show Solution where
    show (Sat a) = "satisfiable: " ++ showAssignment a
@@ -730,6 +747,7 @@ select :: IAssignment -> FrozenVarOrder -> Maybe Var
 select = varOrderGet
 
 selectStatic :: IAssignment -> a -> Maybe Var
+{-# INLINE selectStatic #-}
 selectStatic m _ = find (`isUndefUnder` m) (range . bounds $ m)
 
 -- | Assign given decision variable.  Records the current assignment before
@@ -781,7 +799,7 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
      assert (not (null learntCl)) $
      assert (learntCl `isUnitUnder` mFr) $
      modify $ \s -> s{ dl  = dl' } -- undo decisions
-    forM_ conflict (bump . var)
+--     forM_ conflict (bump . var)
     mFr <- lift $ unsafeFreezeAss m
 --     trace ("new mFr: " ++ showAssignment mFr) $ return ()
     -- TODO once I'm sure this works I don't need getUnit, I can just use the
@@ -857,6 +875,7 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
 
       (`doWhile` (lift (readSTRef counterR) >>= return . (> 0))) $
         do p <- lift $ readSTRef pR
+           forM_ (reasonL p) (bump . var)
            -- For each unseen reason,
            -- * from the current level, bump counter
            -- * from lower level, put in learned clause
@@ -883,6 +902,7 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
            lift $ modifySTRef counterR (\c -> c - 1)
       p <- lift $ readSTRef pR
       lift $ modifySTRef out_learnedR (negate p:)
+      bump . var $ p
       out_learned <- lift $ readSTRef out_learnedR
       out_btlevel <- lift $ readSTRef out_btlevelR
       return (out_learned, out_btlevel)
@@ -1107,8 +1127,8 @@ unsat maybeConflict (SC{dl=dl}) = isUnsat
 -- *** Clause compaction
 
 -- | Keep the smaller half of the learned clauses.
-compact :: DPLLMonad s ()
-compact = do
+compactDB :: DPLLMonad s ()
+compactDB = do
   n <- numVars `liftM` gets cnf
   lArr <- gets learnt
   clauses <- lift $ (nub . Fl.concat) `liftM`
@@ -1147,6 +1167,9 @@ watchClause m c isLearnt = do
               return result
     _ -> if configUseWatchedLiterals conf then
              do let p = (negate (c !! 0), negate (c !! 1))
+                    insert annCl@(_, cl) list -- avoid watching dup clauses
+                        | any (\(_, c) -> cl == c) list = list
+                        | otherwise                     = annCl:list
                 r <- lift $ newSTRef p
                 let annCl = (r, c)
                     addCl arr = do modifyArray arr (fst p) $ const (annCl:)
@@ -1319,7 +1342,8 @@ extractStats = do
   s <- get
   learntArr <- lift $ unsafeFreezeWatchArray (learnt s)
   let learnts = (nub . Fl.concat)
-        [ map snd (learntArr!i) | i <- (range . bounds) learntArr ] :: [Clause]
+        [ map (sort . snd) (learntArr!i)
+        | i <- (range . bounds) learntArr ] :: [Clause]
       stats =
         Stats { statsNumConfl = numConfl s
               , statsNumConflTotal = numConflTotal s

@@ -19,7 +19,6 @@ Executable funsat
  Ghc-options:         -W
  Extensions:          CPP
  CPP-options:         -DTESTING
- Ghc-prof-options:    -prof -auto-all
  Hs-source-dirs:      . tests
  Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular
  Build-Depends:       base, parsec, containers, pretty, mtl

@@ -1,5 +1,9 @@
 -- | Grovel over the result file given on the command-line and print a
 -- gnuplot-formatted data set to stdout.
+--
+-- Example usage:
+--
+-- runghc SnarfRecords.hs result.1 result.2 > result1-2.dat
 module Main where
 
 import Control.Monad

@@ -24,8 +24,6 @@ for options in ""                                    \
                "--no-watched-literals"               \
                "--no-restarts"                       \
                "--no-vsids"                          \
-               "--no-watched-literals --no-restarts" \
-               "--no-vsids --no-restarts"
 do
     i=$(($i+1))
     OUTPUT="$RESULTS_DIR/result.$i"

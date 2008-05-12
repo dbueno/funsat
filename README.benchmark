@@ -1,5 +1,3 @@
--*- mode: outline -*-
-
 This file depends on the README.  So you should probably read that first.
 
 Funsat comes with some benchmarks and a script to run them (bm.sh) and a

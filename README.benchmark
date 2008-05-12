@@ -1,0 +1,17 @@
+-*- mode: outline -*-
+
+This file depends on the README.  So you should probably read that first.
+
+Funsat comes with some benchmarks and a script to run them (bm.sh) and a
+script to generate gnuplot plots from the results (bench/SnarfRecords.hs).
+
+* Generating benchmarks
+
+bm.sh is a bash script that runs tests disabling certain common SAT solver
+optimisations on a range of structured benchmark problems.  The problems are
+in DIMACS cnf format and in the bench/ subdirectory.
+
+The raw results are stashed in the bench-results/ subdirectory, indexed by
+date and time.  The raw results can be turned into data files suitable for
+input to gnuplot by using bench/SnarfRecords.hs and a haskell interpreter
+(e.g. GHC).

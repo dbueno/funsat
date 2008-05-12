@@ -14,4 +14,5 @@ in DIMACS cnf format and in the bench/ subdirectory.
 The raw results are stashed in the bench-results/ subdirectory, indexed by
 date and time.  The raw results can be turned into data files suitable for
 input to gnuplot by using bench/SnarfRecords.hs and a haskell interpreter
-(e.g. GHC).
+(e.g. GHC).  GHC is available from haskell.org for all major operating
+systems.

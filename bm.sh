@@ -21,9 +21,9 @@ echo "Timeout:" $MAX_PROB_SECONDS "seconds" >> $RESULTS_DIR/info
 i=$((0))
 for options in ""                                    \
                "--no-clause-learning"                \
-               "--no-watched-literals"               \
                "--no-restarts"                       \
-               "--no-vsids"                          \
+               "--no-watched-literals"               \
+               "--no-vsids"
 do
     i=$(($i+1))
     OUTPUT="$RESULTS_DIR/result.$i"

@@ -22,7 +22,8 @@ Executable funsat
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular
+ Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular DPLL.Monad
+                      Control.Monad.MonadST
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
                       , fgl, time
@@ -33,14 +34,15 @@ Executable funsat-prof
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
- Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular
+ Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular DPLL.Monad
+                      Control.Monad.MonadST
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs, bitset
                       , fgl, time
 
 
 Library
- Exposed-modules:     DPLLSat
+ Exposed-modules:     DPLLSat DPLL.Monad Control.Monad.MonadST
  Other-modules:       FastDom Utils
  Ghc-options:         -W
  CPP-options:         -DTESTING

@@ -1,5 +1,10 @@
 * Sat todo file
 
+* TODO [#C] Initial state for dynamic variable ordering should be
+based on the number of occurrences of literals in the clause database at the
+beginning, or something.  Some heuristic that puts important variables first
+at the beginning, instead of starting out all at zero.
+
 * TODO [#A] Remove the monad stack from bcpLit
 There are three monads there!  Can we just write a single monad data type on
 top of ST that has errors and whatnot?

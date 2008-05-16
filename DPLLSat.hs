@@ -6,7 +6,9 @@
             ,GeneralizedNewtypeDeriving
             ,TypeSynonymInstances
             ,TypeOperators
-            ,ParallelListComp #-}
+            ,ParallelListComp
+            ,PolymorphicComponents
+ #-}
 {-# OPTIONS -cpp #-}
 
 
@@ -641,6 +643,71 @@ instance Show (STArray s a b) where
 -- references, when necessary.  Most of the state, however, is kept in
 -- `DPLLStateContents' and is not mutable.
 type DPLLMonad s = StateT (DPLLStateContents s) (ST s)
+
+-- | An unrolled monad that gives us state threoding, error handlng, and all
+-- this in @ST@.
+newtype DPLLMonad2 e s st a = M { runDPLLMonad :: (st -> ST s (Either e a, st)) }
+
+type DPLLMonadSpecific s a = DPLLMonad2 (Lit, Clause) s (DPLLStateContents s) a
+
+instance Monad (DPLLMonad2 e s st) where
+--     fail _ = M $ (\s-> return (Left e, s))
+    return x = M (\s -> return (Right x, s))
+    m >>= g = M (\s -> do (x, s') <- runDPLLMonad m s
+                          case x of
+                            Left e  -> return (Left e, s')
+                            Right a -> runDPLLMonad (g a) s')
+
+-- | Perform an @ST@ action in the DPLL monad.
+dpllST :: ST s a -> DPLLMonad2 e s st a
+dpllST st = M (\s -> do x <- st
+                        return (Right x, s))
+
+instance Functor (DPLLMonad2 e s st) where
+    fmap f m = M (\s -> do (x, s') <- runDPLLMonad m s
+                           return (fmap f x, s'))
+
+instance MonadState st (DPLLMonad2 e s st) where
+    get = M (\s -> return (Right s, s))
+    put s = M (\_ -> return (Right (), s))
+
+instance MonadError e (DPLLMonad2 e s st) where
+    throwError e   = M (\s -> return (Left e, s))
+    catchError m f = M (\s -> do (x, s') <- runDPLLMonad m s
+                                 case x of 
+                                   Left e -> runDPLLMonad (f e) s'
+                                   Right a -> return (Right a, s'))
+
+-- Idea adapted from
+-- http://haskell.org/haskellwiki/Performance/Monads
+
+-- Should avoid checking Left and Right for every `>>='; instead only checks
+-- on catchError.
+
+newtype DPLLMonad' e st s a =
+    DPLLMonad' { unDPLLMonad' :: forall r. (a -> (st -> ST s (Either e r, st)))
+                              -> (st -> ST s (Either e r, st)) }
+
+runDPLLMonad' :: (Error e) => DPLLMonad' e st s a -> (st -> ST s (Either e a, st))
+runDPLLMonad' m = unDPLLMonad' m (\x s -> return (return x, s))
+
+instance Monad (DPLLMonad' e st s) where
+    return x = DPLLMonad' ($ x)
+    m >>= f  = DPLLMonad' (\k -> unDPLLMonad' m (\a -> unDPLLMonad' (f a) k))
+
+instance MonadState st (DPLLMonad' e st s) where
+    get = DPLLMonad' (\k s -> k s s)
+    put s' = DPLLMonad' (\k s -> k () s')
+
+instance (Error e) => MonadError e (DPLLMonad' e st s) where
+    throwError err =            -- throw away continuation
+        DPLLMonad' (\_ s -> return (Left err, s))
+    catchError action handler = DPLLMonad'
+        (\k s -> do (x, s') <- runDPLLMonad' action s
+                    undefined
+                    case x of
+                      Left error -> unDPLLMonad' (handler error) k s'
+                      Right result -> k result s')
 
 
 -- *** Boolean constraint propagation

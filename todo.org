@@ -1,5 +1,9 @@
 * Sat todo file
 
+* TODO [#A] Remove the monad stack from bcpLit
+There are three monads there!  Can we just write a single monad data type on
+top of ST that has errors and whatnot?
+
 * TODO On some problems, select is a bottleneck, much               :heuristics:
 more than bcpLit.  Even so, reverting to a static ordering gives worse
 runtime.  So ... if we had a faster way of selecting the min, it would be

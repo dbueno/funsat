@@ -13,6 +13,8 @@ License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
+Extra-source-files:  README README.benchmark bm.sh todo.org
+
 
 Executable funsat
  Main-is:             Main.hs

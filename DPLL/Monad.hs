@@ -21,8 +21,7 @@ instance MonadST s (DPLLMonad e st s) where
 -- | Perform an @ST@ action in the DPLL monad.
 dpllST :: ST s a -> DPLLMonad e st s a
 {-# INLINE dpllST #-}
-dpllST st = DPLLMonad (\k s -> do x <- st
-                                  k x s)
+dpllST st = DPLLMonad (\k s -> st >>= \x -> k x s)
 
 -- | @runDPLLMonad m s@ executes a `DPLLMonad' action with initial state @s@
 -- until an error occurs or a result is returned.
@@ -39,7 +38,7 @@ execDPLLMonad m s = do (result, _) <- runDPLLMonad m s
 -- This is a monad embedding @ST@ and supporting error handling and state
 -- threading.  It uses CPS to avoid checking `Left' and `Right' for every
 -- `>>='; instead only checks on `catchError'. Idea adapted from
--- <http://haskell.org/haskellwiki/Performance/Monads>
+-- <http://haskell.org/haskellwiki/Performance/Monads>.
 newtype DPLLMonad e st s a =
     DPLLMonad { unDPLLMonad :: forall r. (a -> (st -> ST s (Either e r, st)))
                               -> (st -> ST s (Either e r, st)) }
@@ -57,7 +56,6 @@ instance (Error e) => MonadError e (DPLLMonad e st s) where
         DPLLMonad (\_ s -> return (Left err, s))
     catchError action handler = DPLLMonad
         (\k s -> do (x, s') <- runDPLLMonad action s
-                    undefined
                     case x of
                       Left error -> unDPLLMonad (handler error) k s'
                       Right result -> k result s')

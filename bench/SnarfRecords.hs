@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fglasgow-exts #-}
+
 -- | Grovel over the result file given on the command-line and print a
 -- gnuplot-formatted data set to stdout.
 --
@@ -7,8 +9,10 @@
 module Main where
 
 import Control.Monad
-import Data.List( foldl', intercalate, transpose )
+import Data.List( foldl', intercalate, transpose, genericLength )
 import Data.Maybe( mapMaybe )
+import Debug.Trace( trace )
+import Graphics.Rendering.Chart
 import Text.Regex
 import Test.QuickCheck( quickCheck )
 import System.Environment( getArgs )
@@ -31,8 +35,42 @@ groups markerRx s = snd $ groups' markerRx s
               let (beforeNext, retList) = groups' markerRx afterMatch
               in ( beforeMatch, (submatches, beforeNext) : retList )
 
+plotColumnPoints col s = defaultPlotPoints
+  { plot_points_style = s
+  , plot_points_values = zipWith Point [1..] col }
 
+plotLines col s = defaultPlotLines
+  { plot_lines_style = s
+  , plot_lines_values = [zipWith Point [1..] col] }
 
+manyTickAxis = defaultAxis
+
+myLayout names matrix = defaultLayout1
+    { layout1_plots =
+        -- Show each column of data, not including the label column.
+        concat
+        [ [ ("", HA_Bottom, VA_Right, toPlot (plotLines col (lineStyle color)))
+          , (name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
+             toPlot (plotColumnPoints col (pointStyle color))) ]
+        | i     <- [1..length names]
+        | name  <- names
+        | col   <- pointsRows
+        | color <- colors ] }
+  where
+    pointStyle color = exes 7 2 color
+    lineStyle color  = solidLine 1 color
+
+    black = Color 0 0 0
+    red   = Color 1 0 0
+    green = Color 0 1 0
+    blue  = Color 0 0 1
+    colors = [black, red, green, blue]
+
+    -- remove label and convert to doubles
+    pointsRows = transpose . map (map read) . map tail $ matrix :: [[Double]]
+
+savePNG names matrix =
+    renderableToPNGFile (toRenderable (myLayout names matrix)) 1024 768 "test.png"
 
 
 ------------------------------------------------------------------------------
@@ -48,6 +86,7 @@ findUserTime s =
 
 maxSecs = "300.0"
 
+tracing x = trace (show x) $ x
 
 main = do
   files@(_:_) <- getArgs
@@ -68,4 +107,5 @@ main = do
                       : matrix)
                  [] groupList
           :: [[String]]
-  forM_ dataMatrix $ putStrLn . intercalate " " 
+  putStrLn "Saving PNG..." >> savePNG (tail labelRow) (tail dataMatrix)
+--   forM_ dataMatrix $ putStrLn . intercalate " " 

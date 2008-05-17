@@ -142,6 +142,7 @@ module DPLLSat
 import Control.Arrow ((&&&))
 import Control.Exception (assert)
 import Control.Monad.Error hiding ((>=>), forM_)
+import Control.Monad.MonadST( MonadST(..) )
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
 import Data.Array.ST
@@ -164,7 +165,7 @@ import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
 import System.Random
 import Text.Printf( printf )
 import Utils
-import DPLL.Monad()
+import DPLL.Monad
 import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.BFS as BFS
@@ -187,7 +188,7 @@ solve cfg g fIn =
 --     trace ("input " ++ show f) $
     runST $
     evalStateT (do sol <- stepToSolution $ do
-                     initialAssignment <- lift $ newSTUArray (V 1, V (numVars f)) 0
+                     initialAssignment <- liftST $ newSTUArray (V 1, V (numVars f)) 0
                      isUnsat <- initialState initialAssignment
                      if isUnsat then return (Right Unsat)
                       else solveStep initialAssignment
@@ -204,13 +205,13 @@ solve cfg g fIn =
     -- If returns True, then problem is unsat.
     initialState :: MAssignment s -> DPLLMonad s Bool
     initialState m = do
-      initialLevel <- lift $ newSTUArray (V 1, V (numVars f)) noLevel
+      initialLevel <- liftST $ newSTUArray (V 1, V (numVars f)) noLevel
       modify $ \s -> s{level = initialLevel}
-      initialWatches <- lift $ newSTArray (L (- (numVars f)), L (numVars f)) []
+      initialWatches <- liftST $ newSTArray (L (- (numVars f)), L (numVars f)) []
       modify $ \s -> s{ watches = initialWatches }
-      initialLearnts <- lift $ newSTArray (L (- (numVars f)), L (numVars f)) []
+      initialLearnts <- liftST $ newSTArray (L (- (numVars f)), L (numVars f)) []
       modify $ \s -> s{ learnt = initialLearnts }
-      initialVarOrder <- lift $ newSTUArray (V 1, V (numVars f)) initialActivity
+      initialVarOrder <- liftST $ newSTUArray (V 1, V (numVars f)) initialActivity
       modify $ \s -> s{ varOrder = VarOrder initialVarOrder }
 
       leftUnsat <-
@@ -266,7 +267,7 @@ simplifyDB mFr = do
   -- literal whose negation is assigned, delete that literal.
   n <- numVars `liftM` gets cnf
   s <- get
-  lift . forM_ [V 1 .. V n] $ \i -> when (mFr!i /= 0) $ do
+  liftST . forM_ [V 1 .. V n] $ \i -> when (mFr!i /= 0) $ do
     let l = L (mFr!i)
         filterL _i = map (\(p, c) -> (p, filter (/= negate l) c))
     -- Remove unsat literal `negate l' from clauses.
@@ -284,14 +285,14 @@ simplifyDB mFr = do
 -- new state.
 solveStep :: MAssignment s -> DPLLMonad s (Step s)
 solveStep m = do
-    lift (unsafeFreezeAss m) >>= solveStepInvariants
+    unsafeFreezeAss m >>= solveStepInvariants
     conf <- gets dpllConfig
     let selector = if configUseVSIDS conf then select else selectStatic
     let bcper = if configUseWatchedLiterals conf then bcp else bcpDumb
     maybeConfl <- bcper m
-    mFr <- lift $ unsafeFreezeAss m
+    mFr <- unsafeFreezeAss m
     s <- get
-    voFr <- FrozenVarOrder `liftM` lift (unsafeFreeze . varOrderArr . varOrder $ s)
+    voFr <- FrozenVarOrder `liftM` liftST (unsafeFreeze . varOrderArr . varOrder $ s)
     newState $ 
           -- Check if unsat.
           unsat maybeConfl s      ==> return Nothing
@@ -304,7 +305,7 @@ solveStep m = do
       newState stepMaybe =
          case stepMaybe of
            -- No step to do => satisfying assignment. (p. 6)
-           Nothing   -> lift (unsafeFreezeAss m) >>= return . Right . Sat
+           Nothing   -> unsafeFreezeAss m >>= return . Right . Sat
            -- A step to do => do it, then see what it says.
            Just step -> step >>= return . maybe (Right Unsat) Left
 
@@ -352,12 +353,12 @@ stepToSolution stepAction = do
         s{ dpllConfig = c{ configRestart = ceiling (configRestartBump c
                                                    * fromIntegral (configRestart c))
                            } }
-      lvl :: FrozenLevelArray <- gets level >>= lift . unsafeFreeze
+      lvl :: FrozenLevelArray <- gets level >>= liftST . unsafeFreeze
       undoneLits <- takeWhile (\l -> lvl ! (var l) > 0) `liftM` gets trail
       forM_ undoneLits $ const (undoOne m)
       modify $ \s -> s{ dl = [], propQ = Seq.empty }
       compactDB
-      lift (unsafeFreezeAss m) >>= simplifyDB
+      unsafeFreezeAss m >>= simplifyDB
 
 instance Show Solution where
    show (Sat a) = "satisfiable: " ++ showAssignment a
@@ -488,8 +489,8 @@ type MAssignment s = STUArray s Var Int
 freezeAss :: MAssignment s -> ST s IAssignment
 freezeAss = freeze
 -- | See `freezeAss'.
-unsafeFreezeAss :: MAssignment s -> ST s IAssignment
-unsafeFreezeAss = unsafeFreeze
+unsafeFreezeAss :: MAssignment s -> DPLLMonad s IAssignment
+unsafeFreezeAss = liftST . unsafeFreeze
 
 thawAss :: IAssignment -> ST s (MAssignment s)
 thawAss = thaw
@@ -643,6 +644,10 @@ instance Show (STArray s a b) where
 -- references, when necessary.  Most of the state, however, is kept in
 -- `DPLLStateContents' and is not mutable.
 type DPLLMonad s = StateT (DPLLStateContents s) (ST s)
+type DPLLMonad' s = SSTErrMonad (Lit, Clause) (DPLLStateContents s) s
+
+instance Control.Monad.MonadST.MonadST s (DPLLMonad s) where
+    liftST = lift
 
 
 -- *** Boolean constraint propagation
@@ -659,17 +664,17 @@ bcpLit :: MAssignment s
           -> DPLLMonad s (Maybe (Lit, Clause))
 bcpLit m l = do
     ws <- gets watches ; ls <- gets learnt
-    clauses <- lift $ readArray ws l
-    learnts <- lift $ readArray ls l
-    lift $ do writeArray ws l [] ; writeArray ls l []
+    clauses <- liftST $ readArray ws l
+    learnts <- liftST $ readArray ls l
+    liftST $ do writeArray ws l [] ; writeArray ls l []
 
     -- Update wather lists for normal & learnt clauses; if conflict is found,
     -- return that and don't update anything else.
     c <- runErrorT $ do
            {-# SCC "bcpWatches" #-} forM_ (tails clauses) (updateWatches
-             (\ f l -> lift . lift $ modifyArray ws l (const f)))
+             (\ f l -> lift . liftST $ modifyArray ws l (const f)))
            {-# SCC "bcpLearnts" #-} forM_ (tails learnts) (updateWatches
-             (\ f l -> lift . lift $ modifyArray ls l (const f)))
+             (\ f l -> lift . liftST $ modifyArray ls l (const f)))
     case c of
       Left conflict -> return $ Just conflict
       Right _       -> return Nothing
@@ -683,9 +688,9 @@ bcpLit m l = do
     {-# INLINE updateWatches #-}
     updateWatches _ [] = return ()
     updateWatches alter (annCl@(watchRef, c) : restClauses) = do
-      mFr <- lift . lift $ unsafeFreezeAss m
-      q   <- lift . lift $ do (x, y) <- readSTRef watchRef
-                              return $ if x == l then y else x
+      mFr <- lift (unsafeFreezeAss m)
+      q   <- lift . liftST $ do (x, y) <- readSTRef watchRef
+                                return $ if x == l then y else x
       -- l,q are the (negated) literals being watched for clause c.
       if negate q `isTrueUnder` mFr -- if other true, clause already sat
        then alter (annCl:) l
@@ -693,7 +698,7 @@ bcpLit m l = do
          case find (\x -> x /= negate q && x /= negate l
                           && not (x `isFalseUnder` mFr)) c of
            Just l' -> do     -- found unassigned literal, negate l', to watch
-             lift . lift $ writeSTRef watchRef (q, negate l')
+             lift . liftST $ writeSTRef watchRef (q, negate l')
              alter (annCl:) (negate l')
 
            Nothing -> do      -- all other lits false, clause is unit
@@ -717,7 +722,7 @@ bcp m = do
 
 bcpDumb :: MAssignment s -> DPLLMonad s (Maybe (Lit, Clause))
 bcpDumb m = do
-  mFr <- lift $ freezeAss m
+  mFr <- liftST $ freezeAss m
   s <- get
   let candidates = Set.filter (not . (`isTrueUnder` mFr)) (clauses . cnf $ s)
   case find (`isFalseUnder` mFr) candidates of
@@ -785,9 +790,9 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     modify $ \s -> s{ numConfl = numConfl s + 1
                     , numConflTotal = numConflTotal s + 1 }
     levelArr :: FrozenLevelArray <- do s <- get
-                                       lift $ unsafeFreeze (level s)
+                                       liftST $ unsafeFreeze (level s)
     (learntCl, newLevel) <-
-        do mFr <- lift $ unsafeFreezeAss m
+        do mFr <- unsafeFreezeAss m
            useLearning <- configUseLearning `liftM` gets dpllConfig
            if useLearning then analyse mFr levelArr dl c
                           else analyseDecision mFr levelArr dl c
@@ -796,13 +801,12 @@ backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
         dl' = drop numDecisionsToUndo dl
         undoneLits = takeWhile (\lit -> levelArr ! (var lit) > newLevel) (trail s) 
     forM_ undoneLits $ const (undoOne m) -- backtrack
-    mFr <- lift $ unsafeFreezeAss m
+    mFr <- unsafeFreezeAss m
     assert (numDecisionsToUndo > 0) $
      assert (not (null learntCl)) $
      assert (learntCl `isUnitUnder` mFr) $
      modify $ \s -> s{ dl  = dl' } -- undo decisions
---     forM_ conflict (bump . var)
-    mFr <- lift $ unsafeFreezeAss m
+    mFr <- unsafeFreezeAss m
 --     trace ("new mFr: " ++ showAssignment mFr) $ return ()
     -- TODO once I'm sure this works I don't need getUnit, I can just use the
     -- uip of the cut.
@@ -865,23 +869,23 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
     firstUIPBFS :: MAssignment s -> Int -> Map Var Clause -> DPLLMonad s (Clause, Int)
     firstUIPBFS m nVars reasonMap =  do
       -- Literals we should process.
-      seenArr  <- lift $ newSTUArray (V 1, V nVars) False
-      counterR <- lift $ newSTRef 0 -- Number of unprocessed current-level
-                                    -- lits we know about.
-      pR <- lift $ newSTRef cLit -- Invariant: literal from current dec. lev.
-      out_learnedR <- lift $ newSTRef []
-      out_btlevelR <- lift $ newSTRef 0
+      seenArr  <- liftST $ newSTUArray (V 1, V nVars) False
+      counterR <- liftST $ newSTRef 0 -- Number of unprocessed current-level
+                                      -- lits we know about.
+      pR <- liftST $ newSTRef cLit -- Invariant: literal from current dec. lev.
+      out_learnedR <- liftST $ newSTRef []
+      out_btlevelR <- liftST $ newSTRef 0
       let reasonL l = (if l == cLit then _cClause
                        else Map.findWithDefault [] (var l) reasonMap
                             `without` l)
 
-      (`doWhile` (lift (readSTRef counterR) >>= return . (> 0))) $
-        do p <- lift $ readSTRef pR
+      (`doWhile` (liftST (readSTRef counterR) >>= return . (> 0))) $
+        do p <- liftST $ readSTRef pR
            forM_ (reasonL p) (bump . var)
            -- For each unseen reason,
            -- > from the current level, bump counter
            -- > from lower level, put in learned clause
-           lift . forM_ (reasonL p) $ \q -> do
+           liftST . forM_ (reasonL p) $ \q -> do
              seenq <- readArray seenArr (var q)
              when (not seenq) $
                do writeArray seenArr (var q) True
@@ -892,21 +896,21 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
                            modifySTRef out_btlevelR $ max (levelL q)
                    else return ()
            -- Select next literal to look at:
-           (`doWhile` (lift (readSTRef pR >>= readArray seenArr . var)
+           (`doWhile` (liftST (readSTRef pR >>= readArray seenArr . var)
                        >>= return . not)) $ do
              p <- head `liftM` gets trail -- a dec. var. only if the counter =
                                           -- 1, i.e., loop terminates now
-             lift $ writeSTRef pR p
+             liftST $ writeSTRef pR p
              undoOne m
            -- Invariant states p is from current level, so when we're done
            -- with it, we've thrown away one lit. from counting toward
            -- counter.
-           lift $ modifySTRef counterR (\c -> c - 1)
-      p <- lift $ readSTRef pR
-      lift $ modifySTRef out_learnedR (negate p:)
+           liftST $ modifySTRef counterR (\c -> c - 1)
+      p <- liftST $ readSTRef pR
+      liftST $ modifySTRef out_learnedR (negate p:)
       bump . var $ p
-      out_learned <- lift $ readSTRef out_learnedR
-      out_btlevel <- lift $ readSTRef out_btlevelR
+      out_learned <- liftST $ readSTRef out_learnedR
+      out_btlevel <- liftST $ readSTRef out_btlevelR
       return (out_learned, out_btlevel)
 
     firstUIP conflGraph = -- trace ("--> uips = " ++ show uips) $
@@ -1092,8 +1096,8 @@ undoOne m = do
   case trl of
     []       -> error "undoOne of empty trail"
     (l:trl') -> do
-        lift $ m `unassign` l
-        lift $ writeArray lvl (var l) noLevel
+        liftST $ m `unassign` l
+        liftST $ writeArray lvl (var l) noLevel
         modify $ \s ->
           s{ trail    = trl'
            , reason   = Map.delete (var l) (reason s) }
@@ -1133,13 +1137,13 @@ compactDB :: DPLLMonad s ()
 compactDB = do
   n <- numVars `liftM` gets cnf
   lArr <- gets learnt
-  clauses <- lift $ (nub . Fl.concat) `liftM`
-                    forM [L (- n) .. L n]
-                       (\v -> do val <- readArray lArr v ; writeArray lArr v []
-                                 return val)
+  clauses <- liftST $ (nub . Fl.concat) `liftM`
+                      forM [L (- n) .. L n]
+                         (\v -> do val <- readArray lArr v ; writeArray lArr v []
+                                   return val)
   let clauses' = take (length clauses `div` 2)
                  $ sortBy (comparing (length . snd)) clauses
-  lift $ forM_ clauses'
+  liftST $ forM_ clauses'
            (\ wCl@(r, _) -> do
               (x, y) <- readSTRef r
               modifyArray lArr x $ const (wCl:)
@@ -1165,18 +1169,18 @@ watchClause m c isLearnt = do
     [] -> return True
     [l] -> do result <- enqueue m l (Just c)
               levelArr <- gets level
-              lift $ writeArray levelArr (var l) 0
+              liftST $ writeArray levelArr (var l) 0
               return result
     _ -> if configUseWatchedLiterals conf then
              do let p = (negate (c !! 0), negate (c !! 1))
                     insert annCl@(_, cl) list -- avoid watching dup clauses
                         | any (\(_, c) -> cl == c) list = list
                         | otherwise                     = annCl:list
-                r <- lift $ newSTRef p
+                r <- liftST $ newSTRef p
                 let annCl = (r, c)
                     addCl arr = do modifyArray arr (fst p) $ const (annCl:)
                                    modifyArray arr (snd p) $ const (annCl:)
-                get >>= lift . addCl . (if isLearnt then learnt else watches)
+                get >>= liftST . addCl . (if isLearnt then learnt else watches)
                 return True
          else do modify $ \s ->
                      let cs = c `Set.insert` (clauses . cnf) s
@@ -1200,14 +1204,14 @@ enqueue :: MAssignment s
 {-# INLINE enqueue #-}
 -- enqueue _m l _r | trace ("enqueue " ++ show l) $ False = undefined
 enqueue m l r = do
-  mFr <- lift $ unsafeFreezeAss m
+  mFr <- unsafeFreezeAss m
   case l `statusUnder` mFr of
     Right b -> return b         -- conflict/already assigned
     Left () -> do
-      lift $ m `assign` l
+      liftST $ m `assign` l
       -- assign decision level for literal
       gets (level &&& (length . dl)) >>= \(levelArr, dlInt) ->
-        lift (writeArray levelArr (var l) dlInt)
+        liftST (writeArray levelArr (var l) dlInt)
       modify $ \s -> s{ trail = l : (trail s)
                       , propQ = propQ s Seq.|> l } 
       when (isJust r) $
@@ -1236,11 +1240,11 @@ clearQueue = modify $ \s -> s{propQ = Seq.empty}
 varOrderMod :: Var -> (Double -> Double) -> DPLLMonad s ()
 varOrderMod v f = do
     vo <- varOrderArr `liftM` gets varOrder
-    vActivity <- lift $ readArray vo v
+    vActivity <- liftST $ readArray vo v
     when (f vActivity > 1e100) $ rescaleActivities vo
-    lift $ writeArray vo v (f vActivity)
+    liftST $ writeArray vo v (f vActivity)
   where
-    rescaleActivities vo = lift $ do
+    rescaleActivities vo = liftST $ do
         indices <- range `liftM` getBounds vo
         forM_ indices (\i -> modifyArray vo i $ const (* 1e-100))
 
@@ -1342,7 +1346,7 @@ statSummary s =
 extractStats :: DPLLMonad s Stats
 extractStats = do
   s <- get
-  learntArr <- lift $ unsafeFreezeWatchArray (learnt s)
+  learntArr <- liftST $ unsafeFreezeWatchArray (learnt s)
   let learnts = (nub . Fl.concat)
         [ map (sort . snd) (learntArr!i)
         | i <- (range . bounds) learntArr ] :: [Clause]

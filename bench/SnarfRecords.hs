@@ -13,6 +13,7 @@ import Data.List( foldl', intercalate, transpose, genericLength )
 import Data.Maybe( mapMaybe )
 import Debug.Trace( trace )
 import Graphics.Rendering.Chart
+import Math.Statistics
 import Text.Regex
 import Test.QuickCheck( quickCheck )
 import System.Environment( getArgs )
@@ -34,6 +35,9 @@ groups markerRx s = snd $ groups' markerRx s
           Just (beforeMatch, _matched, afterMatch, submatches) ->
               let (beforeNext, retList) = groups' markerRx afterMatch
               in ( beforeMatch, (submatches, beforeNext) : retList )
+
+------------------------------------------------------------------------------
+-- Plots
 
 plotColumnPoints col s = defaultPlotPoints
   { plot_points_style = s
@@ -97,6 +101,20 @@ instance Show Color where
 savePNG names matrix =
     renderableToPNGFile (toRenderable (myLayout names matrix)) 1024 768 "test.png"
 
+------------------------------------------------------------------------------
+-- Statistics
+
+-- | @deltas xs ys@ produces a list @zs@ such that @zs!!i == (xs!!i - ys!!i)@
+-- for all @i@ for which indexing @xs@ and @ys@ is correct.
+--
+-- @deltas xs (repeat 0) == xs@
+deltas :: (Num a) => [a] -> [a] -> [a]
+{-# INLINE deltas #-}
+deltas = zipWith (-)
+
+deltasF :: (Floating r) => [r] -> [r] -> [r]
+{-# INLINE deltasF #-}
+deltasF = zipWith (-)
 
 ------------------------------------------------------------------------------
 -- Main

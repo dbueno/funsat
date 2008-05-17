@@ -66,7 +66,8 @@ extractMax (Heap q) = (i, Heap (l >< r))
     where i :< r  = viewl r'
           (l, r') = split (measure q <=) q
 
--- | If ''old'' key does not exist in the heap, it is inserted.
+-- | @increaseKey old newKey h@.  If @old@ node does not exist in the heap,
+-- nothing happens except your computer gets hotter.
 increaseKey :: (Ord k, Eq a) =>
             Info k a              -- ^ old
             -> k                  -- ^ new

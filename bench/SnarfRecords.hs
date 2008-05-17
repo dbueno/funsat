@@ -43,10 +43,19 @@ plotLines col s = defaultPlotLines
   { plot_lines_style = s
   , plot_lines_values = [zipWith Point [1..] col] }
 
+verticalLines numTests s = defaultPlotLines
+  { plot_lines_style = s
+  , plot_lines_values = map (\p -> [Point (p_x p) 1, p]) $
+                        zipWith Point [1..numTests] (repeat 300) }
+
 manyTickAxis = defaultAxis
 
+-- input matrix a list of rows of data; first row has test label
 myLayout names matrix = defaultLayout1
     { layout1_plots =
+        -- Vertical lines.
+        ("", HA_Bottom, VA_Right,
+         toPlot (verticalLines 52 (gridLineStyle black))):
         -- Show each column of data, not including the label column.
         concat
         [ [ ("", HA_Bottom, VA_Right, toPlot (plotLines col (lineStyle color)))
@@ -55,19 +64,33 @@ myLayout names matrix = defaultLayout1
         | i     <- [1..length names]
         | name  <- names
         | col   <- pointsRows
-        | color <- colors ] }
+        | color <- map toColor colors ] }
   where
     pointStyle color = exes 7 2 color
-    lineStyle color  = solidLine 1 color
+    gridLineStyle color = dashedLine 0.3 [4.0] color
+    lineStyle color  = solidLine 0.4 color --dashedLine 0.4 [7.0] color
 
     black = Color 0 0 0
     red   = Color 1 0 0
     green = Color 0 1 0
     blue  = Color 0 0 1
-    colors = [black, red, green, blue]
+    colors = [blue, red, green]
 
-    -- remove label and convert to doubles
+    -- remove label, convert to doubles, and turn into list of columns
     pointsRows = transpose . map (map read) . map tail $ matrix :: [[Double]]
+
+data IntColor = IntColor Int Int Int
+class ToColor a where
+    toColor :: a -> Color
+instance ToColor Color where
+    toColor = id
+instance ToColor IntColor where
+    toColor (IntColor ri gi bi) = Color (r/255) (g/255) (b/255)
+      where r = fromIntegral ri
+            g = fromIntegral gi
+            b = fromIntegral bi
+instance Show Color where
+    show (Color r g b) = "Color " ++ intercalate " " [show r, show g, show b]
 
 savePNG names matrix =
     renderableToPNGFile (toRenderable (myLayout names matrix)) 1024 768 "test.png"

@@ -52,14 +52,15 @@ manyTickAxis = defaultAxis
 
 -- input matrix a list of rows of data; first row has test label
 myLayout names matrix = defaultLayout1
-    { layout1_plots =
+    { layout1_title = "Solver comparison: " ++ intercalate " " names
+    , layout1_plots =
         -- Vertical lines.
         ("", HA_Bottom, VA_Right,
          toPlot (verticalLines (genericLength matrix) (gridLineStyle dimGray))):
         -- Show each column of data, not including the label column.
         concat
         [ [ ("", HA_Bottom, VA_Right, toPlot (plotLines col (lineStyle color)))
-          , (name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
+          , ("time-to-solve: " ++ name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
              toPlot (plotColumnPoints col (pointStyle color))) ]
         | i     <- [1..length names]
         | name  <- names

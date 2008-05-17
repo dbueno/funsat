@@ -5,7 +5,7 @@
 --
 -- Example usage:
 --
--- runghc SnarfRecords.hs result.1 result.2 > result1-2.dat
+-- runghc GraphResults.hs result.1 result.2 > result1-2.dat
 module Main where
 
 import Control.Monad

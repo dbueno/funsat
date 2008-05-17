@@ -31,8 +31,8 @@ dpllST st = SSTErrMonad (\k s -> st >>= \x -> k x s)
 runSSTErrMonad :: (Error e) => SSTErrMonad e st s a -> (st -> ST s (Either e a, st))
 runSSTErrMonad m = unSSTErrMonad m (\x s -> return (return x, s))
 
-execSSTErrMonad :: (Error e) => SSTErrMonad e st s a -> st -> ST s (Either e a)
-execSSTErrMonad m s = do (result, _) <- runSSTErrMonad m s
+evalSSTErrMonad :: (Error e) => SSTErrMonad e st s a -> st -> ST s (Either e a)
+evalSSTErrMonad m s = do (result, _) <- runSSTErrMonad m s
                          return result
 
 -- | @SSTErrMonad e st s a@: the error type @e@, state type @st@, @ST@ thread
@@ -48,7 +48,11 @@ newtype SSTErrMonad e st s a =
 
 instance Monad (SSTErrMonad e st s) where
     return x = SSTErrMonad ($ x)
-    m >>= f  = SSTErrMonad (\k -> unSSTErrMonad m (\a -> unSSTErrMonad (f a) k))
+    m >>= f  = bindSSTErrMonad m f
+
+bindSSTErrMonad :: SSTErrMonad e st s a -> (a -> SSTErrMonad e st s b) -> SSTErrMonad e st s b
+{-# INLINE bindSSTErrMonad #-}
+bindSSTErrMonad m f = SSTErrMonad (\k -> unSSTErrMonad m (\a -> unSSTErrMonad (f a) k))
 
 instance MonadState st (SSTErrMonad e st s) where
     get = SSTErrMonad (\k s -> k s s)

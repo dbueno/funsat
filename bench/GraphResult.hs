@@ -98,8 +98,8 @@ instance ToColor IntColor where
 instance Show Color where
     show (Color r g b) = "Color " ++ intercalate " " [show r, show g, show b]
 
-savePNG names matrix =
-    renderableToPNGFile (toRenderable (myLayout names matrix)) 1024 768 "test.png"
+savePNG filename names matrix =
+    renderableToPNGFile (toRenderable (myLayout names matrix)) 1024 768 filename
 
 ------------------------------------------------------------------------------
 -- Statistics
@@ -150,7 +150,8 @@ main = do
                       : matrix)
                  [] groupList
           :: [[String]]
-  putStrLn "Saving PNG..."
-  savePNG ("baseline":(tail . tail) labelRow)
+  let filename = "test.png"
+  putStrLn $ "Saving '" ++ filename ++ "'..."
+  savePNG filename ("baseline":(tail . tail) labelRow)
           (tail dataMatrix)
 --   forM_ dataMatrix $ putStrLn . intercalate " " 

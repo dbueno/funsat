@@ -52,7 +52,7 @@ manyTickAxis = defaultAxis
 
 -- input matrix a list of rows of data; first row has test label
 myLayout names matrix = defaultLayout1
-    { layout1_title = "Solver comparison: " ++ intercalate " " names
+    { layout1_title = "Solver comparison: " ++ intercalate " vs. " names
     , layout1_plots =
         -- Vertical lines.
         ("", HA_Bottom, VA_Right,
@@ -60,7 +60,7 @@ myLayout names matrix = defaultLayout1
         -- Show each column of data, not including the label column.
         concat
         [ [ ("", HA_Bottom, VA_Right, toPlot (plotLines col (lineStyle color)))
-          , ("time-to-solve: " ++ name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
+          , ("secs-to-solve: " ++ name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
              toPlot (plotColumnPoints col (pointStyle color))) ]
         | i     <- [1..length names]
         | name  <- names
@@ -132,5 +132,7 @@ main = do
                       : matrix)
                  [] groupList
           :: [[String]]
-  putStrLn "Saving PNG..." >> savePNG (tail labelRow) (tail dataMatrix)
+  putStrLn "Saving PNG..."
+  savePNG ("baseline":(tail . tail) labelRow)
+          (tail dataMatrix)
 --   forM_ dataMatrix $ putStrLn . intercalate " " 

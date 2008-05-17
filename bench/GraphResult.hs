@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
--- | Grovel over the result file given on the command-line and print a
--- gnuplot-formatted data set to stdout.
+-- | Grovel over the result file given on the command-line and output a PNG
+-- graph comparison of the runtime data.
 --
 -- Example usage:
 --
--- runghc GraphResults.hs result.1 result.2 > result1-2.dat
+-- runghc GraphResults.hs result.1 result.2
 module Main where
 
 import Control.Monad

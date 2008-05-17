@@ -141,7 +141,7 @@ module DPLLSat
 
 import Control.Arrow ((&&&))
 import Control.Exception (assert)
-import Control.Monad.Error hiding ((>=>), forM_)
+import Control.Monad.Error hiding ((>=>), forM_, runErrorT)
 import Control.Monad.MonadST( MonadST(..) )
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
@@ -186,14 +186,16 @@ solve cfg g fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
     -- starting with an initial assignment.
 --     trace ("input " ++ show f) $
+    either (error "no solution") id $
     runST $
-    evalStateT (do sol <- stepToSolution $ do
-                     initialAssignment <- liftST $ newSTUArray (V 1, V (numVars f)) 0
-                     isUnsat <- initialState initialAssignment
-                     if isUnsat then return (Right Unsat)
-                      else solveStep initialAssignment
-                   stats <- extractStats
-                   return (sol, stats))
+    evalSSTErrMonad
+        (do sol <- stepToSolution $ do
+              initialAssignment <- liftST $ newSTUArray (V 1, V (numVars f)) 0
+              isUnsat <- initialState initialAssignment
+              if isUnsat then return (Right Unsat)
+               else solveStep initialAssignment
+            stats <- extractStats
+            return (sol, stats))
     SC{ cnf=f{clauses = Set.empty}, dl=[], rnd=g
       , watches=undefined, learnt=undefined, propQ=Seq.empty
       , trail=[], numConfl=0, level=undefined, numConflTotal=0
@@ -214,12 +216,13 @@ solve cfg g fIn =
       initialVarOrder <- liftST $ newSTUArray (V 1, V (numVars f)) initialActivity
       modify $ \s -> s{ varOrder = VarOrder initialVarOrder }
 
-      leftUnsat <-
-        runErrorT $
+      (`catchError` (const $ return True)) $ do
         forM_ (clauses f)
-          (\c -> do isConsistent <- lift $ watchClause m c False
-                    when (not isConsistent) (throwError ()))
-      return (either (const True) (const False) leftUnsat)
+          (\c -> do isConsistent <- watchClause m c False
+                    when (not isConsistent)
+                      -- conflict data is ignored here, so safe to fake
+                      (throwError (L 0, [])))
+        return False
 
 
 -- | Solve with a constant random seed and default configuration
@@ -643,11 +646,12 @@ instance Show (STArray s a b) where
 -- | Our star monad, the DPLL State monad.  We use @ST@ for mutable arrays and
 -- references, when necessary.  Most of the state, however, is kept in
 -- `DPLLStateContents' and is not mutable.
-type DPLLMonad s = StateT (DPLLStateContents s) (ST s)
-type DPLLMonad' s = SSTErrMonad (Lit, Clause) (DPLLStateContents s) s
-
-instance Control.Monad.MonadST.MonadST s (DPLLMonad s) where
+type DPLLMonad' s = StateT (DPLLStateContents s) (ST s)
+instance Control.Monad.MonadST.MonadST s (DPLLMonad' s) where
     liftST = lift
+
+
+type DPLLMonad s = SSTErrMonad (Lit, Clause) (DPLLStateContents s) s
 
 
 -- *** Boolean constraint propagation
@@ -670,14 +674,12 @@ bcpLit m l = do
 
     -- Update wather lists for normal & learnt clauses; if conflict is found,
     -- return that and don't update anything else.
-    c <- runErrorT $ do
-           {-# SCC "bcpWatches" #-} forM_ (tails clauses) (updateWatches
-             (\ f l -> lift . liftST $ modifyArray ws l (const f)))
-           {-# SCC "bcpLearnts" #-} forM_ (tails learnts) (updateWatches
-             (\ f l -> lift . liftST $ modifyArray ls l (const f)))
-    case c of
-      Left conflict -> return $ Just conflict
-      Right _       -> return Nothing
+    (`catchError` return . Just) $ do
+      {-# SCC "bcpWatches" #-} forM_ (tails clauses) (updateWatches
+        (\ f l -> liftST $ modifyArray ws l (const f)))
+      {-# SCC "bcpLearnts" #-} forM_ (tails learnts) (updateWatches
+        (\ f l -> liftST $ modifyArray ls l (const f)))
+      return Nothing            -- no conflict
   where
     -- updateWatches: `l' has been assigned, so we look at the clauses in
     -- which contain @negate l@, namely the watcher list for l.  For each
@@ -688,9 +690,9 @@ bcpLit m l = do
     {-# INLINE updateWatches #-}
     updateWatches _ [] = return ()
     updateWatches alter (annCl@(watchRef, c) : restClauses) = do
-      mFr <- lift (unsafeFreezeAss m)
-      q   <- lift . liftST $ do (x, y) <- readSTRef watchRef
-                                return $ if x == l then y else x
+      mFr <- unsafeFreezeAss m
+      q   <- liftST $ do (x, y) <- readSTRef watchRef
+                         return $ if x == l then y else x
       -- l,q are the (negated) literals being watched for clause c.
       if negate q `isTrueUnder` mFr -- if other true, clause already sat
        then alter (annCl:) l
@@ -698,16 +700,16 @@ bcpLit m l = do
          case find (\x -> x /= negate q && x /= negate l
                           && not (x `isFalseUnder` mFr)) c of
            Just l' -> do     -- found unassigned literal, negate l', to watch
-             lift . liftST $ writeSTRef watchRef (q, negate l')
+             liftST $ writeSTRef watchRef (q, negate l')
              alter (annCl:) (negate l')
 
            Nothing -> do      -- all other lits false, clause is unit
-             lift $ modify $ \s -> s{ numImpl = numImpl s + 1 }
+             modify $ \s -> s{ numImpl = numImpl s + 1 }
              alter (annCl:) l
-             isConsistent <- lift $ enqueue m (negate q) (Just c)
+             isConsistent <- enqueue m (negate q) (Just c)
              when (not isConsistent) $ do -- unit literal is conflicting
                 alter (restClauses ++) l
-                lift clearQueue
+                clearQueue
                 throwError (negate q, c)
 
 -- | Boolean constraint propagation of all literals in `propQ'.  If a conflict
@@ -860,7 +862,7 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
 --     trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
 --     outputConflict "conflict.dot" (graphviz' conflGraph) $ return ()
 --     return $ (learntCl, newLevel)
-    m <- lift $ unsafeThawAss mFr
+    m <- liftST $ unsafeThawAss mFr
     a <- firstUIPBFS m (numVars . cnf $ st) (reason st)
 --     trace ("firstUIPBFS learned: " ++ show a) $ return ()
     return a

@@ -10,7 +10,11 @@ The main SAT solver monad.  Embeds `ST'.  See type `SSTErrMonad', which stands
 for ''State ST Error Monad''.
 
 Most of the work done is in the form of `SSTErrMonad' actions. -}
-module DPLL.Monad where
+module DPLL.Monad
+    ( liftST
+    , runSSTErrMonad
+    , evalSSTErrMonad
+    , SSTErrMonad ) where
 
 import Control.Monad.Error hiding ((>=>), forM_)
 import Control.Monad.ST.Strict

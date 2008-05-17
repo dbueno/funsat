@@ -55,7 +55,7 @@ myLayout names matrix = defaultLayout1
     { layout1_plots =
         -- Vertical lines.
         ("", HA_Bottom, VA_Right,
-         toPlot (verticalLines 52 (gridLineStyle black))):
+         toPlot (verticalLines (genericLength matrix) (gridLineStyle dimGray))):
         -- Show each column of data, not including the label column.
         concat
         [ [ ("", HA_Bottom, VA_Right, toPlot (plotLines col (lineStyle color)))
@@ -67,13 +67,14 @@ myLayout names matrix = defaultLayout1
         | color <- map toColor colors ] }
   where
     pointStyle color = exes 7 2 color
-    gridLineStyle color = dashedLine 0.3 [4.0] color
+    gridLineStyle color = dashedLine 0.3 [4.0] (toColor color)
     lineStyle color  = solidLine 0.4 color --dashedLine 0.4 [7.0] color
 
     black = Color 0 0 0
     red   = Color 1 0 0
     green = Color 0 1 0
     blue  = Color 0 0 1
+    dimGray = IntColor 105 105 105
     colors = [blue, red, green]
 
     -- remove label, convert to doubles, and turn into list of columns

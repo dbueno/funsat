@@ -56,7 +56,17 @@ instance Monad (SSTErrMonad e st s) where
 
 bindSSTErrMonad :: SSTErrMonad e st s a -> (a -> SSTErrMonad e st s b) -> SSTErrMonad e st s b
 {-# INLINE bindSSTErrMonad #-}
-bindSSTErrMonad m f = SSTErrMonad (\k -> unSSTErrMonad m (\a -> unSSTErrMonad (f a) k))
+bindSSTErrMonad m f =
+    SSTErrMonad (\k -> unSSTErrMonad m (\a -> unSSTErrMonad (f a) k))
+
+instance (Error e) => MonadPlus (SSTErrMonad e st s) where
+    mzero = SSTErrMonad (\_ s -> return (Left noMsg, s))
+    mplus m n = SSTErrMonad (\k s ->
+                                 do (r, s') <- runSSTErrMonad m s
+                                    case r of
+                                      Left _ -> unSSTErrMonad n k s'
+                                      Right x -> k x s')
+                                                             
 
 instance MonadState st (SSTErrMonad e st s) where
     get = SSTErrMonad (\k s -> k s s)

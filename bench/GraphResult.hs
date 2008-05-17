@@ -119,9 +119,11 @@ deltasF = zipWith (-)
 ------------------------------------------------------------------------------
 -- Main
 
+-- group is filename at start of each run
 satrunRx = mkRegex $
   "Solving ([-_./a-zA-Z0-9]+[.]cnf)"-- ./bench/bf/bf0432-007.cnf
 
+-- group is user time
 userTimeRx = mkRegex "([[:digit:]]+[.][[:digit:]]+) user"
 
 findUserTime s =

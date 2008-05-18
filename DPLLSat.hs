@@ -7,6 +7,7 @@
             ,TypeSynonymInstances
             ,TypeOperators
             ,ParallelListComp
+            ,BangPatterns
  #-}
 {-# OPTIONS -cpp #-}
 
@@ -1255,12 +1256,22 @@ varOrderMod v f = do
 varOrderGet :: IAssignment -> FrozenVarOrder -> Maybe Var
 {-# INLINE varOrderGet #-}
 varOrderGet mFr (FrozenVarOrder voFr) =
-    let (v, _activity) = List.maximumBy (comparing snd) candidates
-    in if List.null candidates then Nothing
-       else Just v
+    -- find highest var undef under mFr, then find one with highest activity
+    (`fmap` goUndef highestIndex) $ \start -> goActivity start start
   where
-    varAssocs = assocs voFr
-    (candidates, _unfit) = List.partition ((`isUndefUnder` mFr) . fst) varAssocs
+    highestIndex = snd . bounds $ voFr
+    maxActivity v v' = if voFr!v > voFr!v' then v else v'
+
+    -- @goActivity current highest@ returns highest-activity var
+    goActivity !(V 0) !h   = h
+    goActivity !v@(V n) !h = if v `isUndefUnder` mFr
+                             then goActivity (V $! n-1) (v `maxActivity` h)
+                             else goActivity (V $! n-1) h
+
+    -- returns highest var that is undef under mFr
+    goUndef !(V 0) = Nothing
+    goUndef !v@(V n) | v `isUndefUnder` mFr = Just v
+                     | otherwise            = goUndef (V $! n-1)
 
 
 -- *** Generic state transition notation

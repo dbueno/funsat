@@ -163,7 +163,6 @@ import Data.Sequence (Seq)
 import Data.Set (Set)
 import Debug.Trace (trace)
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
-import System.Random
 import Text.Printf( printf )
 import Utils
 import DPLL.Monad
@@ -182,8 +181,8 @@ import qualified Text.Tabular as Tabular
 -- * Interface
 
 -- | Run the DPLL-based SAT solver on the given CNF instance.
-solve :: DPLLConfig -> StdGen -> CNF -> (Solution, Stats)
-solve cfg g fIn =
+solve :: DPLLConfig -> CNF -> (Solution, Stats)
+solve cfg fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
     -- starting with an initial assignment.
 --     trace ("input " ++ show f) $
@@ -197,7 +196,7 @@ solve cfg g fIn =
                else solveStep initialAssignment
             stats <- extractStats
             return (sol, stats))
-    SC{ cnf=f{clauses = Set.empty}, dl=[], rnd=g
+    SC{ cnf=f{clauses = Set.empty}, dl=[]
       , watches=undefined, learnt=undefined, propQ=Seq.empty
       , trail=[], numConfl=0, level=undefined, numConflTotal=0
       , numDecisions=0, numImpl=0
@@ -229,7 +228,7 @@ solve cfg g fIn =
 -- | Solve with a constant random seed and default configuration
 -- `defaultConfig' (for debugging).
 solve1 :: CNF -> (Solution, Stats)
-solve1 f = solve (defaultConfig f) (mkStdGen 1) f
+solve1 f = solve (defaultConfig f) f
 
 -- | Configuration parameters for the solver.
 data DPLLConfig = Cfg
@@ -630,7 +629,6 @@ data DPLLStateContents s = SC
     , numImpl :: !Int64
       -- ^ The total number of implications (propagations).
     , varOrder :: VarOrder s
-    , rnd :: StdGen              -- ^ random source
     , dpllConfig :: DPLLConfig
     }
                          deriving Show
@@ -783,7 +781,7 @@ backJump :: MAssignment s
             -- ^ @(l, c)@, where attempting to assign @l@ conflicted with
             -- clause @c@.
          -> DPLLMonad s (Maybe (MAssignment s))
-backJump m c@(_, conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
+backJump m c@(_, _conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     _theTrail <- gets trail
 --     trace ("********** conflict = " ++ show c) $ return ()
 --     trace ("trail = " ++ show _theTrail) $ return ()
@@ -848,14 +846,14 @@ doWhile body test = do
 analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
         -> DPLLMonad s (Clause, Int) -- ^ learned clause and new decision
                                      -- level
-analyse mFr levelArr dlits c@(cLit, _cClause) = do
+analyse mFr levelArr dlits (cLit, cClause) = do
     st <- get
 --     trace ("mFr: " ++ showAssignment mFr) $ assert True (return ())
-    let (learntCl, newLevel) = cutLearn mFr levelArr firstUIPCut
-        firstUIPCut = uipCut dlits levelArr conflGraph (unLit cLit)
-                      (firstUIP conflGraph)
-        conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
-                     :: Gr CGNodeAnnot ()
+--     let (learntCl, newLevel) = cutLearn mFr levelArr firstUIPCut
+--         firstUIPCut = uipCut dlits levelArr conflGraph (unLit cLit)
+--                       (firstUIP conflGraph)
+--         conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
+--                      :: Gr CGNodeAnnot ()
 --     trace ("graphviz graph:\n" ++ graphviz' conflGraph) $ return ()
 --     trace ("cut: " ++ show firstUIPCut) $ return ()
 --     trace ("topSort: " ++ show topSortNodes) $ return ()
@@ -878,7 +876,7 @@ analyse mFr levelArr dlits c@(cLit, _cClause) = do
       pR <- liftST $ newSTRef cLit -- Invariant: literal from current dec. lev.
       out_learnedR <- liftST $ newSTRef []
       out_btlevelR <- liftST $ newSTRef 0
-      let reasonL l = (if l == cLit then _cClause
+      let reasonL l = (if l == cLit then cClause
                        else Map.findWithDefault [] (var l) reasonMap
                             `without` l)
 

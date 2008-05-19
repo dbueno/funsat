@@ -39,7 +39,6 @@ import Prelude hiding ( elem )
 import System.Console.GetOpt
 import System.Environment ( getArgs )
 import System.Exit ( ExitCode(..), exitWith )
-import System.Random ( mkStdGen )
 import Data.Time.Clock
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
@@ -134,7 +133,7 @@ main = do
                     , configUseWatchedLiterals = not $ WatchedLiterals `elem` features
                     , configUseRestarts = not $ Restarts `elem` features
                     , configUseLearning = not $ ClauseLearning `elem` features }
-                  (solution, stats) = solve cfg (mkStdGen 1) cnf
+                  (solution, stats) = solve cfg cnf
               endingTime <- solution `seq` getCurrentTime
               print solution
               print $ statTable stats `Tabular.combine`

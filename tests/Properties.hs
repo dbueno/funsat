@@ -38,7 +38,6 @@ import System.Random
 import Test.QuickCheck hiding (defaultConfig)
 import Utils( count, argmin )
 import qualified Data.Foldable as Foldable
-import qualified Data.Heap.Finger as H
 import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Test.QuickCheck as QC
@@ -55,10 +54,6 @@ main = do
 --              else return ()
 
       --setStdGen (mkStdGen 42)
-      check config prop_heap_member_out
-      check config prop_heap_member
-      check config prop_heap_extract_max
-      check config prop_heap_decrease_key
       check config prop_randAssign
       check config prop_allIsTrueUnderA
       check config prop_noneIsFalseUnderA
@@ -198,8 +193,6 @@ infixl 3 <==>
 --                          do r <- newSTRef (lit1, lit2)
 --                             return (r, lit1 : lit2 : clause)
 
--- ** Max heap
-
 newtype Nat = Nat { unNat :: Int }
     deriving (Eq, Ord)
 instance Show Nat where
@@ -240,71 +233,6 @@ instance Show (a -> b) where
     show = const "<fcn>"
 
 
-newtype TestHeap = HT { theHeap :: H.Heap Nat Nat }
-    deriving Show
-
-emptyNatHeap :: TestHeap
-emptyNatHeap = HT H.empty
-
-instance Arbitrary (H.Info Nat Nat) where
-    arbitrary = do n <- arbitrary
-                   return (H.Info n n)
-
-instance Arbitrary TestHeap where
-    arbitrary = sized $ \n ->
-                do xs <- vector n
-                   return $ HT (foldl' (flip H.insert) H.empty xs)
-
-prop_heap_member_out x (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_member_out" $
-    (x `H.member` heap) `iff` (x `elem` xs)
-  where heap = H.fromList xs
-        xs = nub xsIn 
-
-prop_heap_member (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_member" $
-    all (\y -> y `H.member` heap) xs
-  where heap = H.fromList xs
-        xs   = nub xsIn
-
-prop_heap_extract_max (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_extract_max" $
-    trivial (null xs) $
-    ascOrderedBy H.key (reverse (maxs . H.fromList $ xs))
-  where xs = nub xsIn
-
--- returns a list of the extractmax values, in order (i.e. descending sorted,
--- if heap works)
-maxs h | H.null h = []
-       | otherwise =
-           let (m, h') = H.extractMax h
-           in m : maxs h'
-
-
--- split xs in half and choose one half to increase. add the halves to get the
--- new keys.  make sure the order of extractMax is proper.
-prop_heap_decrease_key (xsIn :: [H.Info Nat Nat]) =
-    label "prop_heap_decrease_key" $
-    trivial (null xs) $
-    ascOrderedBy H.key (reverse (maxs heap))
-  where
-    heap =
-        foldl' (\h (oldInfo, newInfo) -> H.increaseKey oldInfo (H.key newInfo) h)
-               (H.fromList xs)
-               eltChanges
-    -- list of pairs (x,y): x orig-info, y increased-key-info
-    eltChanges = zipWith (\hf hb -> (hf,
-                                     H.Info (H.key hf + H.key hb) (H.datum hf)))
-                         front back
-    (front, back) = splitAt (length xs `div` 2) xs
-    xs = nub xsIn
-
-ascOrderedBy f (x:y:xs) = f x <= f y && ascOrderedBy f (y:xs)
-ascOrderedBy _ _ = True
-
-prop_ascOrdered (xs :: [Nat]) = ascOrderedBy id (sort xs)
-
-list = [H.Info 4 4,H.Info 3 3,H.Info 5 5,H.Info 2 2,H.Info 4 4,H.Info 3 3] :: [H.Info Nat Nat]
 
 
 -- * Helpers

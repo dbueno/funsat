@@ -15,15 +15,18 @@ mkdir -p $RESULTS_DIR
 
 echo "Timeout:" $MAX_PROB_SECONDS "seconds" >> $RESULTS_DIR/info
 
+read -p "Purpose: " -e MOREINFO
+echo $MOREINFO >> $RESULTS_DIR/info
+
 # record feature set
 
 
 i=$((0))
-for options in ""                                    \
-               "--no-clause-learning"                \
-               "--no-restarts"                       \
-               "--no-watched-literals"               \
-               "--no-vsids"
+for options in ""
+#               "--no-clause-learning"                \
+#               "--no-restarts"                       \
+#               "--no-watched-literals"               \
+#               "--no-vsids"
 do
     i=$(($i+1))
     OUTPUT="$RESULTS_DIR/result.$i"

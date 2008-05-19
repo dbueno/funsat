@@ -42,7 +42,7 @@ Executable funsat-prof
 
 
 Library
- Exposed-modules:     DPLLSat DPLL.Monad Control.Monad.MonadST
+ Exposed-modules:     DPLLSat DPLL.Monad Control.Monad.MonadST Text.Tabular
  Other-modules:       FastDom Utils
  Ghc-options:         -W
  CPP-options:         -DTESTING

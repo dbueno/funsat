@@ -14,8 +14,8 @@ module DPLL.Monad
     ( liftST
     , runSSTErrMonad
     , evalSSTErrMonad
-    , SSTErrMonad ) where
-
+    , SSTErrMonad )
+    where
 import Control.Monad.Error hiding ((>=>), forM_)
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
@@ -52,21 +52,13 @@ newtype SSTErrMonad e st s a =
 
 instance Monad (SSTErrMonad e st s) where
     return x = SSTErrMonad ($ x)
-    m >>= f  = bindSSTErrMonad m f
+    (>>=)    = bindSSTErrMonad
 
 bindSSTErrMonad :: SSTErrMonad e st s a -> (a -> SSTErrMonad e st s b) -> SSTErrMonad e st s b
 {-# INLINE bindSSTErrMonad #-}
 bindSSTErrMonad m f =
+    {-# SCC "bindSSTErrMonad" #-}
     SSTErrMonad (\k -> unSSTErrMonad m (\a -> unSSTErrMonad (f a) k))
-
-instance (Error e) => MonadPlus (SSTErrMonad e st s) where
-    mzero = SSTErrMonad (\_ s -> return (Left noMsg, s))
-    mplus m n = SSTErrMonad (\k s ->
-                                 do (r, s') <- runSSTErrMonad m s
-                                    case r of
-                                      Left _ -> unSSTErrMonad n k s'
-                                      Right x -> k x s')
-                                                             
 
 instance MonadState st (SSTErrMonad e st s) where
     get = SSTErrMonad (\k s -> k s s)
@@ -75,8 +67,16 @@ instance MonadState st (SSTErrMonad e st s) where
 instance (Error e) => MonadError e (SSTErrMonad e st s) where
     throwError err =            -- throw away continuation
         SSTErrMonad (\_ s -> return (Left err, s))
-    catchError action handler = SSTErrMonad
+    catchError action handler = {-# SCC "catchErrorSSTErrMonad" #-} SSTErrMonad
         (\k s -> do (x, s') <- runSSTErrMonad action s
                     case x of
                       Left error -> unSSTErrMonad (handler error) k s'
                       Right result -> k result s')
+
+instance (Error e) => MonadPlus (SSTErrMonad e st s) where
+    mzero = SSTErrMonad (\_ s -> return (Left noMsg, s))
+    mplus m n = SSTErrMonad (\k s ->
+                                 do (r, s') <- runSSTErrMonad m s
+                                    case r of
+                                      Left _ -> unSSTErrMonad n k s'
+                                      Right x -> k x s')

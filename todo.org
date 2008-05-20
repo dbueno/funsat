@@ -1,5 +1,8 @@
 * Sat todo file
 
+* TODO Add -funbox-strict-fields to the ghc-options                      :bench:
+and see how it affects performance.
+
 * TODO [#A] Remove stupid command-line options                         :cleanup:
 
 * TODO [#C] Initial state for dynamic variable ordering should be

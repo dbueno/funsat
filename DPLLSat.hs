@@ -110,6 +110,8 @@ module DPLLSat
         , solve1
         , DPLLConfig(..)
         , Solution(..)
+        , IAssignment
+        , litAssignment
         , Stats(..)
         , CNF
         , GenCNF(..)
@@ -476,7 +478,7 @@ instance (BitSet.Hash Var) where
     hash = unVar
 
 
--- | An ''immutable assignmant''.  Stores the current assignment according to
+-- | An ''immutable assignment''.  Stores the current assignment according to
 -- the following convention.  A literal @L i@ is in the assignment if in
 -- location @(abs i)@ in the array, @i@ is present.  Literal @L i@ is absent
 -- if in location @(abs i)@ there is 0.  It is an error if the location @(abs
@@ -1377,6 +1379,10 @@ extractStats = do
 
 unsafeFreezeWatchArray :: WatchArray s -> ST s (Array Lit [WatchedPair s])
 unsafeFreezeWatchArray = freeze
+
+-- | The assignment as a list of signed literals.
+litAssignment :: IAssignment -> [Lit]
+litAssignment mFr = map (L . (mFr!)) (range . bounds $ mFr)
 
 ---------- TESTING ----------
 

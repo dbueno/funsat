@@ -112,6 +112,7 @@ module DPLLSat
         , Solution(..)
         , IAssignment
         , litAssignment
+        , litSign
         , Stats(..)
         , CNF
         , GenCNF(..)
@@ -392,6 +393,12 @@ instance Num Var where
 
 newtype Lit = L {unLit :: Int} deriving (Eq, Ord, Enum, Ix)
 inLit f = L . f . unLit
+
+-- | The polarity of the literal.  Negative literals are false; positive
+-- literals are true.
+litSign :: Lit -> Bool
+litSign (L x) | x < 0 = False
+              | x > 0 = True
 
 instance Show Lit where
     show l = show ul

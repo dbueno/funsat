@@ -113,6 +113,10 @@ module DPLLSat
         , Stats(..)
         , CNF
         , GenCNF(..)
+        , Clause
+        , Lit(..)
+        , Var(..)
+        , var
         , NonStupidString(..)
         , statTable
         , verify
@@ -225,8 +229,7 @@ solve cfg fIn =
         return False
 
 
--- | Solve with a constant random seed and default configuration
--- `defaultConfig' (for debugging).
+-- | Solve with a default configuration `defaultConfig' (for debugging).
 solve1 :: CNF -> (Solution, Stats)
 solve1 f = solve (defaultConfig f) f
 

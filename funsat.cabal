@@ -1,12 +1,13 @@
 Name:                funsat
-Version:             0.3
+Version:             0.4
 Cabal-Version:       >= 1.2
 Description:
 
     Funsat is a native Haskell SAT solver that uses modern techniques for
     solving SAT instances.  Current features include two-watched literals,
     conflict-directed learning, non-chronological backtracking, a VSIDS-like
-    dynamic variable ordering, and restarts.
+    dynamic variable ordering, and restarts.  It is possible to use funsat
+    both as a library and as a standalone executable.
 
 Synopsis:            A modern DPLL-style SAT solver
 Category:            Algorithms

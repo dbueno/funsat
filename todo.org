@@ -1,5 +1,8 @@
 * Sat todo file
 
+* DONE Release initial version to hackage
+  CLOSED: [2008-06-06 Fri 10:49]
+
 * TODO [#A] Add unsatisfiable core extraction			       :feature:
 
 Algorithm:

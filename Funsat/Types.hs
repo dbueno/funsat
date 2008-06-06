@@ -265,6 +265,7 @@ isFalseUnder x m = isFalse $ x `statusUnder` m
 -- | Whether all the elements of the model in the list are false but one, and
 -- none is true, under the model.
 isUnitUnder :: (Model a m) => [a] -> m -> Bool
+{-# SPECIALISE INLINE isUnitUnder :: Clause -> IAssignment -> Bool #-}
 isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
                   && not (Fl.any (`isTrueUnder` m) c)
 
@@ -275,6 +276,7 @@ isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
 -- | Get the element of the list which is not false under the model.  If no
 -- such element, throws an error.
 getUnit :: (Model a m, Show a) => [a] -> m -> a
+{-# SPECIALISE INLINE getUnit :: Clause -> IAssignment -> Lit #-}
 getUnit c m = case filter (not . (`isFalseUnder` m)) c of
                 [u] -> u
                 xs   -> error $ "getUnit: not unit: " ++ show xs

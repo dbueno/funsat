@@ -1100,29 +1100,4 @@ extractStats = do
 unsafeFreezeWatchArray :: WatchArray s -> ST s (Array Lit [WatchedPair s])
 unsafeFreezeWatchArray = freeze
 
--- | The assignment as a list of signed literals.
-litAssignment :: IAssignment -> [Lit]
-litAssignment mFr = map (L . (mFr!)) (range . bounds $ mFr)
-
----------- TESTING ----------
-
-
--- | Verify the assigment is well-formed and satisfies the CNF problem.  This
--- function is run after a solution is discovered, just to be safe.
---
--- Makes sure each slot in the assignment is either 0 or contains its
--- (possibly negated) corresponding literal, and verifies that each clause is
--- made true by the assignment.
-verify :: IAssignment -> CNF -> Maybe [(Clause, Either () Bool)]
-verify m cnf =
-   -- m is well-formed
---    Fl.all (\l -> m!(V l) == l || m!(V l) == negate l || m!(V l) == 0) [1..numVars cnf]
-   let unsatClauses = toList $
-                      Set.filter (not . isTrue . snd) $
-                      Set.map (\c -> (c, c `statusUnder` m)) (clauses cnf)
-   in if null unsatClauses
-      then Nothing
-      else Just unsatClauses
-  where isTrue (Right True) = True
-        isTrue _            = False
 

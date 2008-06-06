@@ -205,6 +205,10 @@ assign a l = writeArray a (var l) (unLit l) >> return a
 unassign :: MAssignment s -> Lit -> ST s (MAssignment s)
 unassign a l = writeArray a (var l) 0 >> return a
 
+-- | The assignment as a list of signed literals.
+litAssignment :: IAssignment -> [Lit]
+litAssignment mFr = map (L . (mFr!)) (range . bounds $ mFr)
+
 
 -- | An instance of this class is able to answer the question, Is a
 -- truth-functional object @x@ true under the model @m@?  Or is @m@ a model
@@ -280,3 +284,26 @@ getUnit :: (Model a m, Show a) => [a] -> m -> a
 getUnit c m = case filter (not . (`isFalseUnder` m)) c of
                 [u] -> u
                 xs   -> error $ "getUnit: not unit: " ++ show xs
+
+---------- TESTING ----------
+
+
+-- | Verify the assigment is well-formed and satisfies the CNF problem.  This
+-- function is run after a solution is discovered, just to be safe.
+--
+-- Makes sure each slot in the assignment is either 0 or contains its
+-- (possibly negated) corresponding literal, and verifies that each clause is
+-- made true by the assignment.
+verify :: IAssignment -> CNF -> Maybe [(Clause, Either () Bool)]
+verify m cnf =
+   -- m is well-formed
+--    Fl.all (\l -> m!(V l) == l || m!(V l) == negate l || m!(V l) == 0) [1..numVars cnf]
+   let unsatClauses = toList $
+                      Set.filter (not . isTrue . snd) $
+                      Set.map (\c -> (c, c `statusUnder` m)) (clauses cnf)
+   in if null unsatClauses
+      then Nothing
+      else Just unsatClauses
+  where isTrue (Right True) = True
+        isTrue _            = False
+

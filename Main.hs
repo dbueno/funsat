@@ -31,10 +31,9 @@ import Funsat.Solver
     , DPLLConfig(..)
     , defaultConfig
     , Solution(..)
-    , verify
     , ShowWrapped(..)
     , statTable )
-import Funsat.Types( CNF, GenCNF(..) )
+import Funsat.Types( CNF, GenCNF(..), verify )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
 import System.Environment ( getArgs )

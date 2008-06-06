@@ -10,9 +10,12 @@ based on the number of occurrences of literals in the clause database at the
 beginning, or something.  Some heuristic that puts important variables first
 at the beginning, instead of starting out all at zero.
 
-* TODO [#A] Remove the monad stack from bcpLit
+* DONE [#A] Remove the monad stack from bcpLit
+  CLOSED: [2008-06-05 Thu 20:14]
 There are three monads there!  Can we just write a single monad data type on
 top of ST that has errors and whatnot?
+
+Did this long ago.
 ** Result ...
 
 * TODO On some problems, select is a bottleneck, much               :heuristics:
@@ -49,10 +52,11 @@ unit, and propagated `x'.  Asking for the level of -20 is wrong -- when asking
 for the level of a *reason*, we always want the level of the corresponding
 variable, so that we don't confuse it with the conflicting literal.
 
-* TODO VSIDS bumping should happen for each variable encountered
+* DONE VSIDS bumping should happen for each variable encountered
+  CLOSED: [2008-06-05 Thu 20:15]
 while generating the learnt clause.
 
-* TODO [#C] Recursive learning/parallel stuff
+* TODO [#K] Recursive learning/parallel stuff
 
 * DONE Learned clause deletion
   CLOSED: [2008-04-03 Thu 12:18]

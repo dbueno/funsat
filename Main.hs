@@ -67,16 +67,16 @@ allFeatures = Set.fromList [WatchedLiterals, ClauseLearning, Restarts, VSIDS]
 
 validOptions :: [OptDescr RunOptions]
 validOptions =
-    [ Option [] ["no-clause-learning"] (NoArg $ disableF ClauseLearning)
-             "Use naivest clause learning."
-    , Option [] ["no-watched-literals"] (NoArg $ disableF WatchedLiterals)
-             "Just traverse the formula to find unit clauses."
-    , Option [] ["no-vsids"] (NoArg $ disableF VSIDS)
-             "Use static variable ordering."
-    , Option [] ["no-restarts"] (NoArg $ disableF Restarts)
+--     [ Option [] ["no-clause-learning"] (NoArg $ disableF ClauseLearning)
+--              "Use naivest clause learning."
+--     , Option [] ["no-watched-literals"] (NoArg $ disableF WatchedLiterals)
+--              "Just traverse the formula to find unit clauses."
+--     , Option [] ["no-vsids"] (NoArg $ disableF VSIDS)
+--              "Use static variable ordering."
+    [ Option [] ["no-restarts"] (NoArg $ disableF Restarts)
              "Never restart."
     , Option [] ["verify"] (NoArg RunTests)
-             "Run unit tests."
+             "Run quickcheck properties and unit tests."
     , Option [] ["print-features"] (NoArg (PrintFeatures Set.empty))
              "Print the optimisations the SAT solver supports." ]
 

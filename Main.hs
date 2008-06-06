@@ -157,7 +157,7 @@ main = do
                 Unsat -> return ()
 
 
-usageHeader = "Usage: dsat [options] <cnf-filename> ... <cnf-filename>"
+usageHeader = "Usage: funsat [options] <cnf-filename> ... <cnf-filename>"
 
 seqList l@[] = l
 seqList l@(x:xs) = x `seq` seqList xs `seq` l

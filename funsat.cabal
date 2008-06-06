@@ -28,10 +28,12 @@ Executable funsat
  Hs-source-dirs:      . tests
  Other-modules:
                       Funsat.Solver
+                      Funsat.Types
+                      Funsat.Resolution
                       Funsat.FastDom
                       Funsat.Utils
+                      Funsat.Monad
                       Text.Tabular
-                      DPLL.Monad
                       Control.Monad.MonadST
                       Properties
 
@@ -53,7 +55,12 @@ Executable funsat
 
 
 Library
- Exposed-modules:     Funsat.Solver DPLL.Monad Control.Monad.MonadST Text.Tabular
+ Exposed-modules:     Funsat.Solver
+                      Funsat.Types
+                      Funsat.Resolution
+                      Funsat.Monad
+                      Control.Monad.MonadST
+                      Text.Tabular
  Other-modules:       Funsat.FastDom Funsat.Utils
  Ghc-options:         -W -funbox-strict-fields
  Extensions:          CPP

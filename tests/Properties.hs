@@ -31,12 +31,13 @@ import Data.List (nub, splitAt, unfoldr, delete, sort, sortBy)
 import Data.Maybe
 import Data.Ord( comparing )
 import Debug.Trace
+import Funsat.Types
+import Funsat.Utils( count, argmin )
 import Language.CNF.Parse.ParseDIMACS( parseCNF )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
                       , sum, concat )
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
-import Funsat.Utils( count, argmin )
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set

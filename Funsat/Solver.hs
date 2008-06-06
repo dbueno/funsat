@@ -169,10 +169,11 @@ import Data.STRef
 import Data.Sequence (Seq)
 import Data.Set (Set)
 import Debug.Trace (trace)
+import Funsat.Monad
+import Funsat.Utils
+import Funsat.Types
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
 import Text.Printf( printf )
-import Funsat.Utils
-import DPLL.Monad
 import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.DFS as DFS
@@ -366,216 +367,7 @@ instance Show Solution where
    show Unsat   = "unsatisfiable"
 
 
--- ** Star Data Types
-
-newtype Var = V {unVar :: Int} deriving (Eq, Ord, Enum, Ix)
-
-instance Show Var where
-    show (V i) = show i ++ "v"
-
-instance Num Var where
-    _ + _ = error "+ doesn't make sense for variables"
-    _ - _ = error "- doesn't make sense for variables"
-    _ * _ = error "* doesn't make sense for variables"
-    signum _ = error "signum doesn't make sense for variables"
-    negate = error "negate doesn't make sense for variables"
-    abs = id
-    fromInteger l | l <= 0    = error $ show l ++ " is not a variable"
-                  | otherwise = V $ fromInteger l
-
-newtype Lit = L {unLit :: Int} deriving (Eq, Ord, Enum, Ix)
-inLit f = L . f . unLit
-
--- | The polarity of the literal.  Negative literals are false; positive
--- literals are true.
-litSign :: Lit -> Bool
-litSign (L x) | x < 0 = False
-              | x > 0 = True
-
-instance Show Lit where
-    show l = show ul
-        where ul = unLit l
-instance Read Lit where
-    readsPrec i s = map (\(i,s) -> (L i, s)) (readsPrec i s :: [(Int, String)])
-
--- | The variable for the given literal.
-var :: Lit -> Var
-var = V . abs . unLit
-
-instance Num Lit where
-    _ + _ = error "+ doesn't make sense for literals"
-    _ - _ = error "- doesn't make sense for literals"
-    _ * _ = error "* doesn't make sense for literals"
-    signum _ = error "signum doesn't make sense for literals"
-    negate   = inLit negate
-    abs      = inLit abs
-    fromInteger l | l == 0    = error "0 is not a literal"
-                  | otherwise = L $ fromInteger l
-
-type Clause = [Lit]
-
--- | ''Generic'' conjunctive normal form.  It's ''generic'' because the
--- elements of the clause set are polymorphic.  And they are polymorphic so
--- that I can get a `Foldable' instance.
-data GenCNF a = CNF {
-      numVars :: Int,
-      numClauses :: Int,
-      clauses :: Set a
-    }
-                deriving (Show, Read, Eq)
-
-type CNF = GenCNF Clause
-
-instance Foldable GenCNF where
-    -- TODO it might be easy to make this instance more efficient.
-    foldMap toM cnf = foldMap toM (clauses cnf)
-
-
--- | There are a bunch of things in the state which are essentially used as
--- ''set-like'' objects.  I've distilled their interface into three methods.
--- These methods are used extensively in the implementation of the solver.
-class Ord a => Setlike t a where
-    -- | The set-like object with an element removed.
-    without  :: t -> a -> t
-    -- | The set-like object with an element included.
-    with     :: t -> a -> t
-    -- | Whether the set-like object contains a certain element.
-    contains :: t -> a -> Bool
-
-instance Ord a => Setlike (Set a) a where
-    without  = flip Set.delete
-    with     = flip Set.insert
-    contains = flip Set.member
-
-instance Ord a => Setlike [a] a where
-    without  = flip List.delete
-    with     = flip (:)
-    contains = flip List.elem
-
-instance Setlike IAssignment Lit where
-    without a l  = a // [(var l, 0)]
-    with a l     = a // [(var l, unLit l)]
-    contains a l = unLit l == a ! (var l)
-
-instance (Ord k, Ord a) => Setlike (Map k a) (k, a) where
-    with m (k,v)    = Map.insert k v m
-    without m (k,_) = Map.delete k m
-    contains = error "no contains for Setlike (Map k a) (k, a)"
-
-instance (Ord a, BitSet.Hash a) => Setlike (BitSet a) a where
-    with = flip BitSet.insert
-    without = flip BitSet.delete
-    contains = flip BitSet.member
-
-
-instance (BitSet.Hash Lit) where
-    hash l = if li > 0 then 2 * vi else (2 * vi) + 1
-        where li = unLit l
-              vi = abs li
-
-instance (BitSet.Hash Var) where
-    hash = unVar
-
-
--- | An ''immutable assignment''.  Stores the current assignment according to
--- the following convention.  A literal @L i@ is in the assignment if in
--- location @(abs i)@ in the array, @i@ is present.  Literal @L i@ is absent
--- if in location @(abs i)@ there is 0.  It is an error if the location @(abs
--- i)@ is any value other than @0@ or @i@ or @negate i@.
---
--- Note that the `Model' instance for `Lit' and `IAssignment' takes constant
--- time to execute because of this representation for assignments.  Also
--- updating an assignment with newly-assigned literals takes constant time,
--- and can be done destructively, but safely.
-type IAssignment = UArray Var Int
-
--- | Mutable array corresponding to the `IAssignment' representation.
-type MAssignment s = STUArray s Var Int
-
--- | Same as @freeze@, but at the right type so GHC doesn't yell at me.
-freezeAss :: MAssignment s -> ST s IAssignment
-freezeAss = freeze
--- | See `freezeAss'.
-unsafeFreezeAss :: MAssignment s -> DPLLMonad s IAssignment
-unsafeFreezeAss = liftST . unsafeFreeze
-
-thawAss :: IAssignment -> ST s (MAssignment s)
-thawAss = thaw
-unsafeThawAss :: IAssignment -> ST s (MAssignment s)
-unsafeThawAss = unsafeThaw
-
--- | Destructively update the assignment with the given literal.
-assign :: MAssignment s -> Lit -> ST s (MAssignment s)
-assign a l = writeArray a (var l) (unLit l) >> return a
-
--- | Destructively undo the assignment to the given literal.
-unassign :: MAssignment s -> Lit -> ST s (MAssignment s)
-unassign a l = writeArray a (var l) 0 >> return a
-
-
--- | An instance of this class is able to answer the question, Is a
--- truth-functional object @x@ true under the model @m@?  Or is @m@ a model
--- for @x@?  There are three possible answers for this question: `True' (''the
--- object is true under @m@''), `False' (''the object is false under @m@''),
--- and undefined, meaning its status is uncertain or unknown (as is the case
--- with a partial assignment).
---
--- The only method in this class is so named so it reads well when used infix.
--- Also see: `isTrueUnder', `isFalseUnder', `isUndefUnder'.
-class Model a m where
-    -- | @x ``statusUnder`` m@ should use @Right@ if the status of @x@ is
-    -- defined, and @Left@ otherwise.
-    statusUnder :: a -> m -> Either () Bool
-
--- /O(1)/.
-instance Model Lit IAssignment where
-    statusUnder l a | a `contains` l        = Right True
-                    | a `contains` negate l = Right False
-                    | otherwise             = Left ()
-instance Model Var IAssignment where
-    statusUnder v a | a `contains` pos = Right True
-                    | a `contains` neg = Right False
-                    | otherwise        = Left ()
-                    where pos = L (unVar v)
-                          neg = negate pos
-instance Model Clause IAssignment where
-    statusUnder c m
-        -- true if c intersect m is not null == a member of c in m
-        | Fl.any (\e -> m `contains` e) c   = Right True
-        -- false if all its literals are false under m.
-        | Fl.all (`isFalseUnder` m) c = Right False
-        | otherwise                = Left ()
-
-
-
--- | `True' if and only if the object is undefined in the model.
-isUndefUnder :: Model a m => a -> m -> Bool
-isUndefUnder x m = isUndef $ x `statusUnder` m
-    where isUndef (Left ()) = True
-          isUndef _         = False
-
--- | `True' if and only if the object is true in the model.
-isTrueUnder :: Model a m => a -> m -> Bool
-isTrueUnder x m = isTrue $ x `statusUnder` m
-    where isTrue (Right True) = True
-          isTrue _            = False
-
--- | `True' if and only if the object is false in the model.
-isFalseUnder :: Model a m => a -> m -> Bool
-isFalseUnder x m = isFalse $ x `statusUnder` m
-    where isFalse (Right False) = True
-          isFalse _             = False
-
--- isUnitUnder c m | trace ("isUnitUnder " ++ show c ++ " " ++ showAssignment m) $ False = undefined
-isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
-                  && not (Fl.any (`isTrueUnder` m) c)
-
--- Precondition: clause is unit.
--- getUnit :: (Model a m, Show a, Show m) => [a] -> m -> a
--- getUnit c m | trace ("getUnit " ++ show c ++ " " ++ showAssignment m) $ False = undefined
-getUnit c m = case filter (not . (`isFalseUnder` m)) c of
-                [u] -> u
-                xs   -> error $ "getUnit: not unit: " ++ show xs
+-- ** Internal data types
 
 type Level = Int
 
@@ -649,11 +441,6 @@ instance Show (STArray s a b) where
 -- | Our star monad, the DPLL State monad.  We use @ST@ for mutable arrays and
 -- references, when necessary.  Most of the state, however, is kept in
 -- `DPLLStateContents' and is not mutable.
-type DPLLMonad' s = StateT (DPLLStateContents s) (ST s)
-instance Control.Monad.MonadST.MonadST s (DPLLMonad' s) where
-    liftST = lift
-
-
 type DPLLMonad s = SSTErrMonad (Lit, Clause) (DPLLStateContents s) s
 
 
@@ -836,7 +623,8 @@ analyse mFr levelArr dlits (cLit, cClause) = do
     return a
   where
     -- BFS by undoing the trail backward.  From Minisat paper.
-    firstUIPBFS :: MAssignment s -> Int -> Map Var Clause -> DPLLMonad s (Clause, Int)
+    firstUIPBFS :: MAssignment s -> Int -> Map Var Clause
+                -> DPLLMonad s (Clause, Int)
     firstUIPBFS m nVars reasonMap =  do
       -- Literals we should process.
       seenArr  <- liftST $ newSTUArray (V 1, V nVars) False
@@ -845,17 +633,17 @@ analyse mFr levelArr dlits (cLit, cClause) = do
       pR <- liftST $ newSTRef cLit -- Invariant: literal from current dec. lev.
       out_learnedR <- liftST $ newSTRef []
       out_btlevelR <- liftST $ newSTRef 0
-      let reasonL l = (if l == cLit then cClause
-                       else Map.findWithDefault [] (var l) reasonMap
-                            `without` l)
+      let reasonL l = if l == cLit then cClause
+                      else Map.findWithDefault [] (var l) reasonMap `without` l
 
-      (`doWhile` (liftST (readSTRef counterR) >>= return . (> 0))) $
+      (`doWhile` (liftM (> 0) (liftST $ readSTRef counterR))) $
         do p <- liftST $ readSTRef pR
-           forM_ (reasonL p) (bump . var)
+           let p_reason = reasonL p
+           forM_ p_reason (bump . var)
            -- For each unseen reason,
            -- > from the current level, bump counter
            -- > from lower level, put in learned clause
-           liftST . forM_ (reasonL p) $ \q -> do
+           liftST . forM_ p_reason $ \q -> do
              seenq <- readArray seenArr (var q)
              when (not seenq) $
                do writeArray seenArr (var q) True
@@ -911,6 +699,7 @@ bump :: Var -> DPLLMonad s ()
 {-# INLINE bump #-}
 bump v = varOrderMod v (+ varInc)
 
+-- | Constant amount by which a variable is `bump'ed.
 varInc :: Double
 varInc = 1.0
   
@@ -1336,3 +1125,4 @@ verify m cnf =
       else Just unsatClauses
   where isTrue (Right True) = True
         isTrue _            = False
+

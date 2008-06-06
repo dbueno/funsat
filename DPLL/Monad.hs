@@ -16,9 +16,9 @@ module DPLL.Monad
     , evalSSTErrMonad
     , SSTErrMonad )
     where
-import Control.Monad.Error hiding ((>=>), forM_)
+import Control.Monad.Error
 import Control.Monad.ST.Strict
-import Control.Monad.State.Lazy hiding ((>=>), forM_)
+import Control.Monad.State.Class
 import Control.Monad.MonadST
 
 

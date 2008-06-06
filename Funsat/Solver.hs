@@ -104,7 +104,7 @@ Zhang, Madigan, Moskewicz, Malik
 ''SAT-MICRO: petit mais costaud!'' by Conchon, Kanig, and Lescuyer
 
 -}
-module DPLLSat
+module Funsat.Solver
 #ifndef TESTING
         ( solve
         , solve1
@@ -171,7 +171,7 @@ import Data.Set (Set)
 import Debug.Trace (trace)
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
 import Text.Printf( printf )
-import Utils
+import Funsat.Utils
 import DPLL.Monad
 import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
@@ -182,7 +182,7 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
-import qualified FastDom as Dom
+import qualified Funsat.FastDom as Dom
 import qualified Text.Tabular as Tabular
 
 -- * Interface
@@ -349,9 +349,9 @@ stepToSolution stepAction = do
     case step of
       Left m -> do when (useRestarts && restart)
                      (do stats <- extractStats
-                         trace ("Restarting...") $
-                          trace (statSummary stats) $
-                          resetState m)
+--                          trace ("Restarting...") $
+--                           trace (statSummary stats) $
+                         resetState m)
                    stepToSolution (solveStep m)
       Right s -> return s
   where

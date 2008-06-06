@@ -20,7 +20,7 @@ module Properties where
     Copyright 2008 Denis Bueno
 -}
 
-import DPLLSat hiding ( (==>) )
+import Funsat.Solver hiding ( (==>) )
 
 import Control.Monad (replicateM)
 import Data.Array.Unboxed
@@ -36,7 +36,7 @@ import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concat
                       , sum, concat )
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
-import Utils( count, argmin )
+import Funsat.Utils( count, argmin )
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set

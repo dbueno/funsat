@@ -26,15 +26,16 @@ import Data.Foldable ( fold, toList, elem )
 import Data.List ( intercalate )
 import Data.Monoid
 import Data.Set ( Set )
-import DPLLSat( solve
-              , DPLLConfig(..)
-              , defaultConfig
-              , CNF
-              , GenCNF(..)
-              , Solution(..)
-              , verify
-              , NonStupidString(..)
-              , statTable )
+import Funsat.Solver
+    ( solve
+    , DPLLConfig(..)
+    , defaultConfig
+    , CNF
+    , GenCNF(..)
+    , Solution(..)
+    , verify
+    , NonStupidString(..)
+    , statTable )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
 import System.Environment ( getArgs )

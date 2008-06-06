@@ -10,7 +10,7 @@
 -- Keith D. Cooper, Timothy J. Harvey, Ken Kennedy,
 -- ''A Simple, Fast Dominance Algorithm'',
 -- (http://citeseer.ist.psu.edu/cooper01simple.html)
-module FastDom
+module Funsat.FastDom
     ( dom
     , iDom ) where
 

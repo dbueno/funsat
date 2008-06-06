@@ -31,7 +31,7 @@ every case, these functions will be useful for any number of manipulations,
 and are not SAT-solver specific.
 
 -}
-module Utils where
+module Funsat.Utils where
 
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ((>=>), forM_)

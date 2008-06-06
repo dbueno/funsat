@@ -1,5 +1,11 @@
 * Sat todo file
 
+* TODO [#A] Add unsatisfiable core extraction			       :feature:
+
+Algorithm:
+
+???
+
 * TODO Add -funbox-strict-fields to the ghc-options                      :bench:
 and see how it affects performance.
 

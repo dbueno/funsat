@@ -36,7 +36,7 @@ Executable funsat
                       Properties
 
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , array, QuickCheck, parse-dimacs, bitset
                       , fgl, time
 
 -- Executable funsat-prof

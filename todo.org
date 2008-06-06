@@ -1,18 +1,50 @@
 * Sat todo file
 
+* TODO Export and document defaultConfig			       :release:
+
 * DONE Release initial version to hackage
   CLOSED: [2008-06-06 Fri 10:49]
 
-* TODO [#A] Add unsatisfiable core extraction			       :feature:
+* TODO Derive resolution proof of UNSAT in order to aid debugging      :feature:
+This feature essentially enables the following one, or vice versa.
 
-Algorithm:
+** TODO [#A] Add unsatisfiable core extraction                         :feature:
 
-???
+Algorithm from DATE_2003:
 
-* TODO Add -funbox-strict-fields to the ghc-options                      :bench:
+1. Each time learned clause generated, clause's ID is recorded, along with
+   each encountered "reason".
+
+   So I should be able to simply assign IDs to each original clause and
+   learned clause.  When I do the conflict analysis, each reason (by the
+   invariant) already has an ID.  I record all of these and generate a new ID
+   for the learned clause.
+
+2. When unsat is determined, record reason for conflicting variable
+   assignment.  That is, the clause that propagated the conflicting variable
+   assignment must have been false, so record its ID.  [Is this true?  Suppose
+   at decision level 0 bcp propagates -1 and 1 is assigned.  It propagated -1
+   because some clause was entirely false except it had -1.  But 1 is
+   assigned.  So, it must have been the clause was entirely false.  Hence the
+   reason for the propagation of the last conflicting clause is the ID we
+   should record.  QED.]
+
+3. Before returning Unsat from the solver, record all assigned variables
+   (which by construction are all at decision level 0) and their values, and
+   record the IDs of the "reason" for each variable.
+
+It should be sufficient to start with a linear trace of IDs along with the
+final variable assignments (produced in step 3).  In particular, we don't need
+all the literals of each learned clause at recording time.
+
+* DONE Add -funbox-strict-fields to the ghc-options			 :bench:
+  CLOSED: [2008-06-06 Fri 13:49]
 and see how it affects performance.
 
-* TODO [#A] Remove stupid command-line options                         :cleanup:
+Did this long ago.  Minus the "see how it affects performance" part.
+
+* DONE [#A] Remove stupid command-line options			       :cleanup:
+  CLOSED: [2008-06-06 Fri 11:47]
 
 * TODO [#C] Initial state for dynamic variable ordering should be
 based on the number of occurrences of literals in the clause database at the
@@ -31,8 +63,6 @@ Did this long ago.
 more than bcpLit.  Even so, reverting to a static ordering gives worse
 runtime.  So ... if we had a faster way of selecting the min, it would be
 nice.
-
-* TODO Derive resolution proof of UNSAT in order to aid debugging      :feature:
 
 * TODO There is a bug in mkConflGraph				       :ARCHIVE:
 mkConflGraph' is the old code that seemed to work, but it's much slower.

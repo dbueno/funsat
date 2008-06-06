@@ -50,7 +50,7 @@ plotLines col s = defaultPlotLines
 verticalLines numTests s = defaultPlotLines
   { plot_lines_style = s
   , plot_lines_values = map (\p -> [Point (p_x p) 1, p]) $
-                        zipWith Point [1..numTests] (repeat 40) }
+                        zipWith Point [1..numTests] (repeat 210) }
 
 manyTickAxis = defaultAxis
 
@@ -154,6 +154,6 @@ main = do
           :: [[String]]
   let filename = "test.png"
   putStrLn $ "Saving '" ++ filename ++ "'..."
-  savePNG filename ["ErrorT+StateT+ST", "SSTErrMonad"]
+  savePNG filename ["array-of-activities", "finger tree priority queue"]
           (tail dataMatrix)
 --   forM_ dataMatrix $ putStrLn . intercalate " " 

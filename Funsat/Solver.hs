@@ -120,8 +120,9 @@ module Funsat.Solver
         , Lit(..)
         , Var(..)
         , var
-        , NonStupidString(..)
+        , ShowWrapped(..)
         , statTable
+        , statSummary
         , verify
         )
 #endif
@@ -159,7 +160,6 @@ import Data.BitSet (BitSet)
 import Data.Foldable hiding (sequence_)
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
 import Data.Graph.Inductive.Graphviz
-import Data.Graph.Inductive.Tree( Gr )
 import Data.Int (Int64)
 import Data.List (intercalate, nub, tails, sortBy, intersect, sort)
 import Data.Map (Map)
@@ -175,14 +175,12 @@ import Funsat.Utils
 import DPLL.Monad
 import qualified Data.BitSet as BitSet
 import qualified Data.Graph.Inductive.Graph as Graph
-import qualified Data.Graph.Inductive.Query.BFS as BFS
 import qualified Data.Graph.Inductive.Query.DFS as DFS
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
-import qualified Funsat.FastDom as Dom
 import qualified Text.Tabular as Tabular
 
 -- * Interface
@@ -240,22 +238,17 @@ solve1 f = solve (defaultConfig f) f
 data DPLLConfig = Cfg
     { configRestart :: !Int64      -- ^ Number of conflicts before a restart.
     , configRestartBump :: !Double -- ^ `configRestart' is altered after each
-                                  -- restart by multiplying it by this value.
+                                   -- restart by multiplying it by this value.
     , configUseVSIDS :: !Bool      -- ^ If true, use dynamic variable ordering.
-    , configUseWatchedLiterals :: !Bool -- ^ If true, use watched literals
-                                       -- scheme.
-    , configUseRestarts :: !Bool
-    , configUseLearning :: !Bool }
+    , configUseRestarts :: !Bool }
                   deriving Show
 
 -- | A default configuration based on the formula to solve.
 defaultConfig :: CNF -> DPLLConfig
-defaultConfig f = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
+defaultConfig _f = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
                       , configRestartBump = 1.5
                       , configUseVSIDS = True
-                      , configUseWatchedLiterals = True
-                      , configUseRestarts = True
-                      , configUseLearning = True }
+                      , configUseRestarts = True }
 
 -- * Preprocessing
 
@@ -297,8 +290,7 @@ solveStep m = do
     unsafeFreezeAss m >>= solveStepInvariants
     conf <- gets dpllConfig
     let selector = if configUseVSIDS conf then select else selectStatic
-    let bcper = if configUseWatchedLiterals conf then bcp else bcpDumb
-    maybeConfl <- bcper m
+    maybeConfl <- bcp m
     mFr <- unsafeFreezeAss m
     s <- get
     voFr <- FrozenVarOrder `liftM` liftST (unsafeFreeze . varOrderArr . varOrder $ s)
@@ -348,7 +340,7 @@ stepToSolution stepAction = do
                gets (numConfl &&& (configRestart . dpllConfig))
     case step of
       Left m -> do when (useRestarts && restart)
-                     (do stats <- extractStats
+                     (do _stats <- extractStats
 --                          trace ("Restarting...") $
 --                           trace (statSummary stats) $
                          resetState m)
@@ -733,25 +725,6 @@ bcp m = do
      p <- dequeue
      bcpLit m p >>= maybe (bcp m) (return . Just)
 
-bcpDumb :: MAssignment s -> DPLLMonad s (Maybe (Lit, Clause))
-bcpDumb m = do
-  mFr <- liftST $ freezeAss m
-  s <- get
-  let candidates = Set.filter (not . (`isTrueUnder` mFr)) (clauses . cnf $ s)
-  case find (`isFalseUnder` mFr) candidates of
-    Just fClause -> return $ Just (head fClause, fClause)
-    Nothing ->
-      case find (`isUnitUnder` mFr) candidates of
-        Nothing -> return Nothing
-        Just clause -> do
-          let unitLit = getUnit clause mFr
-          modify $ \s -> s{ numImpl = numImpl s + 1 }
-          isConsistent <- assert (unitLit `isUndefUnder` mFr) $
-                          enqueue m unitLit (Just clause)
-          clearQueue
-          if not isConsistent
-           then return $ Just (unitLit, clause)
-           else bcpDumb m
 
 
 -- *** Decisions
@@ -806,9 +779,7 @@ backJump m c@(_, _conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
                                        liftST $ unsafeFreeze (level s)
     (learntCl, newLevel) <-
         do mFr <- unsafeFreezeAss m
-           useLearning <- configUseLearning `liftM` gets dpllConfig
-           if useLearning then analyse mFr levelArr dl c
-                          else analyseDecision mFr levelArr dl c
+           analyse mFr levelArr dl c
     s <- get
     let numDecisionsToUndo = length dl - newLevel
         dl' = drop numDecisionsToUndo dl
@@ -828,20 +799,6 @@ backJump m c@(_, _conflict) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     return $ Just m
 
 
-
--- Use the Decision first UIP clause, i.e, the crappiest one.
-analyseDecision :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause)
-                -> DPLLMonad s (Clause, Int)
-analyseDecision mFr levelArr dlits c@(cLit, _cClause) = do
-    st <- get
-    let decisionCut = uipCut dlits levelArr conflGraph (unLit cLit)
-                      (decisionUIP conflGraph)
-        conflGraph = mkConflGraph mFr levelArr (reason st) dlits c
-                     :: Gr CGNodeAnnot ()
-    return $ cutLearn mFr levelArr decisionCut
-  where
-    decisionUIP :: (Graph gr) => gr CGNodeAnnot () -> Graph.Node
-    decisionUIP _ = abs . unLit $ head dlits
 
 -- | @doWhile cmd test@ first runs @cmd@, then loops testing @test@ and
 -- executing @cmd@.  The traditional @do-while@ semantics, in other words.
@@ -926,38 +883,9 @@ analyse mFr levelArr dlits (cLit, cClause) = do
       out_btlevel <- liftST $ readSTRef out_btlevelR
       return (out_learned, out_btlevel)
 
-    firstUIP conflGraph = -- trace ("--> uips = " ++ show uips) $
---                           trace ("--> dom " ++ show conflNode
---                                  ++ " = " ++ show domConfl) $
---                           trace ("--> dom " ++ show (negate conflNode)
---                                  ++ " = " ++ show domAssigned) $
-                          argminimum distanceFromConfl uips :: Graph.Node
-        where
-          uips        = domConfl `intersect` domAssigned :: [Graph.Node]
-          -- `domConfl' never gives us vacuous dominators since there is by
-          -- construction a path on the current decision level to the implied,
-          -- conflicting node.  OTOH, there might be no path from dec. var. to
-          -- the assigned literal which is conflicting (negate conflNode).
-          domConfl    = filter (\i -> levelN i == currentLevel && i /= conflNode) $
-                        fromJust $ lookup conflNode domFromLastd
-          domAssigned =
-              -- if assigned conflict node is not implied by the current-level
-              -- dec var, then the only dominator we should list of it should
-              -- be the dec var.
-              if negate conflNode `elem` DFS.reachable (abs $ unLit lastd) conflGraph
-              then 
-                  filter (\i -> levelN i == currentLevel && i /= conflNode) $
-                  fromJust $ lookup (negate conflNode) domFromLastd
-              else [(abs $ unLit lastd)]
-          domFromLastd = Dom.dom conflGraph (abs $ unLit lastd)
-          distanceFromConfl x = length $ BFS.esp x conflNode conflGraph
-
     -- helpers
-    lastd        = head dlits
-    conflNode    = unLit cLit
     currentLevel = length dlits
     levelL l = levelArr!(var l)
-    levelN i = if i == unLit cLit then currentLevel else ((levelArr!) . V . abs) i
 
 -- | The union of the reason side and the conflict side are all the nodes in
 -- the `cutGraph' (excepting, perhaps, the nodes on the reason side at
@@ -1177,29 +1105,22 @@ watchClause :: MAssignment s
             -> DPLLMonad s Bool
 {-# INLINE watchClause #-}
 watchClause m c isLearnt = do
-  conf <- gets dpllConfig
   case c of
     [] -> return True
     [l] -> do result <- enqueue m l (Just c)
               levelArr <- gets level
               liftST $ writeArray levelArr (var l) 0
               return result
-    _ -> if configUseWatchedLiterals conf then
-             do let p = (negate (c !! 0), negate (c !! 1))
-                    insert annCl@(_, cl) list -- avoid watching dup clauses
-                        | any (\(_, c) -> cl == c) list = list
-                        | otherwise                     = annCl:list
-                r <- liftST $ newSTRef p
-                let annCl = (r, c)
-                    addCl arr = do modifyArray arr (fst p) $ const (annCl:)
-                                   modifyArray arr (snd p) $ const (annCl:)
-                get >>= liftST . addCl . (if isLearnt then learnt else watches)
-                return True
-         else do modify $ \s ->
-                     let cs = c `Set.insert` (clauses . cnf) s
-                     in s{ cnf = (cnf s){ clauses = cs
-                                        , numClauses = Set.size cs } }
-                 return True
+    _ -> do let p = (negate (c !! 0), negate (c !! 1))
+                _insert annCl@(_, cl) list -- avoid watching dup clauses
+                    | any (\(_, c) -> cl == c) list = list
+                    | otherwise                     = annCl:list
+            r <- liftST $ newSTRef p
+            let annCl = (r, c)
+                addCl arr = do modifyArray arr (fst p) $ const (annCl:)
+                               modifyArray arr (snd p) $ const (annCl:)
+            get >>= liftST . addCl . (if isLearnt then learnt else watches)
+            return True
 
 -- | Enqueue literal in the `propQ' and place it in the current assignment.
 -- If this conflicts with an existing assignment, returns @False@; otherwise
@@ -1336,32 +1257,33 @@ data Stats = Stats
     , statsNumImpl :: Int64 }
 
 -- the show instance uses the wrapped string.
-newtype NonStupidString = Stupid { stupefy :: String }
-instance Show NonStupidString where
-    show = stupefy
+newtype ShowWrapped = WrapString { unwrapString :: String }
+instance Show ShowWrapped where
+    show = unwrapString
 
 instance Show Stats where
     show = show . statTable
 
-statTable :: Stats -> Tabular.T NonStupidString
+statTable :: Stats -> Tabular.Table ShowWrapped
 statTable s =
     Tabular.mkTable
-                   [ [Stupid "Num. Conflicts"
-                     ,Stupid $ show (statsNumConflTotal s)]
-                   , [Stupid "Num. Learned Clauses"
-                     ,Stupid $ show (statsNumLearnt s)]
-                   , [Stupid " --> Avg. Lits/Clause"
-                     ,Stupid $ show (statsAvgLearntLen s)]
-                   , [Stupid "Num. Decisions"
-                     ,Stupid $ show (statsNumDecisions s)]
-                   , [Stupid "Num. Propagations"
-                     ,Stupid $ show (statsNumImpl s)] ]
+                   [ [WrapString "Num. Conflicts"
+                     ,WrapString $ show (statsNumConflTotal s)]
+                   , [WrapString "Num. Learned Clauses"
+                     ,WrapString $ show (statsNumLearnt s)]
+                   , [WrapString " --> Avg. Lits/Clause"
+                     ,WrapString $ show (statsAvgLearntLen s)]
+                   , [WrapString "Num. Decisions"
+                     ,WrapString $ show (statsNumDecisions s)]
+                   , [WrapString "Num. Propagations"
+                     ,WrapString $ show (statsNumImpl s)] ]
 
+-- | Converts statistics into a human-readable summary.
 statSummary :: Stats -> String
 statSummary s =
      show (Tabular.mkTable
-           [[Stupid $ show (statsNumConflTotal s) ++ " Conflicts"
-            ,Stupid $ "| " ++ show (statsNumLearnt s) ++ " Learned Clauses"
+           [[WrapString $ show (statsNumConflTotal s) ++ " Conflicts"
+            ,WrapString $ "| " ++ show (statsNumLearnt s) ++ " Learned Clauses"
                       ++ " (avg " ++ printf "%.2f" (statsAvgLearntLen s)
                       ++ " lits/clause)"]])
 

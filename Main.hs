@@ -34,7 +34,7 @@ import Funsat.Solver
     , GenCNF(..)
     , Solution(..)
     , verify
-    , NonStupidString(..)
+    , ShowWrapped(..)
     , statTable )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
@@ -67,13 +67,9 @@ allFeatures = Set.fromList [WatchedLiterals, ClauseLearning, Restarts, VSIDS]
 
 validOptions :: [OptDescr RunOptions]
 validOptions =
---     [ Option [] ["no-clause-learning"] (NoArg $ disableF ClauseLearning)
---              "Use naivest clause learning."
---     , Option [] ["no-watched-literals"] (NoArg $ disableF WatchedLiterals)
---              "Just traverse the formula to find unit clauses."
---     , Option [] ["no-vsids"] (NoArg $ disableF VSIDS)
---              "Use static variable ordering."
-    [ Option [] ["no-restarts"] (NoArg $ disableF Restarts)
+    [ Option [] ["no-vsids"] (NoArg $ disableF VSIDS)
+             "Use static variable ordering."
+    , Option [] ["no-restarts"] (NoArg $ disableF Restarts)
              "Never restart."
     , Option [] ["verify"] (NoArg RunTests)
              "Run quickcheck properties and unit tests."
@@ -131,16 +127,14 @@ main = do
               let cfg =
                     (defaultConfig cnf)
                     { configUseVSIDS = not $ VSIDS `elem` features
-                    , configUseWatchedLiterals = not $ WatchedLiterals `elem` features
-                    , configUseRestarts = not $ Restarts `elem` features
-                    , configUseLearning = not $ ClauseLearning `elem` features }
+                    , configUseRestarts = not $ Restarts `elem` features }
                   (solution, stats) = solve cfg cnf
               endingTime <- solution `seq` getCurrentTime
               print solution
               print $ statTable stats `Tabular.combine`
                       Tabular.mkTable
-                       [[ Stupid "Real time "
-                        , Stupid $ show (diffUTCTime endingTime startingTime)]]
+                       [[ WrapString "Real time "
+                        , WrapString $ show (diffUTCTime endingTime startingTime)]]
               case solution of
                 Sat m -> do
                   putStrLn "Verifying..."

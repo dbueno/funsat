@@ -29,6 +29,8 @@
 -- resolution trace, as discussed in the paper ''Extracting Small
 -- Unsatisfiable Cores from Unsatisfiable Boolean Formula'' by Zhang and
 -- Malik.
+--
+-- * Algorithm
 module Funsat.Resolution
     ( -- * Interface
       checkDepthFirst
@@ -39,12 +41,13 @@ module Funsat.Resolution
     , ClauseId )
         where
 
-import Control.Monad
 import Control.Monad.Error
 import Control.Monad.Reader
-import Control.Monad.State.Lazy
+import Control.Monad.State.Strict
+import Data.IntSet( IntSet )
+import Data.List( nub )
 import Data.Map( Map )
-import Data.Maybe( fromJust )
+import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
 import Funsat.Types
 
@@ -54,105 +57,138 @@ import Funsat.Types
 
 data ResolutionTrace = ResolutionTrace
     { traceFinalClauseId :: ClauseId
+      -- ^ The id of the last, conflicting clause in the solving process.
+
     , traceFinalAssignment :: IAssignment
+      -- ^ Final assignment.
+      --
+      -- /Precondition/: All variables assigned at decision level zero.
+
     , traceSources :: Map ClauseId [ClauseId]
-      -- ^ Invariant: Each id has at least one source (otherwise that id
+      -- ^ /Invariant/: Each id has at least one source (otherwise that id
       -- should not even have a mapping).
+      --
+      -- /Invariant/: Should be ordered topologically backward (?) from each
+      -- conflict clause.  (IOW, record each clause id as its encountered when
+      -- generating the conflict clause.)
+
+    , traceOriginalClauses :: Map ClauseId Clause
+      -- ^ Original clauses of the CNF input formula.
+
     , traceAntecedents :: Map Var ClauseId }
 
 type ClauseId = Int
 
--- | An error indicating some sort of bug either in the SAT solver, its
--- trace-generating code, or this code, or any combination of the three.
+-- | A type indicating an error in the checking process.
 data ResolutionError =
           ResolveError Var Clause Clause
-          -- ^ Returned if the clauses do not properly resolve on the
+          -- ^ Indicates that the clauses do not properly resolve on the
           -- variable.
 
-        | AntecedentError Var Clause
-        -- ^ Returned if the clause ought to be but is not a proper antecedent
-        -- of the variable.
+        | CannotResolve [Var] Clause Clause
+          -- ^ Indicates that the clauses do not have complementary variables
+          -- or have too many.  The complementary variables (if any) are in
+          -- the list.
+
+        | AntecedentNotUnit Clause
+        -- ^ Indicates that the constructed antecedent clause not unit under
+        -- `traceFinalAssignment'.
+
+        | AntecedentImplication (Clause, Lit) Var
+        -- ^ Indicates that in the clause-lit pair, the unit literal of clause
+        -- is the literal, but it ought to be the variable.
+
+        | AntecedentMissing Var
+        -- ^ Indicates that the variable has no antecedent mapping, in which
+        -- case it should never have been assigned/encountered in the first
+        -- place.
         
         | EmptySource ClauseId
-        -- ^ Returned if the clause id has an entry in `traceSources' but no
-        -- resolution sources.
+        -- ^ Indicates that the clause id has an entry in `traceSources' but
+        -- no resolution sources.
 
         | OrphanSource ClauseId
-        -- ^ Returned if the clause id is referenced but has no entry in
+        -- ^ Indicates that the clause id is referenced but has no entry in
         -- `traceSources'.
           deriving Show
+instance Error ResolutionError where -- Just for the Error monad.
 
-data ResState = ResState
-    { resTrace :: ResolutionTrace
-    , clauseIdMap :: Map ClauseId Clause }
+-- | The depth-first method.
+-- checkDepthFirst :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
+checkDepthFirst resTrace =
+    -- Turn internal unsat core into external.
+      fmap (map findClause . IntSet.toList)
 
-type ResM = ErrorT ResolutionError (StateT ResState (Reader ResolutionTrace))
+    -- Check and create unsat core.
+    . (`runReader` resTrace)
+    . (`evalStateT` ResState { clauseIdMap = traceOriginalClauses resTrace
+                             , unsatCore = IntSet.empty })
+    . runErrorT
+    $     recursiveBuild (traceFinalClauseId resTrace)
+      >>= checkDFClause
+
+  where
+      findClause clauseId =
+          Map.findWithDefault
+          (error $ "checkDFClause: unoriginal clause id: " ++ show clauseId)
+          clauseId (traceOriginalClauses resTrace)
+
+
 
 -- | Unsatisfiable cores are not unique.
 type UnsatisfiableCore = [Clause]
 
 
+------------------------------------------------------------------------------
+-- MAIN INTERNALS
+------------------------------------------------------------------------------
 
--- | The depth-first method.
-checkDepthFirst :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
-checkDepthFirst resTrace =
-    let clauseId = traceFinalClauseId resTrace
-    in -- TODO here turn clauseIdMap into a list of clauses
-      (`runReader` undefined) . (`evalStateT` undefined) . runErrorT $ do
-          cl <- recursiveBuild clauseId
-          checkDFClause cl
+type ResM = ErrorT ResolutionError (StateT ResState (Reader ResolutionTrace))
 
-checkDFClause :: Clause -> ResM UnsatisfiableCore
+data ResState = ResState
+    { clauseIdMap :: Map ClauseId Clause
+    , unsatCore   :: UnsatCoreIntSet -- set of ClauseIds
+    }
+type UnsatCoreIntSet = IntSet
+
+
+-- Recursively resolve the (final, initially) clause with antecedents until
+-- the empty clause is created.
+checkDFClause :: Clause -> ResM UnsatCoreIntSet
 checkDFClause clause =
     if null clause
-    then return [] -- TODO return either a real core or something that can be
-                   -- turned into one.
-
-         -- TODO check whether anteClause is unit under the trace assignment
-         -- and the unit literal corresponds to v.  If not, throw error.
+    then gets unsatCore
     else do l <- chooseLiteral clause
             let v = var l
             anteClause <- recursiveBuild =<< (getAntecedentId v)
+            checkAnteClause v anteClause
             resClause <- resolve (Just v) clause anteClause
             checkDFClause resClause
-
--- | Resolve both clauses on the given variable, and throw a resolution error
--- if anything is amiss.  Specifically, it checks that there is exactly one
--- occurrence of a literal with the given variable in each clause and they are
--- opposite in polarity.
---
--- If no variable specified, find resolving variable.
-resolve :: Maybe Var -> Clause -> Clause -> ResM Clause
-resolve maybeV c1 c2 =
-    if not vproper
-    then throwError (ResolveError v c1 c2)
-    else return $ deleteVar v c1 ++ deleteVar v c2
-      where
-        deleteVar = undefined
-        vproper = undefined
-        v = undefined
-
-getAntecedentId :: Var -> ResM ClauseId
-getAntecedentId v = do
-    anteMap <- asks traceAntecedents
-    return $ Map.findWithDefault (error $ "getAntecedentId: no ante: " ++ show v)
-             v anteMap
-
-chooseLiteral :: Clause -> ResM Lit
-chooseLiteral (l:_) = return l
 
 -- Depth-first approach from the ''Validating SAT Solvers'' paper.
 recursiveBuild :: ClauseId -> ResM Clause
 recursiveBuild clauseId {-id-} = do
-    cMap <- gets clauseIdMap
-    sourcesMap <- asks traceSources
-    case Map.lookup clauseId cMap of
+    maybeClause <- getClause
+    case maybeClause of
       Just clause -> return clause
       Nothing -> do
+          sourcesMap <- asks traceSources
           case Map.lookup clauseId sourcesMap of
             Nothing -> throwError (OrphanSource clauseId)
             Just [] -> throwError (EmptySource clauseId)
             Just (firstSourceId:ids) -> recursiveBuildIds clauseId firstSourceId ids
+  where
+    -- If clause is an *original* clause, stash it as part of the UNSAT core.
+    getClause = do
+        origMap <- asks traceOriginalClauses
+        case Map.lookup clauseId origMap of
+          Nothing -> do
+              builtMap <- gets clauseIdMap
+              return (Map.lookup clauseId builtMap)
+          Just origClause -> stashInCore >> return (Just origClause)
+
+    stashInCore = modify $
+                  \s -> s{ unsatCore = IntSet.insert clauseId (unsatCore s) }
 
 recursiveBuildIds clauseId firstSourceId sourceIds = do
           rc <- recursiveBuild firstSourceId -- recursive_build(id)
@@ -170,9 +206,55 @@ recursiveBuildIds clauseId firstSourceId sourceIds = do
 
               -- Maps ClauseId to built Clause.
               storeClauseId :: ClauseId -> Clause -> ResM ()
-              storeClauseId clauseId clause =
-                  modify $ \s ->
-                      s{ clauseIdMap = Map.insert clauseId clause (clauseIdMap s) }
+              storeClauseId clauseId clause = modify $ \s ->
+                  s{ clauseIdMap = Map.insert clauseId clause (clauseIdMap s) }
 
 
-instance Error ResolutionError where
+------------------------------------------------------------------------------
+-- HELPERS
+------------------------------------------------------------------------------
+
+
+-- | Resolve both clauses on the given variable, and throw a resolution error
+-- if anything is amiss.  Specifically, it checks that there is exactly one
+-- occurrence of a literal with the given variable (if variable given) in each
+-- clause and they are opposite in polarity.
+--
+-- If no variable specified, finds resolving variable, and ensures there's
+-- only one such variable.
+resolve :: Maybe Var -> Clause -> Clause -> ResM Clause
+resolve maybeV c1 c2 =
+    -- Find complementary literals:
+    case filter ((`elem` c2) . negate) c1 of
+      [l] -> case maybeV of
+               Nothing -> resolveVar (var l)
+               Just v -> if v == var l
+                         then resolveVar v
+                         else throwError $ ResolveError v c1 c2
+      vs -> throwError $ CannotResolve (nub . map var $ vs) c1 c2
+  where
+    resolveVar v = return $ deleteVar v c1 ++ deleteVar v c2
+
+    deleteVar = undefined
+
+-- | Get the antecedent (reason) for a variable.  Every variable encountered
+-- ought to have a reason.
+getAntecedentId :: Var -> ResM ClauseId
+getAntecedentId v = do
+    anteMap <- asks traceAntecedents
+    case Map.lookup v anteMap of
+      Nothing   -> throwError (AntecedentMissing v)
+      Just ante -> return ante
+
+chooseLiteral :: Clause -> ResM Lit
+chooseLiteral (l:_) = return l
+chooseLiteral _ = error "chooseLiteral: empty clause"
+
+checkAnteClause :: Var -> Clause -> ResM ()
+checkAnteClause v anteClause = do
+    a <- asks traceFinalAssignment
+    when (not (isUnitUnder anteClause a))
+      (throwError $ AntecedentNotUnit anteClause)
+    let unitLit = getUnit anteClause a
+    when (not $ var unitLit == v)
+      (throwError $ AntecedentImplication (anteClause, unitLit) v)

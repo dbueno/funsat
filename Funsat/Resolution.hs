@@ -114,7 +114,7 @@ data ResolutionError =
 instance Error ResolutionError where -- Just for the Error monad.
 
 -- | The depth-first method.
--- checkDepthFirst :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
+checkDepthFirst :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
 checkDepthFirst resTrace =
     -- Turn internal unsat core into external.
       fmap (map findClause . IntSet.toList)

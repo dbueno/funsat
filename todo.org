@@ -1,12 +1,18 @@
 * Sat todo file
 
-* TODO Export and document defaultConfig			       :release:
+* DONE Export and document defaultConfig			       :release:
+  CLOSED: [2008-06-07 Sat 14:29]
 
 * DONE Release initial version to hackage
   CLOSED: [2008-06-06 Fri 10:49]
 
 * TODO Derive resolution proof of UNSAT in order to aid debugging      :feature:
 This feature essentially enables the following one, or vice versa.
+
++Add Writer capability to the Funsat monad+
+Just put it in the state record.
+
+** TODO Add unique ids to clauses
 
 ** DONE [#A] Add unsatisfiable core extraction			       :feature:
    CLOSED: [2008-06-07 Sat 14:23]

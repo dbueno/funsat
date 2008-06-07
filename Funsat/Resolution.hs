@@ -74,6 +74,7 @@ data ResolutionTrace = ResolutionTrace
       -- ^ Original clauses of the CNF input formula.
 
     , traceAntecedents :: Map Var ClauseId }
+                       deriving (Show)
 
 initResolutionTrace finalClauseId finalAssignment = ResolutionTrace
     { traceFinalClauseId = finalClauseId

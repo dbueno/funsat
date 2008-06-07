@@ -207,7 +207,10 @@ unassign a l = writeArray a (var l) 0 >> return a
 
 -- | The assignment as a list of signed literals.
 litAssignment :: IAssignment -> [Lit]
-litAssignment mFr = map (L . (mFr!)) (range . bounds $ mFr)
+litAssignment mFr = foldr (\i ass -> if mFr!i == 0 then ass
+                                     else (L . (mFr!) $ i) : ass)
+                          []
+                          (range . bounds $ mFr)
 
 
 -- | An instance of this class is able to answer the question, Is a

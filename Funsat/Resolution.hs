@@ -78,7 +78,8 @@ data ResolutionTrace = ResolutionTrace
 
 type ClauseId = Int
 
--- | A type indicating an error in the checking process.
+-- | A type indicating an error in the checking process.  Assuming this
+-- checker's code is correct, such an error indicates a bug in the SAT solver.
 data ResolutionError =
           ResolveError Var Clause Clause
           -- ^ Indicates that the clauses do not properly resolve on the

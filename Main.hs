@@ -24,6 +24,7 @@ module Main where
 import Control.Monad ( when, forM_ )
 import Data.Foldable ( fold, toList, elem )
 import Data.List ( intercalate )
+import Data.Maybe( fromJust )
 import Data.Monoid
 import Data.Set ( Set )
 import Funsat.Solver
@@ -41,6 +42,7 @@ import System.Exit ( ExitCode(..), exitWith )
 import Data.Time.Clock
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
+import qualified Funsat.Resolution as Resolution
 import qualified Text.Tabular as Tabular
 
 
@@ -126,13 +128,14 @@ main = do
                     (defaultConfig cnf)
                     { configUseVSIDS = not $ VSIDS `elem` features
                     , configUseRestarts = not $ Restarts `elem` features }
-                  (solution, stats) = solve cfg cnf
+                  (solution, stats, rt) = solve cfg cnf
               endingTime <- solution `seq` getCurrentTime
               print solution
               print $ statTable stats `Tabular.combine`
                       Tabular.mkTable
                        [[ WrapString "Real time "
                         , WrapString $ show (diffUTCTime endingTime startingTime)]]
+              print rt
               case solution of
                 Sat m -> do
                   putStrLn "Verifying..."
@@ -146,7 +149,7 @@ main = do
 --                                 "Minimal erroneous CNF:\n"
 --                                 ++ show (Properties.minimalError cnf)
 #endif TESTING
-                Unsat -> return ()
+                Unsat _ -> print (Resolution.checkDepthFirst (fromJust rt)) 
 
 
 usageHeader = "Usage: funsat [options] <cnf-filename> ... <cnf-filename>"

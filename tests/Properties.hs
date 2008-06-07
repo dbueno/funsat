@@ -90,8 +90,8 @@ prop_solveCorrect (cnf :: CNF) =
     classify (numClauses cnf > 30 || numVars cnf > 20) "c>30, v>20" $
     classify (numVars cnf > 20) "c>30, v>30" $
     case solve (defaultConfig cnf) cnf of
-      (Sat m,_) -> label "SAT" $ verifyBool m cnf
-      (Unsat,_) -> label "UNSAT-unverified" $ True
+      (Sat m,_,_) -> label "SAT" $ verifyBool m cnf
+      (Unsat _,_,_) -> label "UNSAT-unverified" $ True
 
 
 prop_allIsTrueUnderA (m :: IAssignment) =
@@ -439,8 +439,8 @@ minimalError f = lastST f satAndWrong (simplifications f)
     where satAndWrong f_inner =
               trace (show (numVars f_inner) ++ "/" ++ show (numClauses f_inner)) $
               case solve1 f_inner of
-                (Unsat,_)          -> False
-                (Sat assignment,_) -> not (verifyBool assignment f_inner)
+                (Unsat _,_,_)        -> False
+                (Sat assignment,_,_) -> not (verifyBool assignment f_inner)
 
 -- last (takeWhile p xs) in the common case.
 -- mnemonic: "last Such That"

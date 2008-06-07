@@ -48,6 +48,7 @@ import Data.Map( Map )
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
 import Funsat.Types
+import Funsat.Utils( isSingle )
 
 
 -- IDs = Ints
@@ -240,9 +241,10 @@ resolve maybeV c1 c2 =
                          else throwError $ ResolveError v c1 c2
       vs -> throwError $ CannotResolve (nub . map var $ vs) c1 c2
   where
-    resolveVar v = return $ deleteVar v c1 ++ deleteVar v c2
+    resolveVar v = return . nub $ deleteVar v c1 ++ deleteVar v c2
 
-    deleteVar = undefined
+    deleteVar v c = c `without` lit v `without` negate (lit v)
+    lit (V i) = L i
 
 -- | Get the antecedent (reason) for a variable.  Every variable encountered
 -- ought to have a reason.
@@ -260,8 +262,10 @@ chooseLiteral _ = error "chooseLiteral: empty clause"
 checkAnteClause :: Var -> Clause -> ResM ()
 checkAnteClause v anteClause = do
     a <- asks traceFinalAssignment
-    when (not (isUnitUnder anteClause a))
+    when (not (anteClause `hasUnitUnder` a))
       (throwError $ AntecedentNotUnit anteClause)
     let unitLit = getUnit anteClause a
     when (not $ var unitLit == v)
       (throwError $ AntecedentImplication (anteClause, unitLit) v)
+  where
+    hasUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)

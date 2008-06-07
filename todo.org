@@ -38,7 +38,7 @@ final variable assignments (produced in step 3).  In particular, we don't need
 all the literals of each learned clause at recording time.
 
 ** Correctness
--- @recursive_build@ reconstructs the clause corresponding to the input id.
+@recursive_build@ reconstructs the clause corresponding to the input id.
 First we build the final conflicting clause.  This clause must be false under
 the terminating assignment.  Call this clause X.
 
@@ -63,6 +63,24 @@ hypothesis, Z is false.  Since X is the antecedent for l, X propagated -l (*).
 
 If we cannot, SAT solver is incorrect.  In particular, the assumptions marked
 (*) are the ones guaranteed by the correct operation of the solver.
+
+*** In recursive_build
+  * recursive_build first bottoms out when it hits an original clause.
+
+**** Original clause
+Suppose cl_id is an original clause.  Then it is already built (i.e. should be
+supplied to checker).
+
+If not, the clause we're constructing corresponds to a learned clause.
+Construct clause CL of first source.  (*) Then construct clause of second
+source.  Resolve them into X1.  Resolve X1 with build clause of next source of
+cl_id.  Resolve into X2...Xn.  Build and return Xn.
+
+    [Both of these clauses are either reasons used or the conflicting clause
+    used when generating the learned clause.
+
+    Suppose the conflict clause has only two sources.  Obviously both must
+    mention the conflicting lit.  Otherwise they would not be present.]
 
 *** Invariants
 INVARIANT: every variable in the final assignment has an antecedent.  This is

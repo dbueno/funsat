@@ -1,5 +1,3 @@
-{-# LANGUAGE EmptyDataDecls #-}
-
 
 {-
     This file is part of funsat.
@@ -35,6 +33,7 @@ module Funsat.Resolution
       checkDepthFirst
      -- * Data Types
     , ResolutionTrace(..)
+    , initResolutionTrace
     , ResolutionError(..)
     , UnsatisfiableCore
     , ClauseId )
@@ -75,6 +74,13 @@ data ResolutionTrace = ResolutionTrace
       -- ^ Original clauses of the CNF input formula.
 
     , traceAntecedents :: Map Var ClauseId }
+
+initResolutionTrace finalClauseId finalAssignment = ResolutionTrace
+    { traceFinalClauseId = finalClauseId
+    , traceFinalAssignment = finalAssignment
+    , traceSources = Map.empty
+    , traceOriginalClauses = Map.empty
+    , traceAntecedents = Map.empty }
 
 type ClauseId = Int
 

@@ -37,6 +37,46 @@ It should be sufficient to start with a linear trace of IDs along with the
 final variable assignments (produced in step 3).  In particular, we don't need
 all the literals of each learned clause at recording time.
 
+** Correctness
+-- @recursive_build@ reconstructs the clause corresponding to the input id.
+First we build the final conflicting clause.  This clause must be false under
+the terminating assignment.  Call this clause X.
+
+If the loop terminates and no errors, clearly we have a proper proof.
+
+If the loop never terminates, then X is never the empty clause.  But if
+resolve() finds a resolvent, cl is always "smaller".  Since there are only
+finitely many variables & reasons, we will get the empty clause or find an
+error.
+
+*** In check_depth_first, can we resolve on any lit in clause & get a clause
+that is false?
+
+Proof:
+Assume SAT solver is correct.  Let l be in the last clause.  The antecedent
+for l propagated -l (*), and therefore contains -l.  Hence we can resolve and
+still get a clause that is false.
+
+Suppose X is the antecedent clause for l in a clause Z.  By induction
+hypothesis, Z is false.  Since X is the antecedent for l, X propagated -l (*).
+... Hence, we can resolve on l preserving.
+
+If we cannot, SAT solver is incorrect.  In particular, the assumptions marked
+(*) are the ones guaranteed by the correct operation of the solver.
+
+*** Invariants
+INVARIANT: every variable in the final assignment has an antecedent.  This is
+true if the SAT solver is correct.
+
+INVARIANT: every variable in an antecedent (reason) is assigned.  Also true if
+the SAT solver is true.
+
+INVARIANT: All reasons are non-empty.  Duh, otherwise they could not have
+propagated.
+
+Therefore, if any of these fails, there might be an error in the solver/trace
+generation.  So they should be reported as ResolutionErrors.
+
 * DONE Add -funbox-strict-fields to the ghc-options			 :bench:
   CLOSED: [2008-06-06 Fri 13:49]
 and see how it affects performance.

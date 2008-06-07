@@ -109,6 +109,7 @@ module Funsat.Solver
         ( solve
         , solve1
         , DPLLConfig(..)
+        , defaultConfig
         , Solution(..)
         , IAssignment
         , litAssignment
@@ -245,6 +246,14 @@ data DPLLConfig = Cfg
                   deriving Show
 
 -- | A default configuration based on the formula to solve.
+--
+--  * restarts every 100 conflicts
+--
+--  * requires 1.5 as many restarts after restarting as before, each time
+--
+--  * VSIDS to be enabled
+--
+--  * restarts to be enabled
 defaultConfig :: CNF -> DPLLConfig
 defaultConfig _f = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
                       , configRestartBump = 1.5
@@ -397,34 +406,46 @@ newtype FrozenVarOrder = FrozenVarOrder (UArray Var Double)
 type WatchedPair s = (STRef s (Lit, Lit), Clause)
 type WatchArray s = STArray s Lit [WatchedPair s]
 
--- ** DPLL State and Phases
+-- ** State and Phases
 
-data DPLLStateContents s = SC
+data FunsatState s = SC
     { cnf :: CNF                -- ^ The problem.
     , dl :: [Lit]
       -- ^ The decision level (last decided literal on front).
+
     , watches :: WatchArray s
       -- ^ Invariant: if @l@ maps to @((x, y), c)@, then @x == l || y == l@.
+
     , learnt :: WatchArray s
       -- ^ Same invariant as `watches', but only contains learned conflict
       -- clauses.
+
     , propQ :: Seq Lit
       -- ^ A FIFO queue of literals to propagate.  This should not be
       -- manipulated directly; see `enqueue' and `dequeue'.
+
     , level :: LevelArray s
+
     , trail :: [Lit]
       -- ^ Chronological trail of assignments, last-assignment-at-head.
+
     , reason :: Map Var Clause
       -- ^ For each variable, the clause that (was unit and) implied its value.
+
     , numConfl :: !Int64
       -- ^ The number of conflicts that have occurred since the last restart.
+
     , numConflTotal :: !Int64
       -- ^ The total number of conflicts.
+
     , numDecisions :: !Int64
       -- ^ The total number of decisions.
+
     , numImpl :: !Int64
       -- ^ The total number of implications (propagations).
+
     , varOrder :: VarOrder s
+
     , dpllConfig :: DPLLConfig
     }
                          deriving Show
@@ -440,8 +461,8 @@ instance Show (STArray s a b) where
 
 -- | Our star monad, the DPLL State monad.  We use @ST@ for mutable arrays and
 -- references, when necessary.  Most of the state, however, is kept in
--- `DPLLStateContents' and is not mutable.
-type DPLLMonad s = SSTErrMonad (Lit, Clause) (DPLLStateContents s) s
+-- `FunsatState' and is not mutable.
+type DPLLMonad s = SSTErrMonad (Lit, Clause) (FunsatState s) s
 
 
 -- *** Boolean constraint propagation
@@ -713,7 +734,7 @@ varInc = 1.0
 -- clause and there are no decision literals in @m@.''  But we were deciding
 -- on all literals *without* creating a conflicting clause.  So now we also
 -- test whether we've made all possible decisions, too.
-unsat :: Maybe a -> DPLLStateContents s -> Bool
+unsat :: Maybe a -> FunsatState s -> Bool
 {-# INLINE unsat #-}
 unsat maybeConflict (SC{dl=dl}) = isUnsat
     where isUnsat = (null dl && isJust maybeConflict)

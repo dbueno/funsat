@@ -41,6 +41,7 @@ import Test.QuickCheck hiding (defaultConfig)
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
+import qualified Funsat.Resolution as Resolution
 import qualified Test.QuickCheck as QC
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 
@@ -91,7 +92,13 @@ prop_solveCorrect (cnf :: CNF) =
     classify (numVars cnf > 20) "c>30, v>30" $
     case solve (defaultConfig cnf) cnf of
       (Sat m,_,_) -> label "SAT" $ verifyBool m cnf
-      (Unsat _,_,_) -> label "UNSAT-unverified" $ True
+      (Unsat _,_,rt) -> label "UNSAT" $
+                        case Resolution.checkDepthFirst (fromJust rt) of
+                          Left e ->
+                                trace ("rt = " ++ show rt ++ "\n"
+                                       ++ "Resolution checker error: " ++ show e)
+                              $ False
+                          Right _ -> True
 
 
 prop_allIsTrueUnderA (m :: IAssignment) =

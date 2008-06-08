@@ -210,7 +210,7 @@ solve cfg fIn =
       , trail=[], numConfl=0, level=undefined, numConflTotal=0
       , numDecisions=0, numImpl=0
       , reason=Map.empty, varOrder=undefined
-      , resolutionTrace=PartialResolutionTrace 1 [] Map.empty
+      , resolutionTrace=PartialResolutionTrace 1 [] [] Map.empty
       , dpllConfig=cfg }
   where
     f = preprocessCNF fIn
@@ -435,6 +435,9 @@ type WatchArray s = STArray s Lit [WatchedPair s]
 data PartialResolutionTrace = PartialResolutionTrace
     { resTraceIdCount :: !Int
     , resTrace :: ![Int]
+    , resTraceOriginalSingles :: ![(Clause, ClauseId)]
+      -- Singleton clauses are not stored in the database, they are assigned.
+      -- But we need to record their ids, so we put them here.
     , resSourceMap :: Map ClauseId [ClauseId] }
                             deriving (Show)
 
@@ -843,6 +846,9 @@ watchClause m (c, cid) isLearnt = do
     [l] -> do result <- enqueue m l (Just (c, cid))
               levelArr <- gets level
               liftST $ writeArray levelArr (var l) 0
+              modifySlot resolutionTrace $ \s rt ->
+                  s{resolutionTrace=rt{resTraceOriginalSingles=
+                                           (c,cid): resTraceOriginalSingles rt}}
               return result
     _ -> do let p = (negate (c !! 0), negate (c !! 1))
                 _insert annCl@(_, cl) list -- avoid watching dup clauses
@@ -1212,7 +1218,11 @@ constructResTrace sol = do
                          clauses)
               Map.empty
               watchesIndices
-    let anteMap =
+    let singleClauseMap =
+            foldr (\(clause, clauseId) m -> Map.insert clauseId clause m)
+                  Map.empty
+                  (resTraceOriginalSingles . resolutionTrace $ s)
+        anteMap =
             foldr (\l anteMap -> Map.insert (var l) (getAnteId s (var l)) anteMap)
                   Map.empty
                   (litAssignment . finalAssignment $ sol)
@@ -1221,7 +1231,7 @@ constructResTrace sol = do
        (head (resTrace . resolutionTrace $ s))
        (finalAssignment sol))
       { traceSources = resSourceMap . resolutionTrace $ s
-      , traceOriginalClauses = origClauseMap
+      , traceOriginalClauses = origClauseMap `Map.union` singleClauseMap
       , traceAntecedents = anteMap }
   where
     getAnteId s v = snd $

@@ -135,21 +135,20 @@ main = do
                       Tabular.mkTable
                        [[ WrapString "Real time "
                         , WrapString $ show (diffUTCTime endingTime startingTime)]]
-              print rt
+              putStr "Verifying solution..."
               case solution of
                 Sat m -> do
-                  putStrLn "Verifying..."
                   case verify m cnf of
                     Just problemClauses ->
-                        do putStrLn "VERIFICATION ERROR!"
+                        do putStrLn "\n-->VERIFICATION ERROR!"
                            print problemClauses
-                    Nothing -> return ()
-#ifdef TESTING
---                               putStrLn $
---                                 "Minimal erroneous CNF:\n"
---                                 ++ show (Properties.minimalError cnf)
-#endif TESTING
-                Unsat _ -> print (Resolution.checkDepthFirst (fromJust rt)) 
+                    Nothing -> putStrLn "succeeded."
+
+                Unsat _ -> case Resolution.checkDepthFirst (fromJust rt) of
+                             Left er -> 
+                                 do putStrLn "\n-->VERIFICATION ERROR!"
+                                    print er
+                             Right _ -> putStrLn "succeeded."
 
 
 usageHeader = "Usage: funsat [options] <cnf-filename> ... <cnf-filename>"

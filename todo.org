@@ -6,13 +6,19 @@
 * DONE Release initial version to hackage
   CLOSED: [2008-06-06 Fri 10:49]
 
-* TODO Derive resolution proof of UNSAT in order to aid debugging      :feature:
+* DONE Derive resolution proof of UNSAT in order to aid debugging      :feature:
+  CLOSED: [2008-06-07 Sat 20:32]
 This feature essentially enables the following one, or vice versa.
 
 +Add Writer capability to the Funsat monad+
 Just put it in the state record.
 
-** TODO Add unique ids to clauses
+** TODO Write quickCheck tests for checker
+Use a generater that will always generate unsat problems, then check them, and
+make sure unsat core is correct too.
+
+** DONE Add unique ids to clauses
+   CLOSED: [2008-06-07 Sat 20:32]
 
 ** DONE [#A] Add unsatisfiable core extraction			       :feature:
    CLOSED: [2008-06-07 Sat 14:23]

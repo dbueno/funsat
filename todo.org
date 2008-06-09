@@ -17,6 +17,8 @@ Just put it in the state record.
 Use a generater that will always generate unsat problems, then check them, and
 make sure unsat core is correct too.
 
+*** TODO [#A] Resolution.check has a bug.  Find it.			   :bug:
+
 ** DONE Add unique ids to clauses
    CLOSED: [2008-06-07 Sat 20:32]
 

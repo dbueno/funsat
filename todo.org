@@ -1,5 +1,9 @@
 * Sat todo file
 
+* TODO resTrace field of resolution trace in solver can go
+Why do I even need the trace?  I just need the original clause ids and the
+source map, right?
+
 * DONE Export and document defaultConfig			       :release:
   CLOSED: [2008-06-07 Sat 14:29]
 

@@ -25,6 +25,12 @@ optimisations.
 
             Current state: decision heuristic\/code cleanup\/tests.
 
+* 07 Jun 2008 21:43:42
+
+N.B. because of the use of mutable arrays in the ST monad, the solver will
+actually give _wrong_ answers if you compile without optimisation.  Which is
+okay, 'cause that's really slow anyway.
+
 * 24 Apr 2008 16:47:56
 
 After some investigating, mad coding, and cursing, First UIP clause learning

@@ -130,7 +130,7 @@ checkDepthFirst resTrace =
     -- Check and create unsat core.
     . (`runReader` resTrace)
     . (`evalStateT` ResState { clauseIdMap = traceOriginalClauses resTrace
-                             , unsatCore = IntSet.empty })
+                             , unsatCore   = IntSet.empty })
     . runErrorT
     $     recursiveBuild (traceFinalClauseId resTrace)
       >>= checkDFClause
@@ -151,13 +151,14 @@ type UnsatisfiableCore = [Clause]
 -- MAIN INTERNALS
 ------------------------------------------------------------------------------
 
-type ResM = ErrorT ResolutionError (StateT ResState (Reader ResolutionTrace))
-
 data ResState = ResState
     { clauseIdMap :: Map ClauseId Clause
-    , unsatCore   :: UnsatCoreIntSet -- set of ClauseIds
+    , unsatCore   :: UnsatCoreIntSet
     }
-type UnsatCoreIntSet = IntSet
+
+type UnsatCoreIntSet = IntSet   -- set of ClauseIds
+
+type ResM = ErrorT ResolutionError (StateT ResState (Reader ResolutionTrace))
 
 
 -- Recursively resolve the (final, initially) clause with antecedents until
@@ -168,12 +169,11 @@ checkDFClause clause =
     then gets unsatCore
     else do l <- chooseLiteral clause
             let v = var l
-            anteClause <- recursiveBuild =<< (getAntecedentId v)
+            anteClause <- recursiveBuild =<< getAntecedentId v
             checkAnteClause v anteClause
             resClause <- resolve (Just v) clause anteClause
             checkDFClause resClause
 
--- Depth-first approach from the ''Validating SAT Solvers'' paper.
 recursiveBuild :: ClauseId -> ResM Clause
 recursiveBuild clauseId {-id-} = do
     maybeClause <- getClause
@@ -190,32 +190,29 @@ recursiveBuild clauseId {-id-} = do
     getClause = do
         origMap <- asks traceOriginalClauses
         case Map.lookup clauseId origMap of
-          Nothing -> do
-              builtMap <- gets clauseIdMap
-              return (Map.lookup clauseId builtMap)
-          Just origClause -> stashInCore >> return (Just origClause)
+          Just origClause -> withClauseInCore $ return (Just origClause)
+          Nothing -> Map.lookup clauseId `liftM` gets clauseIdMap
 
-    stashInCore = modify $
-                  \s -> s{ unsatCore = IntSet.insert clauseId (unsatCore s) }
+    withClauseInCore =
+        (modify (\s -> s{ unsatCore = IntSet.insert clauseId (unsatCore s) }) >>)
 
 recursiveBuildIds clauseId firstSourceId sourceIds = do
-          rc <- recursiveBuild firstSourceId -- recursive_build(id)
-          clause <- foldM buildAndResolve rc sourceIds
-          storeClauseId clauseId clause
-          return clause
+    rc <- recursiveBuild firstSourceId -- recursive_build(id)
+    clause <- foldM buildAndResolve rc sourceIds
+    storeClauseId clauseId clause
+    return clause
 
-            where
-              -- This is the while loop inside the recursiveBuild procedure in the
-              -- paper.
-              buildAndResolve :: Clause -> ClauseId -> ResM (Clause)
-              buildAndResolve clause1 clauseId = do
-                  clause2 <- recursiveBuild clauseId
-                  resolve Nothing clause1 clause2
+      where
+        -- This is the body of the while loop inside the recursiveBuild
+        -- procedure in the paper.
+        buildAndResolve :: Clause -> ClauseId -> ResM (Clause)
+        buildAndResolve clause1 clauseId =
+            recursiveBuild clauseId >>= resolve Nothing clause1
 
-              -- Maps ClauseId to built Clause.
-              storeClauseId :: ClauseId -> Clause -> ResM ()
-              storeClauseId clauseId clause = modify $ \s ->
-                  s{ clauseIdMap = Map.insert clauseId clause (clauseIdMap s) }
+        -- Maps ClauseId to built Clause.
+        storeClauseId :: ClauseId -> Clause -> ResM ()
+        storeClauseId clauseId clause = modify $ \s ->
+            s{ clauseIdMap = Map.insert clauseId clause (clauseIdMap s) }
 
 
 ------------------------------------------------------------------------------

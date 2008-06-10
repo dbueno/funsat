@@ -140,13 +140,13 @@ main = do
                 Sat m -> do
                   case verify m cnf of
                     Just problemClauses ->
-                        do putStrLn "\n-->VERIFICATION ERROR!"
+                        do putStrLn "\n--> VERIFICATION ERROR!"
                            print problemClauses
                     Nothing -> putStrLn "succeeded."
 
                 Unsat _ -> case Resolution.checkDepthFirst (fromJust rt) of
                              Left er -> 
-                                 do putStrLn "\n-->VERIFICATION ERROR!"
+                                 do putStrLn "\n--> VERIFICATION ERROR!"
                                     print er
                              Right _ -> putStrLn "succeeded."
 

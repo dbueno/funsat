@@ -20,7 +20,7 @@ module Properties where
     Copyright 2008 Denis Bueno
 -}
 
-import Funsat.Solver hiding ( (==>) )
+import Funsat.Solver hiding ((==>))
 
 import Control.Monad (replicateM)
 import Data.Array.Unboxed
@@ -76,10 +76,14 @@ main = do
       setStdGen (mkStdGen 42)
       check solveConfig prop_solveCorrect
 
+      setStdGen (mkStdGen 42)
+      check resChkConfig prop_resolutionChecker
+
 config = QC.defaultConfig { configMaxTest = 1000 }
 
 -- Special configuration for the "solve this random instance" tests.
 solveConfig = QC.defaultConfig { configMaxTest = 2000 }
+resChkConfig = QC.defaultConfig{ configMaxTest = 1200 }
 
 myConfigEvery testnum args = show testnum ++ ": " ++ show args ++ "\n\n"
 
@@ -100,6 +104,17 @@ prop_solveCorrect (cnf :: CNF) =
                               $ False
                           Right _ -> True
 
+prop_resolutionChecker (cnf :: UnsatCNF) =
+    label "prop_resolutionChecker" $
+    case solve1 (unUnsatCNF cnf) of
+      (Sat _,_,_)    -> label "SAT" True
+      (Unsat _,_,rt) -> label "UNSAT" $
+          case Resolution.checkDepthFirst (fromJust rt) of
+            Left e -> False
+            Right unsatCore ->
+                case solve1 ((unUnsatCNF cnf){ clauses = Set.fromList unsatCore}) of
+                  (Sat _,_,_) -> False
+                  (Unsat _,_,_) -> True
 
 prop_allIsTrueUnderA (m :: IAssignment) =
     label "prop_allIsTrueUnderA"$
@@ -242,8 +257,9 @@ instance Show (a -> b) where
 
 
 
-
+------------------------------------------------------------------------------
 -- * Helpers
+------------------------------------------------------------------------------
 
 
 
@@ -306,7 +322,9 @@ _powerset (x:xs) = xss /\/ map (x:) xss
       (x:xs) /\/ ys = x : (ys /\/ xs)
 
 
+------------------------------------------------------------------------------
 -- * Generators
+------------------------------------------------------------------------------
 
 instance Arbitrary Var where
     arbitrary = sized $ \n -> V `fmap` choose (1, n)
@@ -315,24 +333,30 @@ instance Arbitrary Lit where
 
 -- Generates assignment that never has a subset {l, -l}.
 instance Arbitrary IAssignment where
-    arbitrary = sized $ assign'
+    arbitrary = sized assign'
         where 
           assign' n = do lits :: [Lit] <- vector n
                          return $ array (V 1, V n) $ map (\i -> (var i, unLit i))
                                                      (nub lits)
 
 instance Arbitrary CNF where
-    arbitrary = sized genRandom3SAT
+    arbitrary = sized (genRandom3SAT 3.0)
 
 sizedLit n = do
   v <- choose (1, n)
   t <- oneof [return id, return negate]
   return $ L (t v)
 
-genRandom3SAT :: Int -> Gen CNF
-genRandom3SAT n =
-    do let clausesPerVar = 3.0
-           nClauses = ceiling (fromIntegral nVars * clausesPerVar)
+-- Generate a random 3SAT problem with the given ratio of clauses/variable.
+--
+-- Current research suggests:
+--
+--  * ~ 4.3: hardest instances
+--  * < 4.3: SAT & easy
+--  * > 4.3: UNSAT & easy
+genRandom3SAT :: Double -> Int -> Gen CNF
+genRandom3SAT clausesPerVar n =
+    do let nClauses = ceiling (fromIntegral nVars * clausesPerVar)
        clauseList <- replicateM nClauses arbClause
        return $ CNF { numVars    = nVars
                     , numClauses = nClauses
@@ -346,32 +370,6 @@ genRandom3SAT n =
       c <- sizedLit nVars
       return [a,b,c]
 
-
-genCNF2 n = gen (fromIntegral n)
-      where
-        gen n =
-            let _g = n `div` 4
-                lits :: [Lit] = map L [1..n]
-                genClause1 [a,b,c,d] =
-                    map (map negate) [[a,b,c], [a,b,d], [a,c,d], [b,c,d]]
-                genClause1 _ = error "genClause1: bad arg"
-                genClause2 [a,b,c,d] = [[a,b,c], [a,b,d], [a,c,d], [b,c,c]]
-                genClause2 _ = error "genClause2: bad arg"
-                _genUnsat [a,b,c,d,e] =
-                    map (map negate)
-                    [[a,b,c,d]
-                    ,[a,b,c,e]
-                    ,[a,b,d,e]
-                    ,[a,c,d, negate e]
-                    ,[b,c,d, negate e]]
-                _genUnsat _ = error "genUnsat: bad arg"
-            in do groups1 <- return $ concatMap genClause1 $ windows 4 lits
-                  lits'   <- permute lits
-                  groups2 <- return $ concatMap genClause2 $ windows 4 lits'
-                  return $
-                    CNF {numVars = n
-                        ,numClauses = length groups1 + length groups1
-                        ,clauses = Set.fromList $ groups1 ++ groups2}
 
 windows :: Int -> [a] -> [[a]]
 windows n xs = if length xs < n
@@ -387,7 +385,18 @@ permute xs = choose (0, length xs - 1) >>= \idx ->
                _            -> error "permute: bug"
 
 
+newtype UnsatCNF = UnsatCNF { unUnsatCNF :: CNF } deriving (Show)
+instance Arbitrary UnsatCNF where
+    arbitrary = do
+        f <- sized (genRandom3SAT 5.19)
+        return (UnsatCNF f)
+
+
+
+
+------------------------------------------------------------------------------
 -- ** Simplification
+------------------------------------------------------------------------------
 
 class WellFoundedSimplifier a where
     -- | If the argument can be made simpler, a list of one-step simpler

@@ -284,7 +284,7 @@ preprocessCNF f = f{clauses = simpClauses (clauses f)}
 -- | Simplify the clause database.  Eventually should supersede, probably,
 -- `preprocessCNF'.
 --
--- Precondition: no decisions.
+-- Precondition: decision level 0.
 simplifyDB :: IAssignment -> DPLLMonad s ()
 simplifyDB mFr = do
   -- For each clause in the database, remove it if satisfied; if it contains a
@@ -295,10 +295,10 @@ simplifyDB mFr = do
     let l = L (mFr!i)
         filterL _i = map (\(p, c, cid) -> (p, filter (/= negate l) c, cid))
     -- Remove unsat literal `negate l' from clauses.
-    modifyArray (watches s) l filterL
+--     modifyArray (watches s) l filterL
     modifyArray (learnt s) l filterL
     -- Clauses containing `l' are Sat.
-    writeArray (watches s) (negate l) []
+--     writeArray (watches s) (negate l) []
     writeArray (learnt s) (negate l) []
 
 -- * Internals
@@ -708,7 +708,7 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
       let reasonL l = if l == cLit then (cClause, cCid)
                       else
                         let (r, rid) =
-                                Map.findWithDefault (error "reasonL")
+                                Map.findWithDefault (error "analyse: reasonL")
                                 (var l) reasonMap
                         in (r `without` l, rid)
 
@@ -852,9 +852,10 @@ watchClause m (c, cid) isLearnt = do
     [l] -> do result <- enqueue m l (Just (c, cid))
               levelArr <- gets level
               liftST $ writeArray levelArr (var l) 0
-              modifySlot resolutionTrace $ \s rt ->
-                  s{resolutionTrace=rt{resTraceOriginalSingles=
-                                           (c,cid): resTraceOriginalSingles rt}}
+              when (not isLearnt) (
+                modifySlot resolutionTrace $ \s rt ->
+                    s{resolutionTrace=rt{resTraceOriginalSingles=
+                                             (c,cid): resTraceOriginalSingles rt}})
               return result
     _ -> do let p = (negate (c !! 0), negate (c !! 1))
                 _insert annCl@(_, cl) list -- avoid watching dup clauses
@@ -963,7 +964,7 @@ nextTraceId = do
 traceClauseId :: ClauseId -> DPLLMonad s ()
 traceClauseId cid = do
     modifySlot resolutionTrace $ \s rt ->
-        s{resolutionTrace = rt{ resTrace = cid:(resTrace . resolutionTrace) s }}
+        s{resolutionTrace = rt{ resTrace = [cid] }}
 
 
 -- *** Generic state transition notation

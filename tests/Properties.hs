@@ -31,19 +31,21 @@ import Data.List (nub, splitAt, unfoldr, delete, sort, sortBy)
 import Data.Maybe
 import Data.Ord( comparing )
 import Debug.Trace
+import Funsat.Solver( verify )
 import Funsat.Types
 import Funsat.Utils( count, argmin )
 import Language.CNF.Parse.ParseDIMACS( parseCNF )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
                       , sum, concat )
+import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Funsat.Resolution as Resolution
-import qualified Test.QuickCheck as QC
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
+import qualified Test.QuickCheck as QC
 
 
 main :: IO ()
@@ -95,7 +97,7 @@ prop_solveCorrect (cnf :: CNF) =
     classify (numClauses cnf > 30 || numVars cnf > 20) "c>30, v>20" $
     classify (numVars cnf > 20) "c>30, v>30" $
     case solve (defaultConfig cnf) cnf of
-      (Sat m,_,_) -> label "SAT" $ verifyBool m cnf
+      (Sat m,_,rt) -> label "SAT" $ verifyBool (Sat m) rt cnf
       (Unsat _,_,rt) -> label "UNSAT" $
                         case Resolution.checkDepthFirst (fromJust rt) of
                           Left e ->
@@ -456,7 +458,7 @@ minimalError f = lastST f satAndWrong (simplifications f)
               trace (show (numVars f_inner) ++ "/" ++ show (numClauses f_inner)) $
               case solve1 f_inner of
                 (Unsat _,_,_)        -> False
-                (Sat assignment,_,_) -> not (verifyBool assignment f_inner)
+                (Sat a,_,rt) -> not (verifyBool (Sat a) rt f_inner)
 
 -- last (takeWhile p xs) in the common case.
 -- mnemonic: "last Such That"
@@ -500,6 +502,6 @@ asCNF (ParseCNF.CNF v c is) =
 --    return $ B.unpack bs -- lazy unpack into String
 
 
-verifyBool :: IAssignment -> CNF -> Bool
-verifyBool m problem = isNothing $ verify m problem
+verifyBool :: Solution -> Maybe ResolutionTrace -> CNF -> Bool
+verifyBool sol maybeRT formula = isNothing $ verify sol maybeRT formula
 

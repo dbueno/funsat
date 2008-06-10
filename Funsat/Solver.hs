@@ -18,119 +18,55 @@
 
 {-|
 
-Goal: A reasonably efficient, easy-to-understand modern sat solver.  I want it
-as architecturally simple as the description in /Abstract DPLL and Abstract
-DPLL Modulo Theories/ is conceptually, while retaining some efficient
-optimisations.
+Funsat aims to be a reasonably efficient modern SAT solver that is easy to
+integrate as a backend to other projects.  SAT is NP-complete, and thus has
+reductions from many other interesting problems.  We hope this implementation
+is efficient enough to make it useful to solve medium-size, real-world problem
+mapped from another space.  We also aim to test the solver rigorously to
+encourage confidence in its output.
 
-            Current state: decision heuristic\/code cleanup\/tests.
+One particular nicetie facilitating integration of Funsat into other projects
+is the efficient calculation of an /unsatisfiable core/ for unsatisfiable
+problems (see the "Funsat.Resolution" module).  In the case a problem is
+unsatisfiable, as a by-product of checking the proof of unsatisfiability,
+Funsat will generate a minimal set of input clauses that are also
+unsatisfiable.
 
-* 07 Jun 2008 21:43:42
+* 07 Jun 2008 21:43:42: N.B. because of the use of mutable arrays in the ST
+monad, the solver will actually give _wrong_ answers if you compile without
+optimisation.  Which is okay, 'cause that's really slow anyway.
 
-N.B. because of the use of mutable arrays in the ST monad, the solver will
-actually give _wrong_ answers if you compile without optimisation.  Which is
-okay, 'cause that's really slow anyway.
+[@Bibliography@]
 
-* 24 Apr 2008 16:47:56
+  * ''Abstract DPLL and DPLL Modulo Theories''
 
-After some investigating, mad coding, and cursing, First UIP clause learning
-has been implemented.  For conceptual clarity, though, it is implemented in
-terms of an explicit conflict graph, explicit dominator calculation, and
-explicit cuts.  Profiling shows that for conflict-heavy problems,
-conflict-clause generation is no more a bottleneck than boolean constraint
-propagation.
+  * ''Chaff: Engineering an Efficient SAT solver''
 
-This can and will be improved later.
+  * ''An Extensible SAT-solver'' by Niklas Een, Niklas Sorensson
 
-* 15 Dec 2007 22:46:11
+  * ''Efficient Conflict Driven Learning in a Boolean Satisfiability Solver''
+by Zhang, Madigan, Moskewicz, Malik
 
-backJump appears to work now.  I used to have both Just and Nothing cases
-there, but there was no reason why, since either you always reverse some past
-decision (maybe the most recent one).  Well, the problem had to do with
-DecisionMap.  Basically instead of keeping around the implications of a
-decision literal (those as a result of unit propagation *and* reversed
-decisions of higher decision levels), I was throwing them away.  This was bad
-for backJump.
-
-Anyway, now it appears to work properly.
-
-* 08 Dec 2007 22:15:44
-
-IT IS ALIVE
-
-I do need the /bad/ variables to be kept around, but I should only update the
-list after I'm forced to backtrack *all the way to decision level 0*.  Only
-then is a variable bad.  The Chaff paper makes you think you mark it as /tried
-both ways/ the *first* time you see that, no matter the decision level.
-
-On the other hand, why do I need a bad variable list at all?  The DPLL paper
-doesn't imply that I should.  Hmm.
-
-* 08 Dec 2007 20:16:17
-
-For some reason, the /unsat/ (or /fail/ condition, in the DPLL paper) was not
-sufficient: I was trying out all possible assignments but in the end I didn't
-get a conflict, just no more options.  So I added an or to test for that case
-in `unsat'.  Still getting assignments under which some clauses are undefined;
-though, it appears they can always be extended to proper, satisfying
-assignments.  But why does it stop before then?
-
-* 20 Nov 2007 14:52:51
-
-Any time I've spent coding on this I've spent trying to figure out why some
-inputs cause divergence.  I finally figured out how (easily) to print out the
-assignment after each step, and indeed the same decisions were being made
-over, and over, and over again.  So I decided to keep a /bad/ list of literals
-which have been tried both ways, without success, so that decLit never decides
-based on one of those literals.  Now it terminates, but the models are (at
-least) non-total, and (possibly) simply incorrect.  This leads me to believ
-that either (1) the DPLL paper is wrong about not having to keep track of
-whether you've tried a particular variable both ways, or (2) I misread the
-paper or (3) I implemented incorrectly what is in the paper.  Hopefully before
-I die I will know which of the three is the case.
-
-* 17 Nov 2007 11:58:59:
-
-Profiling reveals instance Model Lit Assignment accounts for 74% of time, and
-instance Model Lit Clause Assignment accounts for 12% of time.  These occur in
-the call graph under unitPropLit.  So clearly I need a *better way of
-searching for the next unit literal*.
-
-* Bibliography
-
-''Abstract DPLL and DPLL Modulo Theories''
-
-''Chaff: Engineering an Efficient SAT solver''
-
-''An Extensible SAT-solver'' by Niklas Een, Niklas Sorensson
-
-''Efficient Conflict Driven Learning in a Boolean Satisfiability Solver'' by
-Zhang, Madigan, Moskewicz, Malik
-
-''SAT-MICRO: petit mais costaud!'' by Conchon, Kanig, and Lescuyer
+  * ''SAT-MICRO: petit mais costaud!'' by Conchon, Kanig, and Lescuyer
 
 -}
 module Funsat.Solver
 #ifndef TESTING
-        ( solve
+        ( -- * Interface
+          solve
         , solve1
+        , Solution(..)
+          -- ** Verification
+        , verify
+        , VerifyError(..)
+          -- ** Configuration
         , DPLLConfig(..)
         , defaultConfig
-        , Solution(..)
-        , IAssignment
-        , litAssignment
-        , litSign
+          -- * Solver statistics
         , Stats(..)
-        , CNF
-        , GenCNF(..)
-        , Clause
-        , Lit(..)
-        , Var(..)
-        , var
         , ShowWrapped(..)
         , statTable
         , statSummary
-        , verify
         )
 #endif
     where
@@ -180,6 +116,7 @@ import Funsat.Utils
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import Funsat.Types
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
+import Funsat.Resolution( ResolutionError(..) )
 import Text.Printf( printf )
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.DFS as DFS
@@ -188,11 +125,15 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
+import qualified Funsat.Resolution as Resolution
 import qualified Text.Tabular as Tabular
 
 -- * Interface
 
--- | Run the DPLL-based SAT solver on the given CNF instance.
+-- | Run the DPLL-based SAT solver on the given CNF instance.  Returns a
+-- solution, along with internal solver statistics and possibly a resolution
+-- trace.  The trace is for checking a proof of `Unsat', and thus is only
+-- present then.
 solve :: DPLLConfig -> CNF -> (Solution, Stats, Maybe ResolutionTrace)
 solve cfg fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
@@ -244,7 +185,7 @@ solve cfg fIn =
         return (a, False)
 
 
--- | Solve with a default configuration `defaultConfig' (for debugging).
+-- | Solve with the default configuration `defaultConfig'.
 solve1 :: CNF -> (Solution, Stats, Maybe ResolutionTrace)
 solve1 f = solve (defaultConfig f) f
 
@@ -1149,15 +1090,64 @@ instance Error () where
     noMsg = ()
 
 
+data VerifyError = SatError [(Clause, Either () Bool)]
+                   -- ^ Indicates a unsatisfactory assignment that was claimed
+                   -- satisfactory.  Each clause is tagged with its status
+                   -- using 'Funsat.Types.Model'@.statusUnder@.
+
+                 | UnsatError ResolutionError 
+                   -- ^ Indicates an error in the resultion checking process.
+
+                   deriving (Show)
+
+-- | Verify the solution.  In case of `Sat', checks that the assignment is
+-- well-formed and satisfies the CNF problem.  In case of `Unsat', runs a
+-- resolution-based checker on a trace of the SAT solver.
+verify :: Solution -> Maybe ResolutionTrace -> CNF -> Maybe VerifyError
+verify sol maybeRT cnf =
+   -- m is well-formed
+--    Fl.all (\l -> m!(V l) == l || m!(V l) == negate l || m!(V l) == 0) [1..numVars cnf]
+    case sol of
+      Sat m ->
+          let unsatClauses = toList $
+                             Set.filter (not . isTrue . snd) $
+                             Set.map (\c -> (c, c `statusUnder` m)) (clauses cnf)
+          in if null unsatClauses
+             then Nothing
+             else Just . SatError $ unsatClauses
+      Unsat m ->
+          case Resolution.checkDepthFirst (fromJust maybeRT) of
+            Left er -> Just . UnsatError $ er
+            Right _ -> Nothing
+  where isTrue (Right True) = True
+        isTrue _            = False
+
+---------------------------------------
+-- Statistics & trace
+
+
 data Stats = Stats
     { statsNumConfl :: Int64
-    , statsNumConflTotal :: Int64
-    , statsNumLearnt :: Int64
-    , statsAvgLearntLen :: Double
-    , statsNumDecisions :: Int64
-    , statsNumImpl :: Int64 }
+      -- ^ Number of conflicts since last restart.
 
--- the show instance uses the wrapped string.
+    , statsNumConflTotal :: Int64
+      -- ^ Number of conflicts since beginning of solving.
+
+    , statsNumLearnt :: Int64
+      -- ^ Number of learned clauses currently in DB (fluctuates because DB is
+      -- compacted every restart).
+
+    , statsAvgLearntLen :: Double
+      -- ^ Avg. number of literals per learnt clause.
+
+    , statsNumDecisions :: Int64
+      -- ^ Total number of decisions since beginning of solving.
+
+    , statsNumImpl :: Int64
+      -- ^ Total number of unit implications since beginning of solving.
+    }
+
+-- |  The show instance uses the wrapped string.
 newtype ShowWrapped = WrapString { unwrapString :: String }
 instance Show ShowWrapped where
     show = unwrapString
@@ -1165,6 +1155,7 @@ instance Show ShowWrapped where
 instance Show Stats where
     show = show . statTable
 
+-- | Convert statistics to a nice-to-display tabular form.
 statTable :: Stats -> Tabular.Table ShowWrapped
 statTable s =
     Tabular.mkTable
@@ -1179,7 +1170,7 @@ statTable s =
                    , [WrapString "Num. Propagations"
                      ,WrapString $ show (statsNumImpl s)] ]
 
--- | Converts statistics into a human-readable summary.
+-- | Converts statistics into a tabular, human-readable summary.
 statSummary :: Stats -> String
 statSummary s =
      show (Tabular.mkTable

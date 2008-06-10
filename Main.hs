@@ -24,17 +24,16 @@ module Main where
 import Control.Monad ( when, forM_ )
 import Data.Foldable ( fold, toList, elem )
 import Data.List ( intercalate )
-import Data.Maybe( fromJust )
 import Data.Monoid
 import Data.Set ( Set )
 import Funsat.Solver
     ( solve
+    , verify
     , DPLLConfig(..)
     , defaultConfig
-    , Solution(..)
     , ShowWrapped(..)
     , statTable )
-import Funsat.Types( CNF, GenCNF(..), verify )
+import Funsat.Types( CNF, GenCNF(..) )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
 import System.Environment ( getArgs )
@@ -42,7 +41,6 @@ import System.Exit ( ExitCode(..), exitWith )
 import Data.Time.Clock
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
-import qualified Funsat.Resolution as Resolution
 import qualified Text.Tabular as Tabular
 
 
@@ -136,19 +134,11 @@ main = do
                        [[ WrapString "Real time "
                         , WrapString $ show (diffUTCTime endingTime startingTime)]]
               putStr "Verifying solution..."
-              case solution of
-                Sat m -> do
-                  case verify m cnf of
-                    Just problemClauses ->
-                        do putStrLn "\n--> VERIFICATION ERROR!"
-                           print problemClauses
-                    Nothing -> putStrLn "succeeded."
-
-                Unsat _ -> case Resolution.checkDepthFirst (fromJust rt) of
-                             Left er -> 
-                                 do putStrLn "\n--> VERIFICATION ERROR!"
-                                    print er
-                             Right _ -> putStrLn "succeeded."
+              case verify solution rt cnf of
+                Just errorWitness ->
+                    do putStrLn "\n--> VERIFICATION ERROR!"
+                       print errorWitness
+                Nothing -> putStrLn "succeeded."
 
 
 usageHeader = "Usage: funsat [options] <cnf-filename> ... <cnf-filename>"

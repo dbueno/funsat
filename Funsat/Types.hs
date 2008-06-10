@@ -53,6 +53,8 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 
+-- * Basic Types
+
 newtype Var = V {unVar :: Int} deriving (Eq, Ord, Enum, Ix)
 
 instance Show Var where
@@ -165,6 +167,8 @@ instance (BitSet.Hash Lit) where
 instance (BitSet.Hash Var) where
     hash = unVar
 
+-- * Assignments
+
 
 -- | An ''immutable assignment''.  Stores the current assignment according to
 -- the following convention.  A literal @L i@ is in the assignment if in
@@ -211,6 +215,8 @@ litAssignment mFr = foldr (\i ass -> if mFr!i == 0 then ass
                                      else (L . (mFr!) $ i) : ass)
                           []
                           (range . bounds $ mFr)
+
+-- * Model
 
 
 -- | An instance of this class is able to answer the question, Is a
@@ -266,6 +272,8 @@ isFalseUnder x m = isFalse $ x `statusUnder` m
     where isFalse (Right False) = True
           isFalse _             = False
 
+-- * Helpers
+
 
 -- isUnitUnder c m | trace ("isUnitUnder " ++ show c ++ " " ++ showAssignment m) $ False = undefined
 
@@ -288,25 +296,5 @@ getUnit c m = case filter (not . (`isFalseUnder` m)) c of
                 [u] -> u
                 xs   -> error $ "getUnit: not unit: " ++ show xs
 
----------- TESTING ----------
 
-
--- | Verify the assigment is well-formed and satisfies the CNF problem.  This
--- function is run after a solution is discovered, just to be safe.
---
--- Makes sure each slot in the assignment is either 0 or contains its
--- (possibly negated) corresponding literal, and verifies that each clause is
--- made true by the assignment.
-verify :: IAssignment -> CNF -> Maybe [(Clause, Either () Bool)]
-verify m cnf =
-   -- m is well-formed
---    Fl.all (\l -> m!(V l) == l || m!(V l) == negate l || m!(V l) == 0) [1..numVars cnf]
-   let unsatClauses = toList $
-                      Set.filter (not . isTrue . snd) $
-                      Set.map (\c -> (c, c `statusUnder` m)) (clauses cnf)
-   in if null unsatClauses
-      then Nothing
-      else Just unsatClauses
-  where isTrue (Right True) = True
-        isTrue _            = False
 

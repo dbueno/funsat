@@ -18,11 +18,11 @@
     Copyright 2008 Denis Bueno
 -}
 
--- | Generates and checks resolution proof of UNSAT from a resolution trace of
--- a SAT solver (Funsat in particular can generate this trace).  This is based
--- on the implementation discussed in the paper ''Validating SAT Solvers Using
--- an Independent Resolution-Based Checker: Practical Implementations and
--- Other Applications'' by Lintao Zhang and Sharad Malik.
+-- | Generates and checks a resolution proof of UNSAT from a resolution trace
+-- of a SAT solver (Funsat in particular will generate this trace).  This is
+-- based on the implementation discussed in the paper ''Validating SAT Solvers
+-- Using an Independent Resolution-Based Checker: Practical Implementations
+-- and Other Applications'' by Lintao Zhang and Sharad Malik.
 --
 -- As a side effect of this process an /unsatisfiable core/ is generated from
 -- the resolution trace, as discussed in the paper ''Extracting Small

@@ -121,6 +121,16 @@ data ResolutionError =
           deriving Show
 instance Error ResolutionError where -- Just for the Error monad.
 
+-- checkDepthFirstFix :: (CNF -> (Solution, Maybe ResolutionTrace))
+--                    -> Solution
+--                    -> ResolutionTrace
+--                    -> Either ResolutionError UnsatisfiableCore
+-- checkDepthFirstFix solver resTrace =
+--     case checkDepthFirst resTrace of
+--       Left err -> err
+--       Right ucore ->
+--           let (sol, rt) solver (rescaleIntoCNF ucore)
+
 -- | The depth-first method.
 checkDepthFirst :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
 checkDepthFirst resTrace =

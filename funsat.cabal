@@ -22,7 +22,7 @@ Extra-source-files:  README
 
 Executable funsat
  Main-is:             Main.hs
- Ghc-options:         -W
+ Ghc-options:         -W -funbox-strict-fields
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests

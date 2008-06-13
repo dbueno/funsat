@@ -2,3 +2,12 @@
 dist
 *.out
 bench-results
+*.prof
+*.aux
+conflict.*
+*.ps
+*.hp
+*.png
+*.~*
+.DS_Store
+tags

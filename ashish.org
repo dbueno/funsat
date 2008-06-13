@@ -1,0 +1,22 @@
+* What if learned clause only has the first uip in it?  To where do I
+backtrack?
+
+Backtrack to the max of the levels of the variables involved in in the learned
+clause, excluding the uip.  If that is empty, then undo all decisions.
+
+** -Never- include the uip in the calculation of the backtrack level.
+
+** Backtrack level
+If btLevel = k, that means the decision level after backtracking should be k.
+
+* Why does sat terminate?
+You don't delete the locked clauses, i.e. those that are the reason for any
+propagation.
+
+* I do the right thing to detect unsat; namely, if there's a conflict at
+decision level 0.  If it's possible to backtrack, then the problem is not
+known to be unsat, since there are some decisions.
+
+* Don't need the bad variables list, because you only delete the locked clauses.
+
+* TODO look at RSAT's strategies

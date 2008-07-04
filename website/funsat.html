@@ -42,13 +42,13 @@ Hackage: <a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/fun
 If you have cabal-install installed, this means you can simply type:
 
               <blockquote>
-                <code>cabal install funsat</code>
+                <code>$ cabal install funsat</code>
               </blockquote><p/>
 
               Funsat is also available as a <a href="http://churn.ath.cx:8080/?p=funsat.git;a=summary">git repo</a>:
 
               <blockquote>
-                <code>git clone http://churn.ath.cx/funsat.git</code>
+                <code>$ git clone http://churn.ath.cx/funsat.git</code>
               </blockquote>
 
               The repository contains the funsat code as well as many SAT instances for benchmarking.  It should be in a usable state.  (I push changes to
@@ -65,7 +65,13 @@ which are available from hackage.
               <h2>Installing</h2>
 
               Funsat is <a href="http://www.haskell.org/cabal/">cabalised</a>,
-and by default produces a library and a binary.
+and by default produces a library and a binary.  To buld, type:
+
+              <blockquote>
+                <code>$ ghc --make Setup.hs</code><br/>
+                <code>$ ./Setup configure</code><br/>
+                <code>$ ./Setup build</code><br/>
+              </blockquote>
 
               <p/><font size="-1">Copyright 2008 Denis Bueno (&lt; <code>first initial then last name at gmail.com</code> &gt;), All Rights Reserved</font>
 

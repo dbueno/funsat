@@ -11,3 +11,6 @@ conflict.*
 *.~*
 .DS_Store
 tags
+Setup
+Setup.hi
+Setup.o

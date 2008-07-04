@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+	<title>funsat - a functional SAT solver in Haskell</title>
+</head>
+
+<body bgcolor=#FFFFFF>
+
+<!-- BEGIN BIG TABLE -->
+<table width=100% border=0 align=center cellpadding=3 cellspacing=0 bordercolor=#FFFFFF bgcolor=#FFFFFF><tr><td align=center valign=top bgcolor=#FFFFFF>
+
+<!-- BEGIN FULL BORDER AREA -->
+<table width=623 border=2 align=center cellpadding=0 cellspacing=0 bordercolor=#C0C0C0 bgcolor=#FFFFFF><tr><td align=left valign=top>
+
+<!-- BEGIN LEFT/RIGHT CONTENT AREA -->
+<table width=623 border=0 align=left cellpadding=0 cellspacing=0><tr>
+
+	<!-- BEGIN MAIN CONTENT AREA -->
+	<td width=623 align=center valign=top>
+	<p>&nbsp;</p>
+	<table width=600 border=0 align=center cellpadding=5 cellspacing=0 bordercolor=#BBBBBB><tr><td valign=top>
+
+              <h2>Funsat</h2>
+
+              Funsat (mnemonic: "functional sat solver") is
+a <a href="http://haskell.org/">Haskell</a> SAT solver whose goal is to
+facilitate convenient embedding in other applications.  Current features
+include <b>two-watched literals</b>, <b>conflict-directed learning</b>, <b>non-chronological
+backtracking</b>, a VSIDS-like <b>dynamic variable ordering</b>, <b>restarts</b>, and
+<b>unsatisfiable core generation</b>.  It was developed
+using <a href="http://haskell.org/ghc/">The Glorious Glasgow Haskell
+Compiler</a> 6.8.2, but should work with 6.8.3.<p/>
+
+              Funsat solves SAT instances encoded in conjunctive normal form using the DIMACS CNF format (in my understanding, the most common/popular format).    For example, <a href="http://www.satlib.org/">SATLIB</a> provides a bunch of SAT instances one could try.  The code produces both a binary (for standalone solving) and a Haskell library (for integrating with other code).  It is released under a BSD license (see file <code>LICENSE</code> in the repository for details).<p/>
+          </td></tr><tr><td valign="top">
+
+              <h2>Obtaining</h2>
+
+              Release 0.5 is available from
+Hackage: <a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/funsat">http://hackage.haskell.org/cgi-bin/hackage-scripts/package/funsat</a>.
+If you have cabal-install installed, this means you can simply type:
+
+              <blockquote>
+                <code>cabal install funsat</code>
+              </blockquote><p/>
+
+              Funsat is also available as a <a href="http://churn.ath.cx:8080/?p=funsat.git;a=summary">git repo</a>:
+
+              <blockquote>
+                <code>git clone http://churn.ath.cx/funsat.git</code>
+              </blockquote>
+
+              The repository contains the funsat code as well as many SAT instances for benchmarking.  It should be in a usable state.  (I push changes to
+it when I intend others to be able to see them.)<p/>
+
+              <h3>Dependencies</h3> Funsat depends on a few tools, all of
+which are available from hackage.
+
+              <ul>
+                <li><a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/parse-dimacs">parse-dimacs</a>: A parser for DIMACS CNF files</li>
+                <li><a href="http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset">bitset</a>: A pure bit set library</li>
+              </ul>
+
+              <h2>Installing</h2>
+
+              Funsat is <a href="http://www.haskell.org/cabal/">cabalised</a>,
+and by default produces a library and a binary.
+
+              <p/><font size="-1">Copyright 2008 Denis Bueno (&lt; <code>first initial then last name at gmail.com</code> &gt;), All Rights Reserved</font>
+
+	</td></tr></table>
+
+	<br><br>
+	</td></tr></table>
+	</td>
+	<!-- END MAIN CONTENT AREA -->
+
+</tr></table>
+<!-- END LEFT/RIGHT CONTENT AREA -->
+
+</td></tr></table>
+<!-- END FULL BORDER AREA -->
+
+</td></tr></table>
+<!-- END BIG TABLE -->
+
+</body>
+</html>

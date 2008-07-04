@@ -50,13 +50,17 @@ module Data.FRef
     ( -- * Reference typeclass
       Ref(..)
     , FRef(..)
+    , fref
       -- * References for built-in types
     , Data.FRef.fst
-    , Data.FRef.snd )
+    , Data.FRef.snd
+    , Data.FRef.modify )
     where
 
+import Control.Monad.State.Class( MonadState )
 import Prelude hiding ( fst, last )
 import qualified Prelude
+import qualified Control.Monad.State.Class as State
 
 -- | A `Ref' is a composable way of succinctly remembering how to
 -- access/update a member of a (possibly-deep) structure.  This is similar to
@@ -95,6 +99,9 @@ composeFRef sa ts = FRef { get = get sa . get ts
 updateFRef :: FRef s a -> (a -> a) -> s -> s
 updateFRef rsa f s = set rsa (f (get rsa s)) s
 
+fref :: (s -> a) -> (a -> s -> s) -> FRef s a
+fref = ref
+
 instance Ref FRef where
     ref = FRef
     compose = composeFRef
@@ -111,6 +118,12 @@ fst = ref Prelude.fst (\x (_, y) -> (x, y))
 -- | Reference to the second element of a tuple.
 snd :: Ref r => r (x, y) y
 snd = ref Prelude.snd (\y (x, _) -> (x, y))
+
+-- | Modify the state inside a monad.
+modify :: (MonadState s m, Ref r) => r s a -> (a -> a) -> m ()
+modify r f = State.modify (update r f)
+
+
 
 
 -- data Person = P { name :: Name } deriving Show

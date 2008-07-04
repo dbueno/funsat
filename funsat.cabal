@@ -38,6 +38,7 @@ Executable funsat
                       Funsat.FastDom
                       Funsat.Utils
                       Funsat.Monad
+                      Data.FRef
                       Text.Tabular
                       Control.Monad.MonadST
                       Properties
@@ -65,6 +66,7 @@ Library
                       Funsat.Resolution
                       Funsat.Monad
                       Control.Monad.MonadST
+                      Data.FRef
                       Text.Tabular
  Other-modules:       Funsat.FastDom Funsat.Utils
  Ghc-options:         -W -funbox-strict-fields

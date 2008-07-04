@@ -91,6 +91,7 @@ module Funsat.Solver
 -}
 
 
+-- import Data.Graph.Inductive.Graphviz
 import Control.Arrow ((&&&))
 import Control.Exception (assert)
 import Control.Monad.Error hiding ((>=>), forM_, runErrorT)
@@ -101,7 +102,6 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.Foldable hiding (sequence_)
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
--- import Data.Graph.Inductive.Graphviz
 import Data.Int (Int64)
 import Data.List (intercalate, nub, tails, sortBy, intersect, sort)
 import Data.Map (Map)
@@ -112,15 +112,16 @@ import Data.Sequence (Seq)
 import Data.Set (Set)
 import Debug.Trace (trace)
 import Funsat.Monad
-import Funsat.Utils
+import Funsat.Resolution( ResolutionError(..) )
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import Funsat.Types
+import Funsat.Utils
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
-import Funsat.Resolution( ResolutionError(..) )
 import Text.Printf( printf )
+import qualified Data.FRef as FRef
+import qualified Data.Foldable as Fl
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.DFS as DFS
-import qualified Data.Foldable as Fl
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
@@ -699,11 +700,12 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
     levelL l = levelArr!(var l)
     storeResolvedSources rsR clauseId = do
       rsReversed <- liftST $ readSTRef rsR
-      modifySlot resolutionTrace $ \s rt ->
-        s{resolutionTrace =
-              rt{resSourceMap =
-                     Map.insert clauseId (reverse rsReversed) (resSourceMap rt)}}
+      FRef.modify fsResSourceMapRef $ Map.insert clauseId (reverse rsReversed)
 
+fsResSourceMapRef :: FRef.FRef (FunsatState s) (Map ClauseId [ClauseId])
+fsResSourceMapRef =
+    FRef.ref resSourceMap (\m rt -> rt{ resSourceMap = m })
+    `FRef.compose` FRef.ref resolutionTrace (\t s -> s{ resolutionTrace = t })
 
 -- | Delete the assignment to last-assigned literal.  Undoes the trail, the
 -- assignment, sets `noLevel', undoes reason.

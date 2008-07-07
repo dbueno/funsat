@@ -19,9 +19,10 @@ import System.Environment( getArgs )
 import System.FilePath.Posix
 
 -- | Assume the input contains @n>0@ records delimited at the start by
--- whatever matches regexp.  Each element @s@ of @groups rx f s@ is the output
--- of @f@ when passed (1) a string that starts with a match for @rx@ and (2)
--- the rest of the string up to (and not including) the next match of @rx@.
+-- whatever matches regexp.  Each element @(xs, s)@ of @groups rx f s@ is such
+-- that (1) @xs@ is a list of submatches of @rx@ and (2) @s@ is the string
+-- from (and not including) the last match, up to and not including the next
+-- match (if any).
 --
 -- If the regex fails to match at all (i.e. @n=0@), the empty list is
 -- returned.

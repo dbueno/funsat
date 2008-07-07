@@ -174,7 +174,8 @@ solve cfg fIn =
       initialLearnts <- liftST $ newSTArray (L (- (numVars f)), L (numVars f)) []
       modify $ \s -> s{ learnt = initialLearnts }
       modify $ \s -> s{ varOrder =
-                            VarOrder . PSQ.fromAscList $ map (:-> initialActivity) [V 1 .. V (numVars f)] }
+                            VarOrder . PSQ.fromAscList $
+                            map (:-> initialActivity) [V 1 .. V (numVars f)] }
 
       (`catchError` (const $ liftST (unsafeFreezeAss m) >>= \a -> return (a,True))) $ do
         forM_ (clauses f)
@@ -864,7 +865,7 @@ varOrderMod :: Var -> (Double -> Double) -> DPLLMonad s ()
 varOrderMod v f = do
     h <- varOrderPQ `liftM` gets varOrder
     let h' = case PSQ.lookup v h of
-               Nothing -> h
+               Nothing -> error "varOrderMod: varOrder invariant broken"
                Just vActivity ->
                    if f vActivity > 1e100
                    then rescaleHeap v h
@@ -889,7 +890,7 @@ varOrderGet mFr vo = findUndefInPQ (varOrderPQ vo)
                 if v `isUndefUnder` mFr
                 then Just v
                 else findUndefInPQ q'
-            Nothing -> error "varOrderGet: no decision var"
+            Nothing -> Nothing
 
 
 -- | Generate a new clause identifier (always unique).

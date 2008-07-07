@@ -13,7 +13,6 @@ import Data.List( foldl', intercalate, transpose, genericLength )
 import Data.Maybe( mapMaybe )
 import Debug.Trace( trace )
 import Graphics.Rendering.Chart
-import Math.Statistics
 import Text.Regex
 import Test.QuickCheck( quickCheck )
 import System.Environment( getArgs )

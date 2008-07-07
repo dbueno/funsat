@@ -60,7 +60,6 @@ Executable funsat-prof
                       Funsat.FastDom
                       Funsat.Utils
                       Funsat.Monad
-                      Data.FRef
                       Text.Tabular
                       Control.Monad.MonadST
                       Properties

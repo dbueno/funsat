@@ -49,17 +49,27 @@ Executable funsat
                       , array, QuickCheck, parse-dimacs, bitset
                       , fgl, time, PSQueue
 
--- Executable funsat-prof
---  Main-is:             Main.hs
---  Ghc-options:         -W -prof -auto-all
---  Extensions:          CPP
---  CPP-options:         -DTESTING
---  Hs-source-dirs:      . tests
---  Other-modules:       DPLLSat Properties FastDom Utils Text.Tabular DPLL.Monad
---                       Control.Monad.MonadST
---  Build-Depends:       base, parsec, containers, pretty, mtl
---                       , random, array, QuickCheck, parse-dimacs, bitset
---                       , fgl, time
+Executable funsat-prof
+ Main-is:             Main.hs
+ Ghc-options:         -prof -auto-all -funbox-strict-fields
+                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
+                      -fwarn-unused-binds -fwarn-unused-imports
+ Extensions:          CPP
+ CPP-options:         -DTESTING
+ Hs-source-dirs:      . tests
+ Other-modules:       Funsat.Solver
+                      Funsat.Types
+                      Funsat.Resolution
+                      Funsat.FastDom
+                      Funsat.Utils
+                      Funsat.Monad
+                      Data.FRef
+                      Text.Tabular
+                      Control.Monad.MonadST
+                      Properties
+ Build-Depends:       base, parsec, containers, pretty, mtl
+                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , fgl, time, PSQueue
 
 
 Library

@@ -132,8 +132,6 @@ findUserTime s =
 
 maxSecs = "300.0"
 
-tracing x = trace (show x) $ x
-
 main = do
   dirs@(_:_) <- getArgs
   groupList <- forM dirs (\dir -> groups satrunRx `liftM`

@@ -107,6 +107,7 @@ import Data.List (intercalate, nub, tails, sortBy, intersect, sort)
 import Data.Map (Map)
 import Data.Maybe
 import Data.Ord (comparing)
+import Data.PSQueue( PSQ, Binding(..) )
 import Data.STRef
 import Data.Sequence (Seq)
 import Data.Set (Set)
@@ -127,6 +128,7 @@ import qualified Data.Map as Map
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Funsat.Resolution as Resolution
+import qualified Data.PSQueue as PSQ
 import qualified Text.Tabular as Tabular
 
 -- * Interface
@@ -157,7 +159,7 @@ solve cfg fIn =
       , watches=undefined, learnt=undefined, propQ=Seq.empty
       , trail=[], numConfl=0, level=undefined, numConflTotal=0
       , numDecisions=0, numImpl=0
-      , reason=Map.empty, varOrder=undefined
+      , reason=Map.empty, varOrder=VarOrder PSQ.empty
       , resolutionTrace=PartialResolutionTrace 1 [] [] Map.empty
       , dpllConfig=cfg }
   where
@@ -171,8 +173,8 @@ solve cfg fIn =
       modify $ \s -> s{ watches = initialWatches }
       initialLearnts <- liftST $ newSTArray (L (- (numVars f)), L (numVars f)) []
       modify $ \s -> s{ learnt = initialLearnts }
-      initialVarOrder <- liftST $ newSTUArray (V 1, V (numVars f)) initialActivity
-      modify $ \s -> s{ varOrder = VarOrder initialVarOrder }
+      modify $ \s -> s{ varOrder =
+                            VarOrder . PSQ.fromAscList $ map (:-> initialActivity) [V 1 .. V (numVars f)] }
 
       (`catchError` (const $ liftST (unsafeFreezeAss m) >>= \a -> return (a,True))) $ do
         forM_ (clauses f)
@@ -257,14 +259,13 @@ solveStep m = do
     maybeConfl <- bcp m
     mFr <- unsafeFreezeAss m
     s <- get
-    voFr <- FrozenVarOrder `liftM` liftST (unsafeFreeze . varOrderArr . varOrder $ s)
     newState $ 
           -- Check if unsat.
           unsat maybeConfl s ==> postProcessUnsat maybeConfl
           -- Unit propagation may reveal conflicts; check.
        >< maybeConfl         >=> backJump m
           -- No conflicts.  Decide.
-       >< selector mFr voFr  >=> decide m
+       >< selector mFr (varOrder s)  >=> decide m
     where
       -- Take the step chosen by the transition guards above.
       newState stepMaybe =
@@ -371,9 +372,7 @@ noLevel :: Level
 noLevel = -1
 
 -- | The VSIDS-like dynamic variable ordering.
-newtype VarOrder s = VarOrder { varOrderArr :: STUArray s Var Double }
-    deriving Show
-newtype FrozenVarOrder = FrozenVarOrder (UArray Var Double)
+newtype VarOrder = VarOrder { varOrderPQ :: PSQ Var Double }
     deriving Show
 
 -- | Each pair of watched literals is paired with its clause and id.
@@ -430,7 +429,7 @@ data FunsatState s = SC
     , numImpl :: !Int64
       -- ^ The total number of implications (propagations).
 
-    , varOrder :: VarOrder s
+    , varOrder :: VarOrder
 
     , resolutionTrace :: PartialResolutionTrace
 
@@ -531,7 +530,7 @@ bcp m = do
 --
 -- Select a decision variable, if possible, and return it and the adjusted
 -- `VarOrder'.
-select :: IAssignment -> FrozenVarOrder -> Maybe Var
+select :: IAssignment -> VarOrder -> Maybe Var
 {-# INLINE select #-}
 select = varOrderGet
 
@@ -863,36 +862,34 @@ clearQueue = modify $ \s -> s{propQ = Seq.empty}
 -- | Modify priority of variable; takes care of @Double@ overflow.
 varOrderMod :: Var -> (Double -> Double) -> DPLLMonad s ()
 varOrderMod v f = do
-    vo <- varOrderArr `liftM` gets varOrder
-    vActivity <- liftST $ readArray vo v
-    when (f vActivity > 1e100) $ rescaleActivities vo
-    liftST $ writeArray vo v (f vActivity)
+    h <- varOrderPQ `liftM` gets varOrder
+    let h' = case PSQ.lookup v h of
+               Nothing -> h
+               Just vActivity ->
+                   if f vActivity > 1e100
+                   then rescaleHeap v h
+                   else PSQ.adjust f v h
+    modify $ \s -> s{ varOrder = VarOrder h' }
+            
   where
-    rescaleActivities vo = liftST $ do
-        indices <- range `liftM` getBounds vo
-        forM_ indices (\i -> modifyArray vo i $ const (* 1e-100))
+    rescaleHeap v = PSQ.fromAscList . map rescaleBinding . PSQ.toAscList
+        where rescaleBinding (k :-> p)
+                          | k == v    = k :-> f (p * 1e-100)
+                          | otherwise = k :-> (p * 1e-100)
 
 
 -- | Retrieve the maximum-priority variable from the variable order.
-varOrderGet :: IAssignment -> FrozenVarOrder -> Maybe Var
+varOrderGet :: IAssignment -> VarOrder -> Maybe Var
 {-# INLINE varOrderGet #-}
-varOrderGet mFr (FrozenVarOrder voFr) =
-    -- find highest var undef under mFr, then find one with highest activity
-    (`fmap` goUndef highestIndex) $ \start -> goActivity start start
-  where
-    highestIndex = snd . bounds $ voFr
-    maxActivity v v' = if voFr!v > voFr!v' then v else v'
-
-    -- @goActivity current highest@ returns highest-activity var
-    goActivity !(V 0) !h   = h
-    goActivity !v@(V n) !h = if v `isUndefUnder` mFr
-                             then goActivity (V $! n-1) (v `maxActivity` h)
-                             else goActivity (V $! n-1) h
-
-    -- returns highest var that is undef under mFr
-    goUndef !(V 0) = Nothing
-    goUndef !v@(V n) | v `isUndefUnder` mFr = Just v
-                     | otherwise            = goUndef (V $! n-1)
+varOrderGet mFr vo = findUndefInPQ (varOrderPQ vo)
+    where
+      findUndefInPQ q =
+          case PSQ.minView q of
+            Just (v :-> activity, q') ->
+                if v `isUndefUnder` mFr
+                then Just v
+                else findUndefInPQ q'
+            Nothing -> error "varOrderGet: no decision var"
 
 
 -- | Generate a new clause identifier (always unique).

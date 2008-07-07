@@ -732,7 +732,7 @@ bump v = varOrderMod v (+ varInc)
 
 -- | Constant amount by which a variable is `bump'ed.
 varInc :: Double
-varInc = 1.0
+varInc = -1.0
   
 
 
@@ -867,7 +867,7 @@ varOrderMod v f = do
     let h' = case PSQ.lookup v h of
                Nothing -> error "varOrderMod: varOrder invariant broken"
                Just vActivity ->
-                   if f vActivity > 1e100
+                   if f vActivity < -1e100
                    then rescaleHeap v h
                    else PSQ.adjust f v h
     modify $ \s -> s{ varOrder = VarOrder h' }
@@ -1081,7 +1081,7 @@ showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
                                                   (a!i) /= 0])
 
 initialActivity :: Double
-initialActivity = 1.0
+initialActivity = -1.0
 
 instance Error (Lit, Clause, ClauseId) where
     noMsg = (L 0, [], 0)

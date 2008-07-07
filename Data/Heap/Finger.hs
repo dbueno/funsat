@@ -9,10 +9,11 @@ module Data.Heap.Finger
     , empty
     , null
     , insert
+    , member
     , extractMax
     , increaseKey
     , fromList
-    , fmapMonotonic )
+    , Data.Heap.Finger.fmap' )
 #endif
     where
 

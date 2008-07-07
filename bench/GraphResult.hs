@@ -17,6 +17,7 @@ import Math.Statistics
 import Text.Regex
 import Test.QuickCheck( quickCheck )
 import System.Environment( getArgs )
+import System.FilePath.Posix
 
 -- | Assume the input contains @n>0@ records delimited at the start by
 -- whatever matches regexp.  Each element @s@ of @groups rx f s@ is the output
@@ -134,14 +135,16 @@ maxSecs = "300.0"
 tracing x = trace (show x) $ x
 
 main = do
-  files@(_:_) <- getArgs
-  groupList <- forM files (\file -> readFile file >>= return . groups satrunRx)
+  dirs@(_:_) <- getArgs
+  groupList <- forM dirs (\dir -> groups satrunRx `liftM`
+                                  readFile (dir ++ [pathSeparator] ++ "result.1"))
                :: IO [[([String], String)]]
+  titles <- forM dirs (\dir -> readFile (dir ++ [pathSeparator] ++ "info"))
   let benchFiles = map (head . fst) $ head groupList
       showTime maybeTime = case maybeTime of
                              Nothing   -> maxSecs
                              Just time -> time
-      labelRow = replicate (length files + 1) "LABEL" -- TODO: change me
+      labelRow = replicate (length dirs + 1) "LABEL" -- TODO: change me
       dataMatrix =
           (labelRow :)
           . zipWith (:) benchFiles
@@ -154,6 +157,6 @@ main = do
           :: [[String]]
   let filename = "test.png"
   putStrLn $ "Saving '" ++ filename ++ "'..."
-  savePNG filename ["array-of-activities", "finger tree priority queue"]
+  savePNG filename titles
           (tail dataMatrix)
 --   forM_ dataMatrix $ putStrLn . intercalate " " 

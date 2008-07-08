@@ -55,7 +55,7 @@ verticalLines numTests s = defaultPlotLines
 manyTickAxis = defaultAxis
 
 -- input matrix a list of rows of data; first row has test label
-myLayout header names matrix = defaultLayout1
+myLayout header yLabel names matrix = defaultLayout1
     { layout1_title = header ++ intercalate " vs. " names
     , layout1_plots =
         -- Vertical lines.
@@ -64,7 +64,7 @@ myLayout header names matrix = defaultLayout1
         -- Show each column of data, not including the label column.
         concat
         [ [ ("", HA_Bottom, VA_Right, toPlot (plotLines col (lineStyle color)))
-          , ("secs-to-solve: " ++ name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
+          , (yLabel ++ ": " ++ name ++ " (" ++ show i ++ ")", HA_Bottom, VA_Left,
              toPlot (plotColumnPoints col (pointStyle color))) ]
         | i     <- [1..length names]
         | name  <- names
@@ -98,8 +98,9 @@ instance ToColor IntColor where
 instance Show Color where
     show (Color r g b) = "Color " ++ intercalate " " [show r, show g, show b]
 
-savePNG filename header names matrix =
-    renderableToPNGFile (toRenderable (myLayout header names matrix)) 1024 768 filename
+savePNG filename header yLabel names matrix =
+    renderableToPNGFile (toRenderable (myLayout header yLabel names matrix))
+                        1024 768 filename
 
 ------------------------------------------------------------------------------
 -- Statistics
@@ -143,7 +144,7 @@ main = do
   titles <- forM dirs (\dir -> readFile (dir ++ [pathSeparator] ++ "info"))
   let benchFiles = map (head . fst) $ head groupList
       showTime maybeTime = case maybeTime of
-                             Nothing   -> optionMaxSecs opts
+                             Nothing   -> optionMax opts
                              Just time -> time
       labelRow = replicate (length dirs + 1) "LABEL" -- TODO: change me
       dataMatrix =
@@ -157,7 +158,7 @@ main = do
                  [] groupList
           :: [[String]]
   putStrLn $ "Saving '" ++ optionOutput opts ++ "'..."
-  savePNG (optionOutput opts) (optionHeader opts) titles
+  savePNG (optionOutput opts) (optionHeader opts) (optionYLabel opts) titles
           (tail dataMatrix)
 --   forM_ dataMatrix $ putStrLn . intercalate " " 
 
@@ -170,18 +171,22 @@ validOptions =
     , Option ['o'] ["output"]
       (ReqArg (\t opts -> opts{ optionOutput = t }) "FILENAME")
       "Output filename, a PNG."
-    , Option [] ["max-secs"]
-      (ReqArg (\t opts -> opts{ optionOutput = t }) "NUMBER")
-      "Maximum amount of term per data point, in seconds." ]
+    , Option [] ["ylabel"] (ReqArg (\t opts -> opts{ optionYLabel = t }) "STRING")
+      "Label of the graphed value."
+    , Option [] ["max"]
+      (ReqArg (\t opts -> opts{ optionMax = t }) "NUMBER")
+      "Height of y axis on graph." ]
 
 data RunOptions = RunOptions
     { optionHeader :: String
     , optionOutput :: String
-    , optionMaxSecs :: String }
+    , optionMax :: String
+    , optionYLabel :: String }
 defaultRunOptions = RunOptions
                     { optionHeader = "funsat comparison: "
                     , optionOutput = "result.png"
-                    , optionMaxSecs = "300.0" }
+                    , optionMax = "300.0"
+                    , optionYLabel = "y" }
 
 -- Parse options, possibly exiting if there is nothing to do, or an error.
 parseOptions :: [String] -> IO (RunOptions, [FilePath])

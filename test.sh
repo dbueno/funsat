@@ -1,5 +1,4 @@
 DSAT="./dist/build/funsat/funsat"
-BMFILE=bm-$(gdate +%F.%H%M)
 
 # record feature set
 echo "SAT solver features under test:"

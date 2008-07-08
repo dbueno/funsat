@@ -1,5 +1,11 @@
 * Sat todo file
 
+* TODO Group paired result.x files into their own graphs.	   :GraphResult:
+This would make GraphResult generate n graphs when n benchmark results are
+available from both timestamps.  This is just another dimension of generality
+that isn't hard to support.
+
+
 * TODO resTrace field of resolution trace in solver can go
 Why do I even need the trace?  I just need the original clause ids and the
 source map, right?

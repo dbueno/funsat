@@ -17,11 +17,12 @@ This feature essentially enables the following one, or vice versa.
 +Add Writer capability to the Funsat monad+
 Just put it in the state record.
 
-** TODO Write quickCheck tests for checker
+** DONE Write quickCheck tests for checker
+   CLOSED: [2008-07-07 Mon 20:05]
 Use a generater that will always generate unsat problems, then check them, and
 make sure unsat core is correct too.
 
-*** TODO [#A] Resolution.check has a bug.  Find it.			   :bug:
+*** TODO [#A] Resolution.check has a bug.  Find it.		   :bug:ARCHIVE:
 
 ** DONE Add unique ids to clauses
    CLOSED: [2008-06-07 Sat 20:32]
@@ -136,7 +137,7 @@ top of ST that has errors and whatnot?
 Did this long ago.
 ** Result ...
 
-* TODO On some problems, select is a bottleneck, much               :heuristics:
+* TODO [#K] On some problems, select is a bottleneck, much	    :heuristics:
 more than bcpLit.  Even so, reverting to a static ordering gives worse
 runtime.  So ... if we had a faster way of selecting the min, it would be
 nice.

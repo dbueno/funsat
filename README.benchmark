@@ -1,20 +1,20 @@
 This file depends on the README.  So you should probably read that first.
 
-Funsat comes with some benchmarks and a script to run them (bm.sh) and a
-script to generate gnuplot plots from the results (bench/SnarfRecords.hs).
-
-bm.sh is a bash script that runs tests disabling certain common SAT solver
-optimisations on a range of structured benchmark problems.  The problems are
-in DIMACS cnf format and in the bench/ subdirectory.  The script requires no
-arguments.  It prints out a line of output for each set of options the solver
-is tested with (so there will only be five lines of output by default --- one
-for disable no optimisations, then one for each optimisation disabled).
+Funsat comes with some benchmarks and a script to run them (benchmark.sh) and
+a script to generate neat-looking PNG plots from the results
+(bench/GraphResults.hs).
 
 The raw results are stashed in the bench-results/ subdirectory, indexed by
 date and time.  The raw results can be turned into data files suitable for
-input to gnuplot by using bench/SnarfRecords.hs and a haskell interpreter
-(e.g. GHC).  GHC is available from haskell.org for all major operating
-systems.
+input to gnuplot by using bench/GraphResults.hs and a haskell interpreter.
+The script requires Chart, a library available from Hackage.  For example,
+
+    $ runghc bench/GraphResults.hs bench-results/<date-1> bench-results/<date-2>
+
+will create a graph comparing the runs of the respective dates.  The
+information that benchmark.sh prompts for will label the graphs.  (This
+information is stored in the file "info" in the bench-results/<date>
+directory.)
 
 The raw results simply contain the output of each file as it is running,
 including the wall and user time spent, the filename solved, and statistics

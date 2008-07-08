@@ -146,7 +146,7 @@ main = do
       showTime maybeTime = case maybeTime of
                              Nothing   -> optionMax opts
                              Just time -> time
-      labelRow = replicate (length dirs + 1) "LABEL" -- TODO: change me
+      labelRow = replicate (length dirs + 1) "IGNOREDLABEL"
       dataMatrix =
           (labelRow :)
           . zipWith (:) benchFiles

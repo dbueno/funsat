@@ -10,13 +10,12 @@ module Main where
 
 import Control.Monad
 import Data.List( foldl', intercalate, transpose, genericLength )
-import Data.Maybe( mapMaybe )
-import Debug.Trace( trace )
 import Graphics.Rendering.Chart
-import Text.Regex
-import Test.QuickCheck( quickCheck )
+import System.Console.GetOpt
 import System.Environment( getArgs )
-import System.FilePath.Posix
+import System.Exit( exitWith, ExitCode(..) )
+import System.FilePath.Posix( pathSeparator )
+import Text.Regex
 
 -- | Assume the input contains @n>0@ records delimited at the start by
 -- whatever matches regexp.  Each element @(xs, s)@ of @groups rx f s@ is such
@@ -56,8 +55,8 @@ verticalLines numTests s = defaultPlotLines
 manyTickAxis = defaultAxis
 
 -- input matrix a list of rows of data; first row has test label
-myLayout names matrix = defaultLayout1
-    { layout1_title = "Solver comparison: " ++ intercalate " vs. " names
+myLayout header names matrix = defaultLayout1
+    { layout1_title = header ++ intercalate " vs. " names
     , layout1_plots =
         -- Vertical lines.
         ("", HA_Bottom, VA_Right,
@@ -99,8 +98,8 @@ instance ToColor IntColor where
 instance Show Color where
     show (Color r g b) = "Color " ++ intercalate " " [show r, show g, show b]
 
-savePNG filename names matrix =
-    renderableToPNGFile (toRenderable (myLayout names matrix)) 1024 768 filename
+savePNG filename header names matrix =
+    renderableToPNGFile (toRenderable (myLayout header names matrix)) 1024 768 filename
 
 ------------------------------------------------------------------------------
 -- Statistics
@@ -130,17 +129,21 @@ userTimeRx = mkRegex "([[:digit:]]+[.][[:digit:]]+) user"
 findUserTime s =
     head `fmap` matchRegex userTimeRx s
 
-maxSecs = "300.0"
+
+
 
 main = do
-  dirs@(_:_) <- getArgs
+  (opts, dirs) <- getArgs >>= parseOptions
+  when (null dirs) $ do putStrLn "Nothing to do."
+                        putStrLn (usageInfo usageHeader validOptions)
+                        exitWith ExitSuccess
   groupList <- forM dirs (\dir -> groups satrunRx `liftM`
                                   readFile (dir ++ [pathSeparator] ++ "result.1"))
                :: IO [[([String], String)]]
   titles <- forM dirs (\dir -> readFile (dir ++ [pathSeparator] ++ "info"))
   let benchFiles = map (head . fst) $ head groupList
       showTime maybeTime = case maybeTime of
-                             Nothing   -> maxSecs
+                             Nothing   -> optionMaxSecs opts
                              Just time -> time
       labelRow = replicate (length dirs + 1) "LABEL" -- TODO: change me
       dataMatrix =
@@ -153,8 +156,43 @@ main = do
                       : matrix)
                  [] groupList
           :: [[String]]
-  let filename = "test.png"
-  putStrLn $ "Saving '" ++ filename ++ "'..."
-  savePNG filename titles
+  putStrLn $ "Saving '" ++ optionOutput opts ++ "'..."
+  savePNG (optionOutput opts) (optionHeader opts) titles
           (tail dataMatrix)
 --   forM_ dataMatrix $ putStrLn . intercalate " " 
+
+
+
+validOptions :: [OptDescr (RunOptions -> RunOptions)]
+validOptions = 
+    [ Option [] ["header"] (ReqArg (\t opts -> opts{ optionHeader = t }) "STRING")
+      "Header for the graph."
+    , Option ['o'] ["output"]
+      (ReqArg (\t opts -> opts{ optionOutput = t }) "FILENAME")
+      "Output filename, a PNG."
+    , Option [] ["max-secs"]
+      (ReqArg (\t opts -> opts{ optionOutput = t }) "NUMBER")
+      "Maximum amount of term per data point, in seconds." ]
+
+data RunOptions = RunOptions
+    { optionHeader :: String
+    , optionOutput :: String
+    , optionMaxSecs :: String }
+defaultRunOptions = RunOptions
+                    { optionHeader = "funsat comparison: "
+                    , optionOutput = "result.png"
+                    , optionMaxSecs = "300.0" }
+
+-- Parse options, possibly exiting if there is nothing to do, or an error.
+parseOptions :: [String] -> IO (RunOptions, [FilePath])
+parseOptions args = do
+    let (runOptTranss, filepaths, errors) = getOpt RequireOrder validOptions args
+    when (not (null errors)) $ do { mapM_ putStr errors ;
+                                    putStrLn (usageInfo usageHeader validOptions) ;
+                                    exitWith (ExitFailure 1) }
+    return (foldr id defaultRunOptions runOptTranss, filepaths)
+
+usageHeader =
+    "Usage: GraphResult [options] <results-dir-1> <results-dir-2> ... <results-dir-n>\nOptions:\n"
+
+

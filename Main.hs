@@ -52,15 +52,20 @@ data Feature = WatchedLiterals
              | ClauseLearning
              | Restarts
              | VSIDS
+             | ResolutionChecker
+             | UnsatCoreGeneration
                deriving (Eq, Ord)
 instance Show Feature where
     show WatchedLiterals = "watched literals"
     show ClauseLearning  = "conflict clause learning"
     show Restarts        = "restarts"
     show VSIDS           = "dynamic variable ordering"
+    show ResolutionChecker = "resolution UNSAT checker"
+    show UnsatCoreGeneration = "UNSAT core generation"
 
 allFeatures :: Set Feature
-allFeatures = Set.fromList [WatchedLiterals, ClauseLearning, Restarts, VSIDS]
+allFeatures = Set.fromList [WatchedLiterals, ClauseLearning, Restarts, VSIDS
+                           ,ResolutionChecker, UnsatCoreGeneration]
 
 
 validOptions :: [OptDescr RunOptions]

@@ -5,7 +5,7 @@
 --
 -- Example usage:
 --
--- runghc GraphResults.hs result.1 result.2
+-- runghc GraphResult.hs /path/to/benchmark/date-1 ... /path/to/benchmark/date-n
 module Main where
 
 import Control.Monad

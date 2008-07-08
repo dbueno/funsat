@@ -17,6 +17,8 @@ import System.Exit( exitWith, ExitCode(..) )
 import System.FilePath.Posix( pathSeparator )
 import Text.Regex
 
+type RegexGroup = ([String], String)
+
 -- | Assume the input contains @n>0@ records delimited at the start by
 -- whatever matches regexp.  Each element @(xs, s)@ of @groups rx f s@ is such
 -- that (1) @xs@ is a list of submatches of @rx@ and (2) @s@ is the string
@@ -25,7 +27,7 @@ import Text.Regex
 --
 -- If the regex fails to match at all (i.e. @n=0@), the empty list is
 -- returned.
-groups :: Regex -> String -> [([String], String)]
+groups :: Regex -> String -> [RegexGroup]
 groups markerRx s = snd $ groups' markerRx s
   where
     -- Returns the text before the match, if any match, in its first position.
@@ -140,7 +142,7 @@ main = do
                         exitWith ExitSuccess
   groupList <- forM dirs (\dir -> groups satrunRx `liftM`
                                   readFile (dir ++ [pathSeparator] ++ "result.1"))
-               :: IO [[([String], String)]]
+               :: IO [[RegexGroup]]
   titles <- forM dirs (\dir -> readFile (dir ++ [pathSeparator] ++ "info"))
   let benchFiles = map (head . fst) $ head groupList
       showTime maybeTime = case maybeTime of

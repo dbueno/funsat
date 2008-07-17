@@ -24,7 +24,7 @@ module Language.CNF.Parse.ParseDIMACS
 import Control.Monad
 import Prelude hiding (readFile, map)
 import Text.Parsec( ParseError )
-import Text.Parsec.ByteString
+import Text.Parsec.ByteString.Lazy
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Prim( try, unexpected )

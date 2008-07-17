@@ -1,5 +1,9 @@
 -*- mode: outline -*-
 
+* 1.2
+Reimplemented with strict ByteStrings, for efficiency.  It used to be very
+slow on large CNF instances.
+
 * 1.1 (21 Mar 2008)
 Parser allows clauses to be split over multiple lines.
 

@@ -8,7 +8,7 @@ License-file:        COPYING
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional
-Build-Depends:       base, parsec
+Build-Depends:       base, parsec >= 3, bytestring
 Build-type:          Simple
 Tested-with:         GHC==6.8.2
 Extra-source-files:  CHANGES

@@ -17,61 +17,66 @@
 
 -- | A simple Parsec module for parsing CNF files in DIMACS format.
 module Language.CNF.Parse.ParseDIMACS
-    ( parseCNF, CNF(..) ) where
+    ( parseFile
+    , CNF(..) )
+    where
 
-import Text.ParserCombinators.Parsec
+import Control.Monad
+import Prelude hiding (readFile, map)
+import Text.Parsec( ParseError )
+import Text.Parsec.ByteString
+import Text.Parsec.Char
+import Text.Parsec.Combinator
+import Text.Parsec.Prim( try, unexpected )
+import qualified Text.Parsec.Token as T
 
-data CNF = CNF {numVars :: Int
-               ,numClauses :: Int
-               ,clauses :: [[Int]]}
-           deriving Show
 
-parseCNF :: String              -- ^ The filename.  Used to report errors.
-         -> String              -- ^ The contents of the CNF file.
-         -> CNF
-parseCNF title input =
-    case parse cnf title input of
-      Left parseError -> error $ "Parse error: " ++ show parseError
-      Right cs -> cs
+data CNF = CNF
+    { numVars    :: !Int
+    , numClauses :: !Int
+    , clauses    :: ![[Int]] } deriving Show
+
+-- | Parse a file containing DIMACS CNF data.
+parseFile :: FilePath -> IO (Either ParseError CNF)
+parseFile = parseFromFile cnf
 
 -- A DIMACS CNF file contains a header of the form "p cnf <numVars>
 -- <numClauses>" and then a bunch of 0-terminated clauses.
 cnf :: Parser CNF
-cnf =
-   do many comment
-      char 'p' ; spaces
-      string "cnf" ; spaces
-      numVars <- many1 digit ; spaces
-      numClauses <- many1 digit
-      space `manyTill` newline
-      actualClauses <- many1 clause
-      return $ CNF (read numVars) (read numClauses) actualClauses
+cnf = uncurry CNF `fmap` cnfHeader `ap` lexeme (many1 clause)
 
-comment :: Parser String
-comment = do char 'c' ; manyTill anyChar (try newline)
+cnfHeader :: Parser (Int, Int)
+cnfHeader = do
+    whiteSpace
+    char 'p' >> many1 space -- Can't use symbol here because it uses
+                            -- whiteSpace, which will treat the following
+                            -- "cnf" as a comment.
+    symbol "cnf"
+    (,) `fmap` natural `ap` natural
 
 clause :: Parser [Int]
-clause = do many (space <|> newline)
-            lits <- between (string "") (char '0') (many1 intSpaces)
-            many (space <|> newline)
-            return lits
+clause = lexeme int `manyTill` try (symbol "0")
 
--- Consume all whitespace after the int so the `between' in `clause' matches
--- on "0" at the end.
-intSpaces = do i <- int 
-               many1 (space <|> newline)
-               return i
 
+-- token parser
+tp = T.makeTokenParser $ T.LanguageDef 
+   { T.commentStart = ""
+   , T.commentEnd = ""
+   , T.commentLine = "c"
+   , T.nestedComments = False
+   , T.identStart = unexpected "ParseDIMACS bug: shouldn't be parsing identifiers..."
+   , T.identLetter = unexpected "ParseDIMACS bug: shouldn't be parsing identifiers..."
+   , T.opStart = unexpected "ParseDIMACS bug: shouldn't be parsing operators..."
+   , T.opLetter = unexpected "ParseDIMACS bug: shouldn't be parsing operators..."
+   , T.reservedNames = ["p", "cnf"]
+   , T.reservedOpNames = []
+   , T.caseSensitive = True
+   }
+
+natural :: Parser Int
+natural = fromIntegral `fmap` T.natural tp
 int :: Parser Int
-int = do parity <- option '+' $ choice $ map char "+-"
-         first <- posDigit
-         rest <- many digit
-         return . read $
-           case parity of
-             '+' -> first : rest
-             '-' -> '-' : first : rest
-             _  -> error $ "unknown parity syntax: " ++ [parity]
-
-posDigit :: Parser Char
-posDigit = oneOf ['1'..'9']
-
+int = fromIntegral `fmap` T.integer tp
+symbol = T.symbol tp
+whiteSpace = T.whiteSpace tp
+lexeme = T.lexeme tp

@@ -4,7 +4,7 @@ Synopsis:            DIMACS CNF parser library
 Description:         A DIMACS CNF parser library, implemented with Parsec.
 Category:            Parsing
 License:             LGPL
-License-file:        COPYING
+License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional

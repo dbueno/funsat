@@ -1,7 +1,8 @@
 Name:                parse-dimacs
 Version:             1.2
 Synopsis:            DIMACS CNF parser library
-Description:         A DIMACS CNF parser library, implemented with Parsec.
+Description:         
+    A DIMACS CNF parser library, implemented with Parsec 3, using ByteStrings.
 Category:            Parsing
 License:             LGPL
 License-file:        LICENSE

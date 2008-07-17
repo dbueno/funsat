@@ -15,4 +15,6 @@ Tested-with:         GHC==6.8.2
 Extra-source-files:  CHANGES
 
 Exposed-modules:     Language.CNF.Parse.ParseDIMACS
-Ghc-options:         -W
+Ghc-options:         -fwarn-incomplete-patterns
+                     -fwarn-dodgy-imports -fwarn-incomplete-record-updates
+                     -fwarn-unused-binds -fwarn-unused-imports

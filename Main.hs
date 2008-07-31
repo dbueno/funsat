@@ -118,10 +118,10 @@ main = do
         putStr "Enabled features: "
         putStrLn $ intercalate ", " $ map show $
                    toList (allFeatures Set.\\ features)
-        forM_ files $ \path -> readFile path >>= parseAndSolve path
+        forM_ files $ parseAndSolve
          where
-           parseAndSolve path contents = do
-              let cnf = asCNF $ ParseCNF.parseCNF path contents
+           parseAndSolve path = do
+              cnf <- parseCNF path
               putStrLn $ show (numVars cnf) ++ " variables, "
                          ++ show (numClauses cnf) ++ " clauses"
               Set.map seqList (clauses cnf)
@@ -150,6 +150,13 @@ usageHeader = "Usage: funsat [options] <cnf-filename> ... <cnf-filename>"
 
 seqList l@[] = l
 seqList l@(x:xs) = x `seq` seqList xs `seq` l
+
+parseCNF :: FilePath -> IO CNF
+parseCNF path = do
+    result <- ParseCNF.parseFile path
+    case result of 
+      Left err -> error . show $ err
+      Right c  -> return . asCNF $ c
 
 
 -- | Convert parsed CNF to internal representation.

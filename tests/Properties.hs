@@ -34,7 +34,7 @@ import Debug.Trace
 import Funsat.Solver( verify )
 import Funsat.Types
 import Funsat.Utils( count, argmin )
-import Language.CNF.Parse.ParseDIMACS( parseCNF )
+import Language.CNF.Parse.ParseDIMACS( parseFile )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
                       , sum, concat )
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
@@ -480,9 +480,10 @@ getCNF maxVars = do g <- newStdGen
                     return (generate (maxVars * 3) g arbitrary)
 
 prob :: IO ParseCNF.CNF
-prob = do let file = "./tests/problems/uf20/uf20-0119.cnf"
-          s <- readFile file
-          return $ parseCNF file s
+prob = do cnfOrError <- parseFile "./tests/problems/uf20/uf20-0119.cnf"
+          case cnfOrError of
+            Left err -> error . show $ err
+            Right c  -> return c
 
 
 -- | Convert parsed CNF to internal representation.

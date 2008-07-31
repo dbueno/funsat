@@ -9,13 +9,13 @@ $ ./Setup build
 
 This will produce a binary called funsat at ./dist/build/funsat/funsat and a
 standalone library interface for the solver.  If you feel like profiling the
-code, uncomment the profiling executable in funsat.cabal, and a profiling
-binary will automatically be built in ./dist/build/funsat-prof/funsat-prof.
+code, a profiling binary is automatically built in
+./dist/build/funsat-prof/funsat-prof.
 
 ** Dependencies
 All the dependences are cabal-ised and available from hackage.  URLs below.
 
-They're also available in subdirectories.
+They're also available in etc/.
 
 *** parse-dimacs [cnf]
 A haskell CNF file parser.

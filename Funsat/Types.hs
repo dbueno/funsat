@@ -39,13 +39,13 @@ import Control.Monad.MonadST( MonadST(..) )
 import Control.Monad.ST.Strict
 import Data.Array.ST
 import Data.Array.Unboxed
-import Data.BitSet (BitSet)
-import Data.Foldable hiding (sequence_)
-import Data.Map (Map)
-import Data.Set (Set)
+import Data.BitSet ( BitSet )
+import Data.Foldable hiding ( sequence_ )
+import Data.Map ( Map )
+import Data.Set ( Set )
 import Funsat.Monad
 import Funsat.Utils
-import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
+import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
 import qualified Data.BitSet as BitSet
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
@@ -71,23 +71,6 @@ instance Num Var where
                   | otherwise = V $ fromInteger l
 
 newtype Lit = L {unLit :: Int} deriving (Eq, Ord, Enum, Ix)
-inLit f = L . f . unLit
-
--- | The polarity of the literal.  Negative literals are false; positive
--- literals are true.  The 0-literal is an error.
-litSign :: Lit -> Bool
-litSign (L x) | x < 0 = False
-              | x > 0 = True
-
-instance Show Lit where
-    show l = show ul
-        where ul = unLit l
-instance Read Lit where
-    readsPrec i s = map (\(i,s) -> (L i, s)) (readsPrec i s :: [(Int, String)])
-
--- | The variable for the given literal.
-var :: Lit -> Var
-var = V . abs . unLit
 
 instance Num Lit where
     _ + _ = error "+ doesn't make sense for literals"
@@ -99,23 +82,30 @@ instance Num Lit where
     fromInteger l | l == 0    = error "0 is not a literal"
                   | otherwise = L $ fromInteger l
 
+inLit :: (Int -> Int) -> Lit -> Lit
+inLit f = L . f . unLit
+
+-- | The polarity of the literal.  Negative literals are false; positive
+-- literals are true.  The 0-literal is an error.
+litSign :: Lit -> Bool
+litSign (L x) | x < 0     = False
+              | x > 0     = True
+              | otherwise = error "litSign of 0"
+
+instance Show Lit where show = show . unLit
+instance Read Lit where
+    readsPrec i s = map (\(i,s) -> (L i, s)) (readsPrec i s)
+
+-- | The variable for the given literal.
+var :: Lit -> Var
+var = V . abs . unLit
+
 type Clause = [Lit]
 
--- | ''Generic'' conjunctive normal form.  It's ''generic'' because the
--- elements of the clause set are polymorphic.  And they are polymorphic so
--- that I can easily get a `Foldable' instance.
-data GenCNF a = CNF {
-      numVars :: Int,
-      numClauses :: Int,
-      clauses :: Set a
-    }
-                deriving (Show, Read, Eq)
-
-type CNF = GenCNF Clause
-
-instance Foldable GenCNF where
-    -- TODO it might be easy to make this instance more efficient.
-    foldMap toM cnf = foldMap toM (clauses cnf)
+data CNF = CNF
+    { numVars    :: Int
+    , numClauses :: Int
+    , clauses    :: Set Clause } deriving (Show, Read, Eq)
 
 
 -- | Represents a container of type @t@ storing elements of type @a@ that
@@ -238,12 +228,14 @@ instance Model Lit IAssignment where
     statusUnder l a | a `contains` l        = Right True
                     | a `contains` negate l = Right False
                     | otherwise             = Left ()
+
 instance Model Var IAssignment where
     statusUnder v a | a `contains` pos = Right True
                     | a `contains` neg = Right False
                     | otherwise        = Left ()
                     where pos = L (unVar v)
                           neg = negate pos
+
 instance Model Clause IAssignment where
     statusUnder c m
         -- true if c intersect m is not null == a member of c in m

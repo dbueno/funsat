@@ -91,27 +91,27 @@ module Funsat.Solver
 -}
 
 
-import Control.Arrow ((&&&))
-import Control.Exception (assert)
-import Control.Monad.Error hiding ((>=>), forM_, runErrorT)
+import Control.Arrow( (&&&) )
+import Control.Exception( assert )
+import Control.Monad.Error hiding ( (>=>), forM_, runErrorT )
 import Control.Monad.MonadST( MonadST(..) )
 import Control.Monad.ST.Strict
-import Control.Monad.State.Lazy hiding ((>=>), forM_)
+import Control.Monad.State.Lazy hiding ( (>=>), forM_ )
 import Data.Array.ST
 import Data.Array.Unboxed
-import Data.Foldable hiding (sequence_)
-import Data.Int (Int64)
-import Data.List (intercalate, nub, tails, sortBy, sort)
+import Data.Foldable hiding ( sequence_ )
+import Data.Int( Int64 )
+import Data.List( intercalate, nub, tails, sortBy, sort )
 import Data.Maybe
-import Data.Ord (comparing)
+import Data.Ord( comparing )
 import Data.STRef
-import Data.Sequence (Seq)
+import Data.Sequence( Seq )
 -- import Debug.Trace (trace)
 import Funsat.Monad
 import Funsat.Utils
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import Funsat.Types
-import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
+import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
 import Funsat.Resolution( ResolutionError(..) )
 import Text.Printf( printf )
 import qualified Data.Foldable as Fl
@@ -954,11 +954,9 @@ data Stats = Stats
 
 -- |  The show instance uses the wrapped string.
 newtype ShowWrapped = WrapString { unwrapString :: String }
-instance Show ShowWrapped where
-    show = unwrapString
+instance Show ShowWrapped where show = unwrapString
 
-instance Show Stats where
-    show = show . statTable
+instance Show Stats where show = show . statTable
 
 -- | Convert statistics to a nice-to-display tabular form.
 statTable :: Stats -> Tabular.Table ShowWrapped

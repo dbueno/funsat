@@ -33,7 +33,7 @@ import Data.Ord( comparing )
 import Debug.Trace
 import Funsat.Solver( verify )
 import Funsat.Types
-import Funsat.Utils( count, argmin )
+import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
                       , sum, concat )

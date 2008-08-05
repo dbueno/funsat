@@ -35,8 +35,7 @@ module Funsat.Resolution
     , ResolutionTrace(..)
     , initResolutionTrace
     , ResolutionError(..)
-    , UnsatisfiableCore
-    , ClauseId )
+    , UnsatisfiableCore )
         where
 
 import Control.Monad.Error
@@ -48,7 +47,7 @@ import Data.Map( Map )
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
 import Funsat.Types
-import Funsat.Utils( isSingle )
+import Funsat.Utils( isSingle, getUnit, isFalseUnder )
 
 
 -- IDs = Ints
@@ -83,8 +82,6 @@ initResolutionTrace finalClauseId finalAssignment = ResolutionTrace
     , traceSources = Map.empty
     , traceOriginalClauses = Map.empty
     , traceAntecedents = Map.empty }
-
-type ClauseId = Int
 
 -- | A type indicating an error in the checking process.  Assuming this
 -- checker's code is correct, such an error indicates a bug in the SAT solver.

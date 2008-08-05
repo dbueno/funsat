@@ -43,14 +43,16 @@ import Data.BitSet ( BitSet )
 import Data.Foldable hiding ( sequence_ )
 import Data.Map ( Map )
 import Data.Set ( Set )
+import Data.STRef
 import Funsat.Monad
-import Funsat.Utils
 import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
 import qualified Data.BitSet as BitSet
 import qualified Data.Foldable as Fl
+import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+
 
 
 -- * Basic Types
@@ -206,6 +208,30 @@ litAssignment mFr = foldr (\i ass -> if mFr!i == 0 then ass
                           []
                           (range . bounds $ mFr)
 
+-- | The union of the reason side and the conflict side are all the nodes in
+-- the `cutGraph' (excepting, perhaps, the nodes on the reason side at
+-- decision level 0, which should never be present in a learned clause).
+data Cut f gr a b =
+    Cut { reasonSide :: f Graph.Node
+        -- ^ The reason side contains at least the decision variables.
+        , conflictSide :: f Graph.Node
+        -- ^ The conflict side contains the conflicting literal.
+        , cutUIP :: Graph.Node
+        , cutGraph :: gr a b }
+instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
+    show (Cut { conflictSide = c, cutUIP = uip }) =
+        "Cut (uip=" ++ show uip ++ ", cSide=" ++ show c ++ ")"
+
+-- | Annotate each variable in the conflict graph with literal (indicating its
+-- assignment) and decision level.  The only reason we make a new datatype for
+-- this is for its `Show' instance.
+data CGNodeAnnot = CGNA Lit Int
+instance Show CGNodeAnnot where
+    show (CGNA (L 0) _) = "lambda"
+    show (CGNA l lev) = show l ++ " (" ++ show lev ++ ")"
+
+
+
 -- * Model
 
 
@@ -243,50 +269,49 @@ instance Model Clause IAssignment where
         -- false if all its literals are false under m.
         | Fl.all (`isFalseUnder` m) c = Right False
         | otherwise                = Left ()
+        where
+          isFalseUnder x m = isFalse $ x `statusUnder` m
+              where isFalse (Right False) = True
+                    isFalse _             = False
+
+-- * Internal data types
+
+type Level = Int
+
+-- | A /level array/ maintains a record of the decision level of each variable
+-- in the solver.  If @level@ is such an array, then @level[i] == j@ means the
+-- decision level for var number @i@ is @j@.  @j@ must be non-negative when
+-- the level is defined, and `noLevel' otherwise.
+--
+-- Whenever an assignment of variable @v@ is made at decision level @i@,
+-- @level[unVar v]@ is set to @i@.
+type LevelArray s = STUArray s Var Level
+-- | Immutable version.
+type FrozenLevelArray = UArray Var Level
 
 
+-- | The VSIDS-like dynamic variable ordering.
+newtype VarOrder s = VarOrder { varOrderArr :: STUArray s Var Double }
+    deriving Show
+newtype FrozenVarOrder = FrozenVarOrder (UArray Var Double)
+    deriving Show
 
--- | `True' if and only if the object is undefined in the model.
-isUndefUnder :: Model a m => a -> m -> Bool
-isUndefUnder x m = isUndef $ x `statusUnder` m
-    where isUndef (Left ()) = True
-          isUndef _         = False
+-- | Each pair of watched literals is paired with its clause and id.
+type WatchedPair s = (STRef s (Lit, Lit), Clause, ClauseId)
+type WatchArray s = STArray s Lit [WatchedPair s]
 
--- | `True' if and only if the object is true in the model.
-isTrueUnder :: Model a m => a -> m -> Bool
-isTrueUnder x m = isTrue $ x `statusUnder` m
-    where isTrue (Right True) = True
-          isTrue _            = False
+data PartialResolutionTrace = PartialResolutionTrace
+    { resTraceIdCount         :: !Int
+    , resTrace                :: ![Int]
+    , resTraceOriginalSingles :: ![(Clause, ClauseId)]
+      -- Singleton clauses are not stored in the database, they are assigned.
+      -- But we need to record their ids, so we put them here.
+    , resSourceMap            :: Map ClauseId [ClauseId] } deriving (Show)
 
--- | `True' if and only if the object is false in the model.
-isFalseUnder :: Model a m => a -> m -> Bool
-isFalseUnder x m = isFalse $ x `statusUnder` m
-    where isFalse (Right False) = True
-          isFalse _             = False
+type ReasonMap = Map Var (Clause, ClauseId)
+type ClauseId = Int
 
--- * Helpers
-
-
--- isUnitUnder c m | trace ("isUnitUnder " ++ show c ++ " " ++ showAssignment m) $ False = undefined
-
--- | Whether all the elements of the model in the list are false but one, and
--- none is true, under the model.
-isUnitUnder :: (Model a m) => [a] -> m -> Bool
-{-# SPECIALISE INLINE isUnitUnder :: Clause -> IAssignment -> Bool #-}
-isUnitUnder c m = isSingle (filter (not . (`isFalseUnder` m)) c)
-                  && not (Fl.any (`isTrueUnder` m) c)
-
--- Precondition: clause is unit.
--- getUnit :: (Model a m, Show a, Show m) => [a] -> m -> a
--- getUnit c m | trace ("getUnit " ++ show c ++ " " ++ showAssignment m) $ False = undefined
-
--- | Get the element of the list which is not false under the model.  If no
--- such element, throws an error.
-getUnit :: (Model a m, Show a) => [a] -> m -> a
-{-# SPECIALISE INLINE getUnit :: Clause -> IAssignment -> Lit #-}
-getUnit c m = case filter (not . (`isFalseUnder` m)) c of
-                [u] -> u
-                xs   -> error $ "getUnit: not unit: " ++ show xs
-
-
-
+instance Show (STRef s a) where show = const "<STRef>"
+instance Show (STUArray s Var Int) where show = const "<STUArray Var Int>"
+instance Show (STUArray s Var Double) where show = const "<STUArray Var Double>"
+instance Show (STArray s a b) where show = const "<STArray>"

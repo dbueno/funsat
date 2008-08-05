@@ -100,17 +100,13 @@ import Control.Monad.State.Lazy hiding ((>=>), forM_)
 import Data.Array.ST
 import Data.Array.Unboxed
 import Data.Foldable hiding (sequence_)
-import Data.Graph.Inductive.Graph( DynGraph, Graph )
--- import Data.Graph.Inductive.Graphviz
 import Data.Int (Int64)
-import Data.List (intercalate, nub, tails, sortBy, intersect, sort)
-import Data.Map (Map)
+import Data.List (intercalate, nub, tails, sortBy, sort)
 import Data.Maybe
 import Data.Ord (comparing)
 import Data.STRef
 import Data.Sequence (Seq)
-import Data.Set (Set)
-import Debug.Trace (trace)
+-- import Debug.Trace (trace)
 import Funsat.Monad
 import Funsat.Utils
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
@@ -118,8 +114,6 @@ import Funsat.Types
 import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
 import Funsat.Resolution( ResolutionError(..) )
 import Text.Printf( printf )
-import qualified Data.Graph.Inductive.Graph as Graph
-import qualified Data.Graph.Inductive.Query.DFS as DFS
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -347,47 +341,12 @@ finalAssignment :: Solution -> IAssignment
 finalAssignment (Sat a)   = a
 finalAssignment (Unsat a) = a
 
-
--- ** Internal data types
-
-type Level = Int
-
--- | A /level array/ maintains a record of the decision level of each variable
--- in the solver.  If @level@ is such an array, then @level[i] == j@ means the
--- decision level for var number @i@ is @j@.  @j@ must be non-negative when
--- the level is defined, and `noLevel' otherwise.
---
--- Whenever an assignment of variable @v@ is made at decision level @i@,
--- @level[unVar v]@ is set to @i@.
-type LevelArray s = STUArray s Var Level
--- | Immutable version.
-type FrozenLevelArray = UArray Var Level
+-- ** Internals
 
 -- | Value of the `level' array if corresponding variable unassigned.  Had
 -- better be less that 0.
 noLevel :: Level
 noLevel = -1
-
--- | The VSIDS-like dynamic variable ordering.
-newtype VarOrder s = VarOrder { varOrderArr :: STUArray s Var Double }
-    deriving Show
-newtype FrozenVarOrder = FrozenVarOrder (UArray Var Double)
-    deriving Show
-
--- | Each pair of watched literals is paired with its clause and id.
-type WatchedPair s = (STRef s (Lit, Lit), Clause, ClauseId)
-type WatchArray s = STArray s Lit [WatchedPair s]
-
-data PartialResolutionTrace = PartialResolutionTrace
-    { resTraceIdCount         :: !Int
-    , resTrace                :: ![Int]
-    , resTraceOriginalSingles :: ![(Clause, ClauseId)]
-      -- Singleton clauses are not stored in the database, they are assigned.
-      -- But we need to record their ids, so we put them here.
-    , resSourceMap            :: Map ClauseId [ClauseId] } deriving (Show)
-
-type ReasonMap = Map Var (Clause, ClauseId)
-type ClauseId = Int
 
 -- ** State and Phases
 
@@ -432,11 +391,6 @@ data FunsatState s = SC
     , resolutionTrace :: PartialResolutionTrace
 
     , dpllConfig :: DPLLConfig } deriving Show
-
-instance Show (STRef s a) where show = const "<STRef>"
-instance Show (STUArray s Var Int) where show = const "<STUArray Var Int>"
-instance Show (STUArray s Var Double) where show = const "<STUArray Var Double>"
-instance Show (STArray s a b) where show = const "<STArray>"
 
 -- | Our star monad, the DPLL State monad.  We use @ST@ for mutable arrays and
 -- references, when necessary.  Most of the state, however, is kept in
@@ -930,146 +884,6 @@ a1 >< a2 =
 infixl 5 ><
 
 -- *** Misc
-
-
-
--- | The union of the reason side and the conflict side are all the nodes in
--- the `cutGraph' (excepting, perhaps, the nodes on the reason side at
--- decision level 0, which should never be present in a learned clause).
-data Cut f gr a b =
-    Cut { reasonSide :: f Graph.Node
-        -- ^ The reason side contains at least the decision variables.
-        , conflictSide :: f Graph.Node
-        -- ^ The conflict side contains the conflicting literal.
-        , cutUIP :: Graph.Node
-        , cutGraph :: gr a b }
-instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
-    show (Cut { conflictSide = c, cutUIP = uip }) =
-        "Cut (uip=" ++ show uip ++ ", cSide=" ++ show c ++ ")"
-
--- | Generate a cut using the given UIP node.  The cut generated contains
--- exactly the (transitively) implied nodes starting with (but not including)
--- the UIP on the conflict side, with the rest of the nodes on the reason
--- side.
-uipCut :: (Graph gr) =>
-          [Lit]                 -- ^ decision literals
-       -> FrozenLevelArray
-       -> gr a b                -- ^ conflict graph
-       -> Graph.Node            -- ^ unassigned, implied conflicting node
-       -> Graph.Node            -- ^ a UIP in the conflict graph
-       -> Cut Set gr a b
-uipCut dlits levelArr conflGraph conflNode uip =
-    Cut { reasonSide   = Set.filter (\i -> levelArr!(V $ abs i) > 0) $
-                         allNodes Set.\\ impliedByUIP
-        , conflictSide = impliedByUIP
-        , cutUIP       = uip
-        , cutGraph     = conflGraph }
-    where
-      -- Transitively implied, and not including the UIP.  
-      impliedByUIP = Set.insert extraNode $
-                     Set.fromList $ tail $ DFS.reachable uip conflGraph
-      -- The UIP may not imply the assigned conflict variable which needs to
-      -- be on the conflict side, unless it's a decision variable or the UIP
-      -- itself.
-      extraNode = if L (negate conflNode) `elem` dlits || negate conflNode == uip
-                  then conflNode -- idempotent addition
-                  else negate conflNode
-      allNodes = Set.fromList $ Graph.nodes conflGraph
-
-
--- | Generate a learned clause from a cut of the graph.  Returns a pair of the
--- learned clause and the decision level to which to backtrack.
-cutLearn :: (Graph gr, Foldable f) => IAssignment -> FrozenLevelArray
-         -> Cut f gr a b -> (Clause, Int)
-cutLearn a levelArr cut =
-    ( clause
-      -- The new decision level is the max level of all variables in the
-      -- clause, excluding the uip (which is always at the current decision
-      -- level).
-    , maximum0 (map (levelArr!) . (`without` V (abs $ cutUIP cut)) . map var $ clause) )
-  where
-    -- The clause is composed of the variables on the reason side which have
-    -- at least one successor on the conflict side.  The value of the variable
-    -- is the negation of its value under the current assignment.
-    clause =
-        foldl' (\ls i ->
-                    if any (`elem` conflictSide cut) (Graph.suc (cutGraph cut) i)
-                    then L (negate $ a!(V $ abs i)):ls
-                    else ls)
-               [] (reasonSide cut)
-    maximum0 [] = 0            -- maximum0 has 0 as its max for the empty list
-    maximum0 xs = maximum xs
-
-
--- | Annotate each variable in the conflict graph with literal (indicating its
--- assignment) and decision level.  The only reason we make a new datatype for
--- this is for its `Show' instance.
-data CGNodeAnnot = CGNA Lit Level
-instance Show CGNodeAnnot where
-    show (CGNA (L 0) _) = "lambda"
-    show (CGNA l lev) = show l ++ " (" ++ show lev ++ ")"
-
--- | Creates the conflict graph, where each node is labeled by its literal and
--- level.
---
--- Useful for getting pretty graphviz output of a conflict.
-mkConflGraph :: DynGraph gr =>
-                IAssignment
-             -> FrozenLevelArray
-             -> Map Var Clause
-             -> [Lit]           -- ^ decision lits, in rev. chron. order
-             -> (Lit, Clause)   -- ^ conflict info
-             -> gr CGNodeAnnot ()
-mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
-    Graph.mkGraph nodes' edges'
-  where
-    -- we pick out all the variables from the conflict graph, specially adding
-    -- both literals of the conflict variable, so that that variable has two
-    -- nodes in the graph.
-    nodes' =
-            ((0, CGNA (L 0) (-1)) :) $ -- lambda node
-            ((unLit cLit, CGNA cLit (-1)) :) $
-            ((negate (unLit cLit), CGNA (negate cLit) (lev!(var cLit))) :) $
-            -- annotate each node with its literal and level
-            map (\v -> (unVar v, CGNA (varToLit v) (lev!v))) $
-            filter (\v -> v /= var cLit) $
-            toList nodeSet'
-          
-    -- node set includes all variables reachable from conflict.  This node set
-    -- construction needs a `seen' set because it might infinite loop
-    -- otherwise.
-    (nodeSet', edges') =
-        mkGr Set.empty (Set.empty, [ (unLit cLit, 0, ())
-                                   , ((negate . unLit) cLit, 0, ()) ])
-                       [negate cLit, cLit]
-    varToLit v = (if v `isTrueUnder` mFr then id else negate) $ L (unVar v)
-
-    -- seed with both conflicting literals
-    mkGr _ ne [] = ne
-    mkGr (seen :: Set Graph.Node) ne@(nodes, edges) (lit:lits) =
-        if haveSeen
-        then mkGr seen ne lits
-        else newNodes `seq` newEdges `seq`
-             mkGr seen' (newNodes, newEdges) (lits ++ pred)
-      where
-        haveSeen = seen `contains` litNode lit
-        newNodes = var lit `Set.insert` nodes
-        newEdges = [ ( litNode (negate x) -- unimplied lits from reasons are
-                                          -- complemented
-                     , litNode lit, () )
-                     | x <- pred ] ++ edges
-        pred = filterReason $
-               if lit == cLit then confl else
-               Map.findWithDefault [] (var lit) reasonMap `without` lit
-        filterReason = filter ( ((var lit /=) . var) .&&.
-                                ((<= litLevel lit) . litLevel) )
-        seen' = seen `with` litNode lit
-        litLevel l = if l == cLit then length _dlits else lev!(var l)
-        litNode l =              -- lit to node
-            if var l == var cLit -- preserve sign of conflicting lit
-            then unLit l
-            else (abs . unLit) l
-
 showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
                                                   (a!i) /= 0])
 
@@ -1106,7 +920,7 @@ verify sol maybeRT cnf =
           in if null unsatClauses
              then Nothing
              else Just . SatError $ unsatClauses
-      Unsat m ->
+      Unsat _ ->
           case Resolution.checkDepthFirst (fromJust maybeRT) of
             Left er -> Just . UnsatError $ er
             Right _ -> Nothing

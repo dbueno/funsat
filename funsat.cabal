@@ -27,7 +27,7 @@ Extra-source-files:  README
 
 Executable funsat
  Main-is:             Main.hs
- Ghc-options:         -W -funbox-strict-fields
+ Ghc-options:         -w -funbox-strict-fields
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
@@ -48,9 +48,7 @@ Executable funsat
 
 Executable funsat-prof
  Main-is:             Main.hs
- Ghc-options:         -prof -auto-all -funbox-strict-fields
-                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
-                      -fwarn-unused-binds -fwarn-unused-imports
+ Ghc-options:         -w -prof -auto-all -funbox-strict-fields
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
@@ -76,7 +74,10 @@ Library
                       Control.Monad.MonadST
                       Text.Tabular
  Other-modules:       Funsat.FastDom Funsat.Utils
- Ghc-options:         -W -funbox-strict-fields
+ Ghc-options:         -funbox-strict-fields
+                      -W
+                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
+                      -fwarn-unused-binds -fwarn-unused-imports
  Extensions:          CPP
  Hs-source-dirs:      . tests
  Build-Depends:       base, parsec, containers, pretty, mtl

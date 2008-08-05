@@ -90,13 +90,13 @@ type ClauseId = Int
 -- checker's code is correct, such an error indicates a bug in the SAT solver.
 data ResolutionError =
           ResolveError Var Clause Clause
-          -- ^ Indicates that the clauses do not properly resolve on the
-          -- variable.
+        -- ^ Indicates that the clauses do not properly resolve on the
+        -- variable.
 
         | CannotResolve [Var] Clause Clause
-          -- ^ Indicates that the clauses do not have complementary variables
-          -- or have too many.  The complementary variables (if any) are in
-          -- the list.
+        -- ^ Indicates that the clauses do not have complementary variables or
+        -- have too many.  The complementary variables (if any) are in the
+        -- list.
 
         | AntecedentNotUnit Clause
         -- ^ Indicates that the constructed antecedent clause not unit under
@@ -163,8 +163,7 @@ type UnsatisfiableCore = [Clause]
 
 data ResState = ResState
     { clauseIdMap :: Map ClauseId Clause
-    , unsatCore   :: UnsatCoreIntSet
-    }
+    , unsatCore   :: UnsatCoreIntSet }
 
 type UnsatCoreIntSet = IntSet   -- set of ClauseIds
 
@@ -185,7 +184,7 @@ checkDFClause clause =
             checkDFClause resClause
 
 recursiveBuild :: ClauseId -> ResM Clause
-recursiveBuild clauseId {-id-} = do
+recursiveBuild clauseId = do
     maybeClause <- getClause
     case maybeClause of
       Just clause -> return clause
@@ -264,7 +263,7 @@ getAntecedentId v = do
 
 chooseLiteral :: Clause -> ResM Lit
 chooseLiteral (l:_) = return l
-chooseLiteral _ = error "chooseLiteral: empty clause"
+chooseLiteral _     = error "chooseLiteral: empty clause"
 
 checkAnteClause :: Var -> Clause -> ResM ()
 checkAnteClause v anteClause = do

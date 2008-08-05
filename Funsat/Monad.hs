@@ -68,20 +68,21 @@ evalSSTErrMonad m s = do (result, _) <- runSSTErrMonad m s
 -- <http://haskell.org/haskellwiki/Performance/Monads>.
 newtype SSTErrMonad e st s a =
     SSTErrMonad { unSSTErrMonad :: forall r. (a -> (st -> ST s (Either e r, st)))
-                              -> (st -> ST s (Either e r, st)) }
+                                -> (st -> ST s (Either e r, st)) }
 
 instance Monad (SSTErrMonad e st s) where
     return x = SSTErrMonad ($ x)
     (>>=)    = bindSSTErrMonad
 
-bindSSTErrMonad :: SSTErrMonad e st s a -> (a -> SSTErrMonad e st s b) -> SSTErrMonad e st s b
+bindSSTErrMonad :: SSTErrMonad e st s a -> (a -> SSTErrMonad e st s b)
+                -> SSTErrMonad e st s b
 {-# INLINE bindSSTErrMonad #-}
 bindSSTErrMonad m f =
     {-# SCC "bindSSTErrMonad" #-}
     SSTErrMonad (\k -> unSSTErrMonad m (\a -> unSSTErrMonad (f a) k))
 
 instance MonadState st (SSTErrMonad e st s) where
-    get = SSTErrMonad (\k s -> k s s)
+    get    = SSTErrMonad (\k s -> k s s)
     put s' = SSTErrMonad (\k _ -> k () s')
 
 instance (Error e) => MonadError e (SSTErrMonad e st s) where
@@ -94,7 +95,7 @@ instance (Error e) => MonadError e (SSTErrMonad e st s) where
                       Right result -> k result s')
 
 instance (Error e) => MonadPlus (SSTErrMonad e st s) where
-    mzero = SSTErrMonad (\_ s -> return (Left noMsg, s))
+    mzero     = SSTErrMonad (\_ s -> return (Left noMsg, s))
     mplus m n = SSTErrMonad (\k s ->
                                  do (r, s') <- runSSTErrMonad m s
                                     case r of

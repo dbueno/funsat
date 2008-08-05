@@ -21,11 +21,11 @@ module Main where
     Copyright 2008 Denis Bueno
 -}
 
-import Control.Monad ( when, forM_ )
-import Data.Foldable ( fold, toList, elem )
-import Data.List ( intercalate )
+import Control.Monad( when, forM_ )
+import Data.Foldable( fold, toList, elem )
+import Data.List( intercalate )
 import Data.Monoid
-import Data.Set ( Set )
+import Data.Set( Set )
 import Funsat.Solver
     ( solve
     , verify
@@ -36,8 +36,8 @@ import Funsat.Solver
 import Funsat.Types( CNF(..) )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
-import System.Environment ( getArgs )
-import System.Exit ( ExitCode(..), exitWith )
+import System.Environment( getArgs )
+import System.Exit( ExitCode(..), exitWith )
 import Data.Time.Clock
 import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
@@ -162,7 +162,7 @@ parseCNF path = do
 -- | Convert parsed CNF to internal representation.
 asCNF :: ParseCNF.CNF -> CNF
 asCNF (ParseCNF.CNF v c is) =
-    CNF { numVars = v
+    CNF { numVars    = v
         , numClauses = c
-        , clauses = Set.fromList . map (map fromIntegral) $ is }
+        , clauses    = Set.fromList . map (map fromIntegral) $ is }
 

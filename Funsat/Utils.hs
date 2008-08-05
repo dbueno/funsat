@@ -34,15 +34,15 @@ and are not SAT-solver specific.
 module Funsat.Utils where
 
 import Control.Monad.ST.Strict
-import Control.Monad.State.Lazy hiding ((>=>), forM_)
+import Control.Monad.State.Lazy hiding ( (>=>), forM_ )
 import Data.Array.ST
 import Data.Array.Unboxed
-import Data.Foldable hiding (sequence_)
-import Data.List (foldl1')
-import Debug.Trace (trace)
-import Prelude hiding (sum, concatMap, elem, foldr, foldl, any, maximum)
-import System.IO.Unsafe (unsafePerformIO)
-import System.IO (hPutStr, stderr)
+import Data.Foldable hiding ( sequence_ )
+import Data.List( foldl1' )
+import Debug.Trace( trace )
+import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
+import System.IO.Unsafe( unsafePerformIO )
+import System.IO( hPutStr, stderr )
 import qualified Data.Foldable as Fl
 import qualified Data.List as List
 
@@ -87,7 +87,8 @@ newSTArray = newArray
 -- | Count the number of elements in the list that satisfy the predicate.
 count :: (a -> Bool) -> [a] -> Int
 count p = foldl' f 0
-    where f x y = x + (if p y then 1 else 0)
+    where f x y | p y       = x + 1
+                | otherwise = x
 
 -- | /O(1)/ @argmin f x y@ is the argument whose image is least under @f@; if
 -- the images are equal, returns the first.

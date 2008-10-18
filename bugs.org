@@ -9,6 +9,9 @@
    - State "DEFECT"     [2008-10-10 Fri 16:30] \\
      I think it's just keeping around too much info.
 
+* fiblib
+** FEATURE Implement ST-based fibonacci heap
+   - State "FEATURE"    [2008-10-18 Sat 14:26]
 * website
   :PROPERTIES:
   :CATEGORY: website

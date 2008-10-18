@@ -17,9 +17,9 @@ Currently along this theme we provide /unsatisfiable core/ generation, giving
 * Installation
 Install using the typical Cabal procedure:
 
-$ ghc --make -o Setup Setup.hs
-$ ./Setup configure
-$ ./Setup build
+    $ ghc --make -o Setup Setup.hs
+    $ ./Setup configure
+    $ ./Setup build
 
 This will produce a binary called funsat at ./dist/build/funsat/funsat and a
 standalone library interface for the solver.  If you feel like profiling the

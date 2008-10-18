@@ -19,10 +19,12 @@
 module Language.CNF.Parse.ParseDIMACS
     ( parseByteString
     , parseFile
-    , CNF(..) )
+    , CNF(..) 
+    , Clause )
     where
 
 import Control.Monad
+import Data.Array.Unboxed
 import Data.ByteString.Lazy( ByteString )
 import Prelude hiding (readFile, map)
 import Text.Parsec( ParseError, SourceName )
@@ -40,7 +42,8 @@ data CNF = CNF
     , numClauses :: !Int
     -- ^ The number of clauses in the problem as reported by the cnf header.
 
-    , clauses    :: ![[Int]] } deriving Show
+    , clauses    :: ![Clause] } deriving Show
+type Clause = UArray Int Int
 
 -- | Parse a file containing DIMACS CNF data.
 parseFile :: FilePath -> IO (Either ParseError CNF)
@@ -66,8 +69,9 @@ cnfHeader = do
     symbol "cnf"
     (,) `fmap` natural `ap` natural
 
-clause :: Parser [Int]
-clause = lexeme int `manyTill` try (symbol "0")
+clause :: Parser (UArray Int Int)
+clause = do ints <- lexeme int `manyTill` try (symbol "0")
+            return $ listArray (0, length ints - 1) ints
 
 
 -- token parser

@@ -28,7 +28,10 @@ Extra-source-files:  README CHANGES bugs.org todo.org
 
 Executable funsat
  Main-is:             Main.hs
- Ghc-options:         -w -funbox-strict-fields
+ Ghc-options:         -funbox-strict-fields
+                      -W
+                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
+                      -fwarn-unused-binds -fwarn-unused-imports
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
@@ -49,7 +52,11 @@ Executable funsat
 
 Executable funsat-prof
  Main-is:             Main.hs
- Ghc-options:         -w -prof -auto-all -funbox-strict-fields
+ Ghc-options:         -prof -auto-all
+                      -funbox-strict-fields
+                      -W
+                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
+                      -fwarn-unused-binds -fwarn-unused-imports
  Extensions:          CPP
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests

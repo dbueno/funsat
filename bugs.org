@@ -23,7 +23,9 @@
   :PROPERTIES:
   :CATEGORY: parse-dimacs
   :END:
-** DEFECT Lazy or strict bytestrings?
+** FIXED Lazy or strict bytestrings?
+   - State "FIXED"      [2008-10-18 Sat 14:18] \\
+     Used lazy.
    - State "DEFECT"     [2008-10-10 Fri 16:25] \\
      I need to settle the question of whether to use lazy or strict bytestrings for
      the parser.  I need to benchmark it.

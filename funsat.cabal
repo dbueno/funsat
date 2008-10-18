@@ -15,6 +15,7 @@ Description:
     problems (see "Funsat.Resolution").
 
 Synopsis:            A modern DPLL-style SAT solver
+Homepage:            http://github.com/dbueno/funsat
 Category:            Algorithms
 Stability:           alpha
 License:             LGPL

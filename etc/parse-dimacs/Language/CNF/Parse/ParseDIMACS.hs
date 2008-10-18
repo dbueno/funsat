@@ -17,17 +17,19 @@
 
 -- | A simple module for parsing CNF files in DIMACS format.
 module Language.CNF.Parse.ParseDIMACS
-    ( parseFile
+    ( parseByteString
+    , parseFile
     , CNF(..) )
     where
 
 import Control.Monad
+import Data.ByteString.Lazy( ByteString )
 import Prelude hiding (readFile, map)
-import Text.Parsec( ParseError )
+import Text.Parsec( ParseError, SourceName )
 import Text.Parsec.ByteString.Lazy
 import Text.Parsec.Char
 import Text.Parsec.Combinator
-import Text.Parsec.Prim( try, unexpected )
+import Text.Parsec.Prim( try, unexpected, runParser )
 import qualified Text.Parsec.Token as T
 
 
@@ -44,11 +46,17 @@ data CNF = CNF
 parseFile :: FilePath -> IO (Either ParseError CNF)
 parseFile = parseFromFile cnf
 
+-- | Parse a byte string containing DIMACS CNF data.  The source name is only
+-- | used in error messages and may be the empty string.
+parseByteString :: SourceName -> ByteString -> Either ParseError CNF
+parseByteString = runParser cnf ()
+
 -- A DIMACS CNF file contains a header of the form "p cnf <numVars>
 -- <numClauses>" and then a bunch of 0-terminated clauses.
 cnf :: Parser CNF
 cnf = uncurry CNF `fmap` cnfHeader `ap` lexeme (many1 clause)
 
+-- Parses into `(numVars, numClauses)'.
 cnfHeader :: Parser (Int, Int)
 cnfHeader = do
     whiteSpace

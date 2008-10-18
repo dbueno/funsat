@@ -29,11 +29,11 @@ code, a profiling binary is automatically built in
 ** Dependencies
 All the dependences are cabal-ised and available from hackage, or in etc/.
 
-*** parse-dimacs [cnf]
+*** parse-dimacs
 A haskell CNF file parser.
 
 http://hackage.haskell.org/cgi-bin/hackage-scripts/package/parse-dimacs
 
-*** bitset [bitset]
+*** bitset
 http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset
 

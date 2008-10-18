@@ -1,0 +1,34 @@
+#+STARTUP: content hidestars
+#+TYP_TODO: DEFECT(d@) FEATURE(f@) VERIFY(v@) | FIXED(@/!) WONTFIX(@/!) POSTPONED(@/!) NOTREPRO(@/!) DUPLICATE(@/!) BYDESIGN(@/!)
+
+* Funsat
+  :PROPERTIES:
+  :CATEGORY: Funsat
+  :END:
+** DEFECT resTrace field of resolution trace needn't be there
+   - State "DEFECT"     [2008-10-10 Fri 16:30] \\
+     I think it's just keeping around too much info.
+
+* website
+  :PROPERTIES:
+  :CATEGORY: website
+  :END:
+
+* bitset
+  :PROPERTIES:
+  :CATEGORY: bitset
+  :END:
+
+* parse-dimacs
+  :PROPERTIES:
+  :CATEGORY: parse-dimacs
+  :END:
+** DEFECT Lazy or strict bytestrings?
+   - State "DEFECT"     [2008-10-10 Fri 16:25] \\
+     I need to settle the question of whether to use lazy or strict bytestrings for
+     the parser.  I need to benchmark it.
+
+* sat-micro
+  :PROPERTIES:
+  :CATEGORY: sat-micro
+  :END:

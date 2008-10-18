@@ -15,7 +15,7 @@
     Copyright 2008 Denis Bueno
 -}
 
--- | A simple Parsec module for parsing CNF files in DIMACS format.
+-- | A simple module for parsing CNF files in DIMACS format.
 module Language.CNF.Parse.ParseDIMACS
     ( parseFile
     , CNF(..) )

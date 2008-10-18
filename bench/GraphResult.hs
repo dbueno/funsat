@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
 
--- | Grovel over the result file given on the command-line and output a PNG
--- graph comparison of the runtime data.
+-- | This file cooperates with @benchmark.sh@.  This script grovels over the
+-- result files produced by @benchmark.sh@ given on the command-line and outputs
+-- a PNG graph comparison of the runtime data.
 --
 -- Example usage:
 --

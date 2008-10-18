@@ -33,7 +33,11 @@ import qualified Text.Parsec.Token as T
 
 data CNF = CNF
     { numVars    :: !Int
+    -- ^ The number of variables in the problem as reported by the cnf header.
+
     , numClauses :: !Int
+    -- ^ The number of clauses in the problem as reported by the cnf header.
+
     , clauses    :: ![[Int]] } deriving Show
 
 -- | Parse a file containing DIMACS CNF data.

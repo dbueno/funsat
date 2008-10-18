@@ -22,6 +22,7 @@ module Main where
 -}
 
 import Control.Monad( when, forM_ )
+import Data.Array.Unboxed( elems )
 import Data.Foldable( fold, toList, elem )
 import Data.List( intercalate )
 import Data.Monoid
@@ -164,5 +165,5 @@ asCNF :: ParseCNF.CNF -> CNF
 asCNF (ParseCNF.CNF v c is) =
     CNF { numVars    = v
         , numClauses = c
-        , clauses    = Set.fromList . map (map fromIntegral) $ is }
+        , clauses    = Set.fromList . map (map fromIntegral . elems) $ is }
 

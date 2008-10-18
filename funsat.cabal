@@ -1,5 +1,5 @@
 Name:                funsat
-Version:             0.6
+Version:             0.5.1
 Cabal-Version:       >= 1.2
 Description:
 
@@ -43,7 +43,7 @@ Executable funsat
                       Properties
 
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , array, QuickCheck, parse-dimacs, bitset
+                      , array, QuickCheck, parse-dimacs >= 1.2, bitset
                       , fgl, time
 
 Executable funsat-prof
@@ -62,7 +62,7 @@ Executable funsat-prof
                       Control.Monad.MonadST
                       Properties
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , random, array, QuickCheck, parse-dimacs >= 1.2, bitset
                       , fgl, time
 
 
@@ -81,5 +81,5 @@ Library
  Extensions:          CPP
  Hs-source-dirs:      . tests
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs, bitset
+                      , random, array, QuickCheck, parse-dimacs >= 1.2, bitset
                       , fgl

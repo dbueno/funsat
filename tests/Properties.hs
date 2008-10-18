@@ -491,7 +491,7 @@ asCNF :: ParseCNF.CNF -> CNF
 asCNF (ParseCNF.CNF v c is) =
     CNF {numVars = v
         ,numClauses = c
-        ,clauses = Set.fromList . map (map fromIntegral) $ is}
+        ,clauses = Set.fromList . map (map fromIntegral . elems) $ is}
 
 
 -- import qualified Data.ByteString.Char8 as B

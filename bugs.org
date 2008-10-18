@@ -1,6 +1,10 @@
 #+STARTUP: content hidestars
 #+TYP_TODO: DEFECT(d@) FEATURE(f@) VERIFY(v@) | FIXED(@/!) WONTFIX(@/!) POSTPONED(@/!) NOTREPRO(@/!) DUPLICATE(@/!) BYDESIGN(@/!)
 
+  - Top-level headings are modules.
+  - Under each is a bug entry, initially classified as a defect or feature.
+  - The DONE states indicate the decision made on the bug.
+
 * Funsat
   :PROPERTIES:
   :CATEGORY: Funsat

@@ -4,6 +4,9 @@
 Reimplemented with lazy ByteStrings, for efficiency.  It used to be very slow
 on large CNF instances.
 
+Now use unboxed int-arrays for clauses, which is more memory-efficient than
+lists.
+
 * 1.1 (21 Mar 2008)
 Parser allows clauses to be split over multiple lines.
 

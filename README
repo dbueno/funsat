@@ -13,9 +13,7 @@ code, a profiling binary is automatically built in
 ./dist/build/funsat-prof/funsat-prof.
 
 ** Dependencies
-All the dependences are cabal-ised and available from hackage.  URLs below.
-
-They're also available in etc/.
+All the dependences are cabal-ised and available from hackage, or in etc/.
 
 *** parse-dimacs [cnf]
 A haskell CNF file parser.

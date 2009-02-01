@@ -1,5 +1,6 @@
 -- | A /bit set/ maintains a record of members from a type that can be mapped
--- into (non-negative) @Int@s.  Supports insertion, deletion, size, and
+-- into (non-negative) @Int@s. The maximum number of elements that can be
+-- stored is @maxbound :: Int@. Supports insertion, deletion, size, and
 -- membership testing, and is completely pure (functional).
 --
 -- To use this library, simply supply a `Enum' instance for your data type or

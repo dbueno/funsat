@@ -16,6 +16,6 @@ Build-type:          Simple
 
 Exposed-modules:     Data.BitSet
 Extensions:          ScopedTypeVariables
-Ghc-options:         -Wall
+Ghc-options:         -Wall -O2
 Ghc-prof-options:    -prof -auto-all
 Extra-source-files:  tests/Properties.hs

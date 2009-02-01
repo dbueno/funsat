@@ -29,11 +29,11 @@ import Prelude hiding ( null )
 import Data.Bits
 
 
-newtype BitSet a = BS { unBS :: (Int, Integer) }
-    deriving (Eq)
+data BitSet a = BS {-# UNPACK #-} !Int {-# UNPACK #-} !Integer
+                deriving Eq
 
 instance (Enum a, Show a) => Show (BitSet a) where
-    show (BS (_, i) :: BitSet a) = "fromList " ++ show (f 0 i)
+    show (BS _ i :: BitSet a) = "fromList " ++ show (f 0 i)
         where f _ 0 = []
               f n x = if testBit x 0
                       then (toEnum n :: a) : f (n+1) (shiftR x 1)
@@ -63,24 +63,24 @@ size :: BitSet a -> Int
 
 -- * Implementation
 
-empty = BS (0, 0)
+empty = BS 0 0
 
-null (BS (n, _)) = n == 0
+null (BS n _) = n == 0
 
 {-# INLINE insert #-}
-insert x (BS (count, i)) = BS $ (count', setBit i e)
+insert x (BS count i) = BS count' (setBit i e)
     where count' = if testBit i e then count else count+1
           e      = fromEnum x
 
-fromList xs = BS (length xs, foldl (\i x -> setBit i (fromEnum x)) 0 xs)
+fromList xs = BS (length xs) (foldl (\i x -> setBit i (fromEnum x)) 0 xs)
 
 {-# INLINE delete #-}
-delete x (BS (count, i)) = BS $ (count', clearBit i e)
+delete x (BS count i) = BS count' (clearBit i e)
     where count' = if testBit i e then count-1 else count
           e      = fromEnum x
 
 {-# INLINE member #-}
-member x (BS (_, i)) = testBit i (fromEnum x)
+member x (BS _ i) = testBit i (fromEnum x)
 
 {-# INLINE size #-}
-size (BS (count, _)) = count
+size (BS count _) = count

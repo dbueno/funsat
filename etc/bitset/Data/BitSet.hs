@@ -28,14 +28,15 @@ import Prelude hiding ( null )
 import Data.Bits
 
 
--- | The @Show@ instance kind of sucks.  It just shows the size paired with
--- the internal @Integer@ representation.  A good show would probably show all
--- the present hashes.
 newtype BitSet a = BS { unBS :: (Int, Integer) }
     deriving (Eq)
 
-instance Show (BitSet a) where
-    show s = "BitSet " ++ show (unBS s)
+instance (Enum a, Show a) => Show (BitSet a) where
+    show (BS (_, i) :: BitSet a) = "fromList " ++ show (f 0 i)
+        where f _ 0 = []
+              f n x = if testBit x 0
+                      then (toEnum n :: a) : f (n+1) (shiftR x 1)
+                      else f (n+1) (shiftR x 1)
 
 -- | The empty bit set.
 empty :: BitSet a

@@ -18,6 +18,7 @@ module Data.BitSet
     , empty
     , null
     , insert
+    , fromList
     , delete
     , member
     , size
@@ -45,6 +46,9 @@ null :: BitSet a -> Bool
 -- | /O(setBit on Integer)/ Insert an item into the bit set.
 insert :: Enum a => a -> BitSet a -> BitSet a
 
+-- | /O(n * setBit on Integer)/ Make a @BitSet@ from a list of items.
+fromList :: Enum a => [a] -> BitSet a
+
 -- | /O(clearBit on Integer)/ Delete an item from the bit set.
 delete :: Enum a => a -> BitSet a -> BitSet a
 
@@ -65,6 +69,8 @@ null (BS (n, _)) = n == 0
 insert x (BS (count, i)) = BS $ (count', setBit i e)
     where count' = if testBit i e then count else count+1
           e      = fromEnum x
+
+fromList xs = BS (length xs, foldl (\i x -> setBit i (fromEnum x)) 0 xs)
 
 {-# INLINE delete #-}
 delete x (BS (count, i)) = BS $ (count', clearBit i e)

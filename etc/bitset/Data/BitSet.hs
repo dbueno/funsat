@@ -27,10 +27,11 @@ module Data.BitSet
 
 import Prelude hiding ( null )
 import Data.Bits
+import Data.Data
 
 
 data BitSet a = BS {-# UNPACK #-} !Int {-# UNPACK #-} !Integer
-                deriving Eq
+                deriving (Eq, Ord, Data, Typeable)
 
 instance (Enum a, Show a) => Show (BitSet a) where
     show (BS _ i :: BitSet a) = "fromList " ++ show (f 0 i)

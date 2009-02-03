@@ -1,34 +1,28 @@
 module Properties where
 
-import Control.Monad( liftM )
 import Prelude hiding ( null )
 import Data.BitSet
 import Data.Foldable ( foldl' )
 import Data.List ( nub )
 import Test.QuickCheck
-import System.IO
-
 import qualified Data.List as List
 
 
 
 main :: IO ()
 main = do
-  dbgMsg "prop_size: " >> check config prop_size
-  dbgMsg "prop_size_insert: " >> check config prop_size_insert
-  dbgMsg "prop_size_delete: " >> check config prop_size_delete
-  dbgMsg "prop_insert: " >> check config prop_insert
-  dbgMsg "prop_delete: " >> check config prop_delete
-  dbgMsg "prop_insDelIdempotent: " >> check config prop_insDelIdempotent
-  dbgMsg "prop_delDelIdempotent: " >> check config prop_delDelIdempotent
-  dbgMsg "prop_insInsIdempotent: " >> check config prop_insInsIdempotent
-  dbgMsg "prop_extensional: " >> check config prop_extensional
-  dbgMsg "prop_fromList: " >> check config prop_fromList
-  dbgMsg "prop_empty: " >> check config prop_empty
+  check config prop_size
+  check config prop_size_insert
+  check config prop_size_delete
+  check config prop_insert
+  check config prop_delete
+  check config prop_insDelIdempotent
+  check config prop_delDelIdempotent
+  check config prop_insInsIdempotent
+  check config prop_extensional
+  check config prop_empty
 
-dbgMsg = hPutStr stderr
-
-config = defaultConfig{ configMaxTest = 2000 }
+config = defaultConfig{ configMaxTest = 1000 }
 
 -- * Quickcheck properties
 
@@ -76,14 +70,12 @@ prop_extensional xs = and $ map (`member` s) xsa
     where s   = foldr insert empty xsa
           xsa = map abs xs :: [Int]
 
-prop_fromList xs = all (`member` s) xsa
-    where s   = fromList xsa
-          xsa = map abs xs :: [Int]
-
 prop_empty x = not $ xa `member` empty
     where xa = abs x :: Int
 
 
 
 instance (Arbitrary a, Enum a) => Arbitrary (BitSet a) where
-    arbitrary = sized $ liftM fromList . vector
+    arbitrary = sized $ \n ->
+                do xs <- vector n
+                   return $ foldl' (flip insert) empty xs

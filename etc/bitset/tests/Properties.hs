@@ -75,7 +75,7 @@ prop_empty x = not $ xa `member` empty
 
 
 
-instance (Arbitrary a, Enum a) => Arbitrary (BitSet a) where
+instance (Arbitrary a, Hash a) => Arbitrary (BitSet a) where
     arbitrary = sized $ \n ->
                 do xs <- vector n
                    return $ foldl' (flip insert) empty xs

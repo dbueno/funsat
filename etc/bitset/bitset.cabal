@@ -15,7 +15,6 @@ Build-Depends:       base, QuickCheck
 Build-type:          Simple
 
 Exposed-modules:     Data.BitSet
-Extensions:          ScopedTypeVariables
-Ghc-options:         -Wall -O2
+Ghc-options:         -Wall
 Ghc-prof-options:    -prof -auto-all
 Extra-source-files:  tests/Properties.hs

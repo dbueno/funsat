@@ -1,5 +1,5 @@
 Name:                bitset
-Version:             0.6
+Version:             1.0
 Synopsis:            A functional data structure for efficient membership testing.
 Description:
         A /bit set/ maintains a record of members from a type that can be mapped

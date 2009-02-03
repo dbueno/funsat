@@ -64,8 +64,10 @@ size :: BitSet a -> Int
 
 -- * Implementation
 
+{-# INLINE empty #-}
 empty = BS 0 0
 
+{-# INLINE null #-}
 null (BS n _) = n == 0
 
 {-# INLINE insert #-}

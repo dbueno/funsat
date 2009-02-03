@@ -640,6 +640,12 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
       traceClauseId learnedClauseId
       return (out_learned, learnedClauseId, out_btlevel)
 
+    firstUIPBFS' :: MAssignment s -> Int -> ReasonMap
+                -> DPLLMonad s (Clause, ClauseId, Int)
+    -- functional version
+    firstUIPBFS' m nVars reasonMap = foldWhileM outputTillCount0
+
+
     -- helpers
     currentLevel = length dlits
     levelL l = levelArr!(var l)
@@ -650,6 +656,21 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
               rt{resSourceMap =
                      Map.insert clauseId (reverse rsReversed) (resSourceMap rt)}}
 
+type SeenArr s = STUArray s Var Bool
+data FUIPState s = FUIPState !Lit -- p 
+    !Int                          -- counter
+    !(SeenArr s)
+
+-- | @foldWhileM f init xs@ performs a strict left fold over @xs@ until @f init
+-- x@ returns @Left end@, in which case the fold terminates with @end@.
+foldWhileM :: (Monad m) => (a -> b -> m (Either a a)) -> a -> [b] -> m a
+foldWhileM f init []     = return init
+foldWhileM f init (x:xs) = do res <- f init x
+                              case res of
+                                Left end   -> return end
+                                Right next -> next `seq` foldWhileM f next xs
+                            
+    
 
 -- | Delete the assignment to last-assigned literal.  Undoes the trail, the
 -- assignment, sets `noLevel', undoes reason.

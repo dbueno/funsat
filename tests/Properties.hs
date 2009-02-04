@@ -22,15 +22,16 @@ module Properties where
 
 import Funsat.Solver hiding ((==>))
 
-import Control.Monad (replicateM)
+import Control.Monad
 import Data.Array.Unboxed
 import Data.BitSet (hash)
-import Data.Bits
+import Data.Bits hiding( xor )
 import Data.Foldable hiding (sequence_)
 import Data.List (nub, splitAt, unfoldr, delete, sort, sortBy)
 import Data.Maybe
 import Data.Ord( comparing )
 import Debug.Trace
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
 import Funsat.Solver( verify )
 import Funsat.Types
 import Funsat.Utils
@@ -38,14 +39,19 @@ import Language.CNF.Parse.ParseDIMACS( parseFile )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
                       , sum, concat )
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
+import System.IO
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
+
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
+import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
 import qualified Funsat.Resolution as Resolution
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 import qualified Test.QuickCheck as QC
+import qualified Funsat.Circuit as C
 
 
 main :: IO ()
@@ -71,6 +77,8 @@ main = do
       check config prop_litHash
       check config prop_varHash
       check config prop_count
+      hPutStr stderr "prop_circutToCnf: " >> check config prop_circutToCnf
+      hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
 
       -- Add more tests above here.  Setting the rng keeps the SAT instances
       -- the same even if more tests are added above.  Reproducible results
@@ -256,6 +264,79 @@ prop_argmin f x y =
 
 instance Show (a -> b) where
     show = const "<fcn>"
+
+
+-- ** CNF conversion
+
+instance Arbitrary (TreeC Var) where
+    arbitrary = sized sizedCircuit
+
+-- | Generator for a circuit containing at most `n' nodes, involving only the
+-- literals 1 .. n.
+sizedCircuit :: (Circuit c) => Int -> Gen (c Var)
+sizedCircuit 0 = (return . input . V) 1
+sizedCircuit n =
+    oneof [ return true
+          , return false
+          , (return . input . V) n
+          , liftM2 C.and subcircuit2 subcircuit2
+          , liftM2 C.or  subcircuit2 subcircuit2
+          , liftM C.not subcircuit1
+          , liftM3 ite subcircuit3 subcircuit3 subcircuit3
+          , liftM2 onlyif subcircuit2 subcircuit2
+          , liftM2 C.iff subcircuit2 subcircuit2
+          , liftM2 xor subcircuit2 subcircuit2 ]
+  where subcircuit3 = sizedCircuit (n `div` 3)
+        subcircuit2 = sizedCircuit (n `div` 2)
+        subcircuit1 = sizedCircuit (n - 1)
+
+newtype ArbBEnv = ArbBEnv (BEnv Var) deriving (Show)
+instance Arbitrary ArbBEnv where
+    coarbitrary = undefined
+    arbitrary = sized $ \n -> do
+                  bools <- vector (n+1) :: Gen [Bool]
+                  return . ArbBEnv $
+                    foldl' (flip (uncurry Map.insert)) Map.empty
+                                 (zip [V 1 .. V (n+1)] bools)
+
+-- If CNF generated from circuit satisfiable, check that circuit is by that
+-- assignment.
+prop_circutToCnf :: TreeC Var -> Property
+prop_circutToCnf treeCircuit =
+    let (cnf, FrozenShareC (_output, cmaps), _cnfMap) =
+            toCNF . generalCircuit $ treeCircuit
+        (solution, _, _) = solve1 cnf
+    in case solution of
+         Sat a -> let lits = litAssignment a
+                      benv =
+                          Map.fromList 
+                          $ mapMaybe
+                            (\l -> ((\v -> (v, litSign l)) `fmap`) $
+                                   IntMap.lookup (unVar . var $ l) (varMap cmaps))
+                            lits
+                  in label "Sat" $ evalCircuit benv (generalCircuit treeCircuit)
+
+         Unsat _ -> label "Unsat" True
+
+-- circuit and simplified version should evaluate the same
+--
+-- todo: probabl should generate env and tree together on same vars
+prop_circuitSimplify :: ArbBEnv -> TreeC Var -> Property
+prop_circuitSimplify (ArbBEnv benv) c =
+    trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) $
+    evalCircuit benv (generalCircuit c)
+      == evalCircuit benv (generalCircuit . simplifyCircuit $ c)
+
+
+foldTreeCircuit :: (t -> v -> t) -> t -> TreeC v -> t
+foldTreeCircuit _ i TTrue = i
+foldTreeCircuit _ i TFalse = i
+foldTreeCircuit f i (TLeaf v) = f i v
+foldTreeCircuit f i (TAnd t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
+foldTreeCircuit f i (TOr t1 t2)  = foldTreeCircuit f (foldTreeCircuit f i t1) t2
+foldTreeCircuit f i (TNot t)     = foldTreeCircuit f i t
+foldTreeCircuit f i (TXor t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
+
 
 
 

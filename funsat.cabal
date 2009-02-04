@@ -1,5 +1,5 @@
 Name:                funsat
-Version:             0.5.1
+Version:             0.6
 Cabal-Version:       >= 1.2
 Description:
 
@@ -39,6 +39,7 @@ Executable funsat
                       Funsat.Solver
                       Funsat.Types
                       Funsat.Resolution
+                      Funsat.Circuit
                       Funsat.FastDom
                       Funsat.Utils
                       Funsat.Monad
@@ -47,8 +48,8 @@ Executable funsat
                       Properties
 
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , array, QuickCheck, parse-dimacs >= 1.2, bitset
-                      , fgl, time
+                      , array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
+                      , fgl, graphviz, time
 
 Executable funsat-prof
  Main-is:             Main.hs
@@ -63,6 +64,7 @@ Executable funsat-prof
  Other-modules:       Funsat.Solver
                       Funsat.Types
                       Funsat.Resolution
+                      Funsat.Circuit
                       Funsat.FastDom
                       Funsat.Utils
                       Funsat.Monad
@@ -70,14 +72,15 @@ Executable funsat-prof
                       Control.Monad.MonadST
                       Properties
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs >= 1.2, bitset
-                      , fgl, time
+                      , random, array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
+                      , fgl, graphviz, time
 
 
 Library
  Exposed-modules:     Funsat.Solver
                       Funsat.Types
                       Funsat.Resolution
+                      Funsat.Circuit
                       Funsat.Monad
                       Control.Monad.MonadST
                       Text.Tabular
@@ -89,5 +92,5 @@ Library
  Extensions:          CPP
  Hs-source-dirs:      . tests
  Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs >= 1.2, bitset
-                      , fgl
+                      , random, array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
+                      , fgl, graphviz

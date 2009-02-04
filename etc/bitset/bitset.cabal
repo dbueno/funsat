@@ -11,6 +11,7 @@ License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional
+Cabal-Version:       >= 1.2.3
 Build-Depends:       base, QuickCheck
 Build-type:          Simple
 

@@ -1,4 +1,19 @@
-module Funsat.Circuit where
+
+
+-- | A circuit is a standard one of among many ways of representing a
+-- propositional logic formula.  This module provides a flexible circuit type
+-- class and various representations that admit efficient conversion to funsat
+-- CNF.
+--
+-- The implementation for this module was adapted from
+-- <http://okmij.org/ftp/Haskell/DSLSharing.hs>.
+module Funsat.Circuit
+--     ( Circuit(..)
+--     , GeneralCircuit(..)
+--     , CCode(..)
+--     , HLC(..)
+--     )
+where
 
 {-
     This file is part of funsat.
@@ -49,15 +64,12 @@ import qualified Prelude as Prelude
 
 
 
-------------------------------------------------------------------------------
-
 -- * Circuit representation
 
--- Idea adapted from <http://okmij.org/ftp/Haskell/DSLSharing.hs>.
 
-
--- | A class representing a grammar for logical circuits.  Currently only
--- `ite', `onlyif', and `iff' have default implementations.
+-- | A class representing a grammar for logical circuits.  Currently only `ite',
+-- `onlyif', and `iff' have default implementations.  Instances must implement
+-- `true', `false', `input', `and', `or', and `not'.
 --
 -- /TODO/ Implement defaults so that all instances only /need/ implement an
 -- adequate (complete) boolean base, not all operations.
@@ -74,16 +86,20 @@ class Circuit repr where
     ite :: (Ord var, Show var) => repr var -> repr var -> repr var -> repr var
     ite c t f = (c `and` t) `or` (not c `and` f)
 
+    -- | @`onlyif' p q@ is equivalent to @not p `or` q@.
     onlyif :: (Ord var, Show var) => repr var -> repr var -> repr var
     onlyif p q = not p `or` q
 
+    -- | @`iff' p q@ is equivalent to @(p `onlyif` q) `and` (q `onlyif` p)@.
     iff :: (Ord var, Show var) => repr var -> repr var -> repr var
     iff p q = (p `onlyif` q) `and` (q `onlyif` p)
 
+    -- | @`xor' p q@ is equivalent to @(p `or` q) `and` not (p `and` q)@.
     xor :: (Ord var, Show var) => repr var -> repr var -> repr var
     xor p q = (p `or` q) `and` not (p `and` q)
 
--- | Turning one circuit into another.
+-- | Instances of `GeneralCircuit' admit converting on circuit representation to
+-- another.
 class GeneralCircuit c where
     generalCircuit :: (Circuit cOut, Ord var, Show var) => c var -> cOut var
 
@@ -94,8 +110,44 @@ class GeneralCircuit c where
 -- The following business is for elimination of common subexpressions from
 -- boolean functions.  Part of conversion to CNF.
 
+-- | A `Circuit' constructed using common-subexpression elimination.  This is a
+-- compact representation that facilitates converting to CNF.  See `runShareC'.
+newtype ShareC v = ShareC { unShareC :: State (CMaps v) CCode }
+
+-- | A shared circuit that has already been constructed.
+newtype FrozenShareC v = FrozenShareC (CCode, CMaps v)
+
+-- | Reify a sharing circuit.
+runShareC :: ShareC v -> FrozenShareC v
+runShareC = FrozenShareC . (`runState` emptyCMaps 1) . unShareC
+
+instance GeneralCircuit ShareC where
+    generalCircuit = generalCircuit . runShareC
+
+instance GeneralCircuit FrozenShareC where
+    generalCircuit (FrozenShareC (code, maps)) = go code
+      where
+        go (CTrue{})  = true
+        go (CFalse{}) = false
+        go (CVar _ i)   = input $ getChildren i varMap
+        go (CAnd _ i)   = let (lcode, rcode) = getChildren i andMap
+                          in and (go lcode) (go rcode)
+        go (COr _ i)    = let (lcode, rcode) = getChildren i orMap
+                          in or (go lcode) (go rcode)
+        go (CNot _ i)   = let ncode = getChildren i notMap
+                          in not (go ncode)
+
+        getChildren int codeMap =
+            IntMap.findWithDefault (error $ "fromCCode: unknown code: " ++ show int)
+            int (codeMap maps)
+
 type CircuitHash = Int
 
+-- | A `CCode' is a flattened tree node which has been assigned a unique number
+-- in the corresponding map inside `CMaps', which indicates children, if any.
+--
+-- For example, @CAnd Nothing i@ has the two children of the tuple @lookup i
+-- (andMap cmaps)@ assuming @cmaps :: CMaps v@.
 data CCode = CTrue  { hlc         :: Maybe HLC
                     , circuitHash :: !CircuitHash }
            | CFalse { hlc         :: Maybe HLC
@@ -119,7 +171,7 @@ data HLC = Xor CCode CCode
 -- | Maps used to implement the common-subexpression sharing implementation of
 -- the `Circuit' class.  See `ShareC'.
 --
--- /TODO/ implement using bimaps if this part is slow
+-- /TODO/: implement using bimaps if this part is slow.
 data CMaps v = CMaps
     { hashCount :: CircuitHash
     -- ^ Source of unique IDs used in `ShareC' circuit generation.  This
@@ -137,8 +189,8 @@ data CMaps v = CMaps
                deriving (Eq, Ord, Show)
 
 -- | A `CMaps' from an initial `hashCount'.
-cmaps0 :: CircuitHash -> CMaps v
-cmaps0 i = CMaps
+emptyCMaps :: CircuitHash -> CMaps v
+emptyCMaps i = CMaps
     { hashCount = i
     , trueInt   = Nothing
     , falseInt  = Nothing
@@ -147,39 +199,9 @@ cmaps0 i = CMaps
     , orMap     = IntMap.empty
     , notMap    = IntMap.empty }
 
--- | A shared circuit that's already been constructed.
-newtype FrozenShareC v = FrozenShareC (CCode, CMaps v)
-
--- | A `Circuit' constructed using common-subexpression elimination.  See
--- `runShareC'.
-newtype ShareC v = ShareC { unShareC :: State (CMaps v) CCode }
-
-runShareC :: ShareC v -> FrozenShareC v
-runShareC = FrozenShareC . (`runState` cmaps0 1) . unShareC
-
-instance GeneralCircuit ShareC where
-    generalCircuit = generalCircuit . runShareC
-
-instance GeneralCircuit FrozenShareC where
-    generalCircuit (FrozenShareC (code, maps)) = go code
-      where
-        go (CTrue{})  = true
-        go (CFalse{}) = false
-        go (CVar _ i)   = input $ getChildren i varMap
-        go (CAnd _ i)   = let (lcode, rcode) = getChildren i andMap
-                          in and (go lcode) (go rcode)
-        go (COr _ i)    = let (lcode, rcode) = getChildren i orMap
-                          in or (go lcode) (go rcode)
-        go (CNot _ i)   = let ncode = getChildren i notMap
-                          in not (go ncode)
-
-        getChildren int codeMap =
-            IntMap.findWithDefault (error $ "fromCCode: unknown code: " ++ show int)
-            int (codeMap maps)
-
 -- | Find key mapping to given value.
-loookupv :: Eq v => v -> IntMap v -> Maybe Int
-loookupv v = IntMap.foldWithKey 
+lookupv :: Eq v => v -> IntMap v -> Maybe Int
+lookupv v = IntMap.foldWithKey 
 	     (\k e z -> maybe (if e == v then Just k else Nothing) (const z) z) 
 	     Nothing
 
@@ -199,7 +221,7 @@ recordC cons prj upd x = do
 	    put s'
 	    -- trace "updating map" (return ())
 	    return (cons $ hashCount s))
-        (return . cons) $ loookupv x (prj s)
+        (return . cons) $ lookupv x (prj s)
 
 instance Circuit ShareC where
     true = ShareC $ do
@@ -251,9 +273,9 @@ instance Circuit ShareC where
 
 -- ** Explicit tree circuit
 
--- | Explicit tree, which is a generic description of a circuit.  This
--- representation enables a conversion operation to any other type of circuit:
--- see `fromTreeC'.
+-- | Explicit tree representation, which is a generic description of a circuit.
+-- This representation enables a conversion operation to any other type of
+-- circuit.  Trees evaluate from variable values at the leaves to the root.
 data TreeC v = TTrue
              | TFalse
              | TLeaf v
@@ -264,13 +286,13 @@ data TreeC v = TTrue
                deriving (Show)
 
 instance Circuit TreeC where
-    true = TTrue
+    true  = TTrue
     false = TFalse
     input = TLeaf
-    and = TAnd
-    or  = TOr
-    not = TNot
-    xor = TXor
+    and   = TAnd
+    or    = TOr
+    not   = TNot
+    xor   = TXor
 
 instance GeneralCircuit TreeC where
     generalCircuit TTrue        = true
@@ -284,11 +306,18 @@ instance GeneralCircuit TreeC where
 -- ** Circuit evaluator
 
 type BEnv v = Map v Bool
+
+-- | A circuit evaluator, that is, a circuit represented as a function from
+-- variable values to booleans.
 newtype EvalC v = EvalC { unEvalC :: BEnv v -> Bool }
 
+-- | Evaluate a circuit given inputs.
+evalCircuit :: BEnv v -> EvalC v -> Bool
+evalCircuit = flip unEvalC
+
 instance Circuit EvalC where
-    true  = EvalC $ const True
-    false = EvalC $ const False
+    true    = EvalC $ const True
+    false   = EvalC $ const False
     input v = EvalC $ \env ->
                       Map.findWithDefault
                         (error $ "EvalC: no such var: " ++ show v
@@ -297,10 +326,6 @@ instance Circuit EvalC where
     and c1 c2 = EvalC (\env -> unEvalC c1 env && unEvalC c2 env)
     or  c1 c2 = EvalC (\env -> unEvalC c1 env || unEvalC c2 env)
     not c     = EvalC (\env -> Prelude.not $ unEvalC c env)
-
--- | Evaluate a circuit given inputs.
-evalCircuit :: BEnv v -> EvalC v -> Bool
-evalCircuit = flip unEvalC
 
 -- ** Graph circuit
 {-
@@ -419,8 +444,9 @@ shareGraph (FrozenShareC (output, cmaps)) =
 
 -}
 
--- ** Simplification
+-- ** Circuit simplification
 
+-- | Performs obvious constant propagations.
 simplifyCircuit :: TreeC v -> TreeC v
 simplifyCircuit l@(TLeaf _) = l
 simplifyCircuit TFalse      = TFalse
@@ -475,13 +501,17 @@ simplifyCircuit (TXor l r) =
 -- ** Convert circuit to CNF
 
 -- | Produces a CNF formula that is satisfiable if and only if the input circuit
--- is satisfiable.  Returns the conjunctive normal form of the circuit along
--- with the constructed input circuit.  Each CNF variable corresponds to the
--- circuit element with that circuit hash.
+-- is satisfiable.  /Note that it does not produce an equivalent CNF formula./
+-- It is not equivalent in general because the transformation introduces
+-- variables into the CNF which were not present as circuit inputs.  (Variables
+-- in the CNF correspond to circuit elements.)  Returns equisatisfiable CNF
+-- along with the frozen input circuit, and the mapping between the variables of
+-- the CNF and the circuit elements.
 --
--- Implementation uses the Tseitin transformation: should produce a CNF
--- formula linear in the size of the circuit.  Naive DeMorgan transformation
--- produces exponential CNF formula.
+-- The implementation uses the Tseitin transformation, to guarantee that the
+-- output CNF formula is linear in the size of the circuit.  Contrast this with
+-- the naive DeMorgan-laws transformation which produces an exponential-size CNF
+-- formula.
 --
 -- /TODO/ especially with the sharing-slash-flat representation, I should be
 -- able to write this tail-recursively.

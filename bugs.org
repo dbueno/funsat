@@ -11,7 +11,8 @@
   :END:
 ** DEFECT resTrace field of resolution trace needn't be there
    - State "DEFECT"     [2008-10-10 Fri 16:30] \\
-     I think it's just keeping around too much info.
+     I think it's just keeping around too much info.  It doesn't affect the
+     correctness of the code.
 
 * fiblib
 ** FEATURE Implement ST-based fibonacci heap

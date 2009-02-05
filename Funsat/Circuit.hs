@@ -8,11 +8,34 @@
 -- The implementation for this module was adapted from
 -- <http://okmij.org/ftp/Haskell/DSLSharing.hs>.
 module Funsat.Circuit
---     ( Circuit(..)
---     , GeneralCircuit(..)
---     , CCode(..)
---     , HLC(..)
---     )
+    (
+    -- ** Circuit type class
+      Circuit(..)
+    , GeneralCircuit(..)
+
+    -- ** Explicit sharing circuit
+    , ShareC(..)
+    , FrozenShareC(..)
+    , CircuitHash
+    , CCode(..)
+    , HLC(..)
+    , CMaps(..)
+    , emptyCMaps
+
+    -- ** Explicit tree circuit
+    , TreeC(..)
+
+    -- *** Circuit simplification
+    , simplifyCircuit
+
+    -- ** Circuit evaluator
+    , BEnv(..)
+    , EvalC(..)
+    , evalCircuit
+
+    -- ** Convert circuit to CNF
+    , toCNF
+    )
 where
 
 {-

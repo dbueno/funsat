@@ -89,7 +89,7 @@ main = do
       check solveConfig prop_solveCorrect
 
       setStdGen gen
-      hPutStr stderr "prop_solveCorrect: "
+      hPutStr stderr "prop_solveCorrect (rand): "
       check solveConfig prop_solveCorrect
       gen <- getStdGen
 
@@ -98,7 +98,7 @@ main = do
       check resChkConfig prop_resolutionChecker
 
       setStdGen gen
-      hPutStr stderr "prop_resolutionChecker: "
+      hPutStr stderr "prop_resolutionChecker (rand): "
       check resChkConfig prop_resolutionChecker
 
 

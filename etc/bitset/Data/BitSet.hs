@@ -23,6 +23,8 @@ module Data.BitSet
     , delete
     , member
     , size
+    , toIntegral
+    , fromIntegral
     ) where
 
 import Prelude hiding ( null )
@@ -61,6 +63,14 @@ member :: Enum a => a -> BitSet a -> Bool
 -- | /O(1)/ The number of elements in the bit set.
 size :: BitSet a -> Int
 
+-- | /O(1)/ Project a bit set to an integer.
+toIntegral :: Integral b => BitSet a -> b
+
+-- | /O(n)/ Make a bit set of type @BitSet a@ from an integer. This is unsafe
+-- because it is not checked whether the bits set in the integer correspond to
+-- values of type @a@. This is only useful as a more efficient alternative to
+-- fromList.
+unsafeFromIntegral :: Integral b => b -> BitSet a
 
 -- * Implementation
 
@@ -87,3 +97,12 @@ member x (BS _ i) = testBit i (fromEnum x)
 
 {-# INLINE size #-}
 size (BS count _) = count
+
+{-# INLINE toIntegral #-}
+toIntegral (BS _ i) = fromIntegral i
+
+{-# INLINE unsafeFromIntegral #-}
+unsafeFromIntegral x = let i = fromIntegral x in BS (count i) i
+    where count 0 = 0
+          count x | x `mod` 2 == 0 = 1 + count (shiftR x 1)
+                  | otherwise = count (shiftR x 1)

@@ -77,7 +77,7 @@ main = do
       hPutStr stderr "prop_litHash: " >> check config prop_litHash
       hPutStr stderr "prop_varHash: " >> check config prop_varHash
       hPutStr stderr "prop_count: " >> check config prop_count
-      hPutStr stderr "prop_circutToCnf: " >> check config prop_circutToCnf
+      hPutStr stderr "prop_circuitToCnf: " >> check config prop_circuitToCnf
       hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
 
       -- Add more tests above here.  Setting the rng keeps the SAT instances
@@ -298,8 +298,8 @@ instance Arbitrary ArbBEnv where
 
 -- If CNF generated from circuit satisfiable, check that circuit is by that
 -- assignment.
-prop_circutToCnf :: TreeC Var -> Property
-prop_circutToCnf treeCircuit =
+prop_circuitToCnf :: TreeC Var -> Property
+prop_circuitToCnf treeCircuit =
     let (cnf, FrozenShareC (_output, cmaps), _cnfMap) =
             toCNF . generalCircuit $ treeCircuit
         (solution, _, _) = solve1 cnf

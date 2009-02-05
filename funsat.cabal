@@ -90,7 +90,7 @@ Library
                       -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                       -fwarn-unused-binds -fwarn-unused-imports
  Extensions:          CPP
- Hs-source-dirs:      . tests
+ Hs-source-dirs:      .
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
                       , fgl, graphviz

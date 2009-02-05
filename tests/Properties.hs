@@ -64,30 +64,43 @@ main = do
 --              else return ()
 
       --setStdGen (mkStdGen 42)
-      check config prop_randAssign
-      check config prop_allIsTrueUnderA
-      check config prop_noneIsFalseUnderA
-      check config prop_noneIsUndefUnderA
-      check config prop_negIsFalseUnder
-      check config prop_negNotUndefUnder
-      check config prop_outsideUndefUnder
-      check config prop_clauseStatusUnderA
-      check config prop_negDefNotUndefUnder
-      check config prop_undefUnderImpliesNegUndef
-      check config prop_litHash
-      check config prop_varHash
-      check config prop_count
+      hPutStr stderr "prop_randAssign: " >> check config prop_randAssign
+      hPutStr stderr "prop_allIsTrueUnderA: " >> check config prop_allIsTrueUnderA
+      hPutStr stderr "prop_noneIsFalseUnderA: " >> check config prop_noneIsFalseUnderA
+      hPutStr stderr "prop_noneIsUndefUnderA: " >> check config prop_noneIsUndefUnderA
+      hPutStr stderr "prop_negIsFalseUnder: " >> check config prop_negIsFalseUnder
+      hPutStr stderr "prop_negNotUndefUnder: " >> check config prop_negNotUndefUnder
+      hPutStr stderr "prop_outsideUndefUnder: " >> check config prop_outsideUndefUnder
+      hPutStr stderr "prop_clauseStatusUnderA: " >> check config prop_clauseStatusUnderA
+      hPutStr stderr "prop_negDefNotUndefUnder: " >> check config prop_negDefNotUndefUnder
+      hPutStr stderr "prop_undefUnderImpliesNegUndef: " >> check config prop_undefUnderImpliesNegUndef
+      hPutStr stderr "prop_litHash: " >> check config prop_litHash
+      hPutStr stderr "prop_varHash: " >> check config prop_varHash
+      hPutStr stderr "prop_count: " >> check config prop_count
       hPutStr stderr "prop_circutToCnf: " >> check config prop_circutToCnf
       hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
 
       -- Add more tests above here.  Setting the rng keeps the SAT instances
       -- the same even if more tests are added above.  Reproducible results
       -- are important.
+      gen <- getStdGen
       setStdGen (mkStdGen 42)
+      hPutStr stderr "prop_solveCorrect: "
       check solveConfig prop_solveCorrect
 
+      setStdGen gen
+      hPutStr stderr "prop_solveCorrect: "
+      check solveConfig prop_solveCorrect
+      gen <- getStdGen
+
       setStdGen (mkStdGen 42)
+      hPutStr stderr "prop_resolutionChecker: "
       check resChkConfig prop_resolutionChecker
+
+      setStdGen gen
+      hPutStr stderr "prop_resolutionChecker: "
+      check resChkConfig prop_resolutionChecker
+
 
 config = QC.defaultConfig { configMaxTest = 1000 }
 
@@ -99,7 +112,6 @@ myConfigEvery testnum args = show testnum ++ ": " ++ show args ++ "\n\n"
 
 -- * Tests
 prop_solveCorrect (cnf :: CNF) =
-    label "prop_solveCorrect" $
     trivial (numClauses cnf < 2 || numVars cnf < 2) $
     classify (numClauses cnf > 15 || numVars cnf > 10) "c>15, v>10" $
     classify (numClauses cnf > 30 || numVars cnf > 20) "c>30, v>20" $
@@ -115,7 +127,6 @@ prop_solveCorrect (cnf :: CNF) =
                           Right _ -> True
 
 prop_resolutionChecker (cnf :: UnsatCNF) =
-    label "prop_resolutionChecker" $
     case solve1 (unUnsatCNF cnf) of
       (Sat _,_,_)    -> label "SAT" True
       (Unsat _,_,rt) -> label "UNSAT" $
@@ -127,27 +138,21 @@ prop_resolutionChecker (cnf :: UnsatCNF) =
                   (Unsat _,_,_) -> True
 
 prop_allIsTrueUnderA (m :: IAssignment) =
-    label "prop_allIsTrueUnderA"$
     allA (\i -> if i /= 0 then L i `isTrueUnder` m else True) m
 
 prop_noneIsFalseUnderA (m :: IAssignment) =
-    label "prop_noneIsFalseUnderA"$
     not $ anyA (\i -> if i /= 0 then L i `isFalseUnder` m else False) m
 
 prop_noneIsUndefUnderA (m :: IAssignment) =
-    label "prop_noneIsUndefUnderA"$
     not $ anyA (\i -> if i /= 0 then L i `isUndefUnder` m else False) m
 
 prop_negIsFalseUnder (m :: IAssignment) =
-    label "prop_negIsFalseUnder"$
     allA (\l -> if l /= 0 then negate (L l) `isFalseUnder` m else True) m
 
 prop_negNotUndefUnder (m :: IAssignment) =
-    label "prop_negNotUndefUnder"$
     allA (\l -> if l /= 0 then not (negate (L l) `isUndefUnder` m) else True) m
 
 prop_outsideUndefUnder (l :: Lit) (m :: IAssignment) =
-    label "prop_outsideUndefUnder"$
     trivial ((unVar . var) l > rangeSize (bounds m)) $
     inRange (bounds m) (var l) ==>
     trivial (m `contains` l || m `contains` negate l) $
@@ -155,20 +160,17 @@ prop_outsideUndefUnder (l :: Lit) (m :: IAssignment) =
     l `isUndefUnder` m
 
 prop_negDefNotUndefUnder (l :: Lit) (m :: IAssignment) =
-    label "prop_negDefNotUndefUnder" $
     inRange (bounds m) (var l) ==>
     m `contains` l || m `contains` (negate l) ==>
     l `isTrueUnder` m || negate l `isTrueUnder` m
 
 prop_undefUnderImpliesNegUndef (l :: Lit) (m :: IAssignment) =
-    label "prop_undefUnderImpliesNegUndef" $
     inRange (bounds m) (var l) ==>
     trivial (m `contains` l) $
     l `isUndefUnder` m ==> negate l `isUndefUnder` m
     
 
 prop_clauseStatusUnderA (c :: Clause) (m :: IAssignment) =
-    label "prop_clauseStatusUnderA" $
     classify expectTrueTest "expectTrue"$
     classify expectFalseTest "expectFalseTest"$
     classify expectUndefTest "expectUndefTest"$
@@ -183,7 +185,6 @@ prop_clauseStatusUnderA (c :: Clause) (m :: IAssignment) =
 -- Verify assignments generated are sane, i.e. no assignment contains an
 -- element and its negation.
 prop_randAssign (a :: IAssignment) =
-    label "randAssign"$
     not $ anyA (\l -> if l /= 0 then a `contains` (negate $ L l) else False) a
 
 -- unitPropFar should stop only if it can't propagate anymore.
@@ -203,11 +204,9 @@ prop_randAssign (a :: IAssignment) =
 -- Make sure the bit set will work.
 
 prop_litHash (k :: Lit) (l :: Lit) =
-    label "prop_litHash" $
     hash k == hash l <==> k == l
 
 prop_varHash (k :: Var) l =
-    label "prop_varHash" $
     hash k == hash l <==> k == l
 
 
@@ -252,12 +251,10 @@ prop_nat (xs :: [Nat]) = trivial (null xs) $ sum xs >= 0
 prop_nat1 (xs :: [Nat]) = trivial (null xs) $ unNat (sum xs) == sum (map unNat xs)
 
 prop_count p xs =
-    label "prop_count" $
     count p xs == length (filter p xs)
         where _types = xs :: [Int]
 
 prop_argmin f x y =
-    label "prop_argmin" $
     f x /= f y ==>
       argmin f x y == m
   where m = if f x < f y then x else y
@@ -474,86 +471,6 @@ instance Arbitrary UnsatCNF where
         f <- sized (genRandom3SAT 5.19)
         return (UnsatCNF f)
 
-
-
-
-------------------------------------------------------------------------------
--- ** Simplification
-------------------------------------------------------------------------------
-
-class WellFoundedSimplifier a where
-    -- | If the argument can be made simpler, a list of one-step simpler
-    -- objects.  Only in cases where there are multiple "dimensions" to
-    -- simplify should the returned list have length more than 1.  Otherwise
-    -- returns the empty list.
-    simplify :: a -> [a]
-
-instance WellFoundedSimplifier a => WellFoundedSimplifier [a] where
-    simplify []     = []
-    simplify (x:xs) = case simplify x of
-                        [] -> [xs]
-                        x's-> map (:xs) x's
-
-instance WellFoundedSimplifier () where
-    simplify () = []
-
-instance WellFoundedSimplifier Bool where
-    simplify True = [False]
-    simplify False = []
-
-instance WellFoundedSimplifier Int where
-  simplify i | i == 0 = []
-             | i > 0  = [i-1]
-             | i < 0  = [i+1]
-
--- Assign the highest variable and reduce the number of variables.
-instance WellFoundedSimplifier CNF where
-    simplify f
-        | numVars f <= 1 = []
-        | numVars f > 1 = [ f{ numVars    = numVars f - 1
-                             , clauses    = clauses'
-                             , numClauses = Set.size clauses' }
---                           , f{ clauses    = Set.deleteMax (clauses f)
---                              , numClauses = numClauses f - 1 }
-                          ]
-      where
-        clauses' = foldl' assignVar Set.empty (clauses f)
-        pos = L (numVars f)
-        neg = negate pos
-        assignVar outClauses clause =
-            let clause' = neg `delete` clause
-            in if pos `elem` clause || null clause' then outClauses
-               else clause' `Set.insert` outClauses
-
-
-simplifications :: WellFoundedSimplifier a => a -> [a]
-simplifications a = concat $ unfoldr (\ xs -> let r = concatMap simplify xs
-                                              in if null r then Nothing
-                                                 else Just (r, r))
-                                     [a]
-
--- Returns smallest CNF simplification that also gives erroneous output.
-minimalError :: CNF -> CNF
-minimalError f = lastST f satAndWrong (simplifications f)
-    where satAndWrong f_inner =
-              trace (show (numVars f_inner) ++ "/" ++ show (numClauses f_inner)) $
-              case solve1 f_inner of
-                (Unsat _,_,_)        -> False
-                (Sat a,_,rt) -> not (verifyBool (Sat a) rt f_inner)
-
--- last (takeWhile p xs) in the common case.
--- mnemonic: "last Such That"
-lastST def _ []     = def
-lastST def p (x:xs) = if p x then lastST x p xs else def
-
-prop_lastST (x :: Int) =
-    if not (null xs) && xa > 3 then
-        classify True "nontrivial" $
-        last (takeWhile p xs) == lastST undefined p xs
-    else True `trivial` True
-  where p  = (> xa `div` 2)
-        xs = simplifications xa
-        xa = abs x
 
 
 getCNF :: Int -> IO CNF

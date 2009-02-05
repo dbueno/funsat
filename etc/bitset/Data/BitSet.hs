@@ -24,7 +24,7 @@ module Data.BitSet
     , member
     , size
     , toIntegral
-    , fromIntegral
+    , unsafeFromIntegral
     ) where
 
 import Prelude hiding ( null )

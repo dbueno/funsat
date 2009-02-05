@@ -150,8 +150,8 @@ instance GeneralCircuit ShareC where
 instance GeneralCircuit FrozenShareC where
     generalCircuit (FrozenShareC (code, maps)) = go code
       where
-        go (CTrue{})  = true
-        go (CFalse{}) = false
+        go (CTrue{})    = true
+        go (CFalse{})   = false
         go (CVar _ i)   = input $ getChildren i varMap
         go (CAnd _ i)   = let (lcode, rcode) = getChildren i andMap
                           in and (go lcode) (go rcode)
@@ -225,8 +225,8 @@ emptyCMaps i = CMaps
 -- | Find key mapping to given value.
 lookupv :: Eq v => v -> IntMap v -> Maybe Int
 lookupv v = IntMap.foldWithKey 
-	     (\k e z -> maybe (if e == v then Just k else Nothing) (const z) z) 
-	     Nothing
+              (\k e z -> maybe (if e == v then Just k else Nothing) (const z) z) 
+              Nothing
 
 -- prj: "projects relevant map out of state"
 -- upd: "stores new map back in state"
@@ -240,10 +240,10 @@ recordC _ _ _ x | x `seq` False = undefined
 recordC cons prj upd x = do
   s <- get
   maybe (do let s' = upd (s{ hashCount = succ (hashCount s) })
-		         (IntMap.insert (hashCount s) x (prj s))
-	    put s'
-	    -- trace "updating map" (return ())
-	    return (cons $ hashCount s))
+                         (IntMap.insert (hashCount s) x (prj s))
+            put s'
+            -- trace "updating map" (return ())
+            return (cons $ hashCount s))
         (return . cons) $ lookupv x (prj s)
 
 instance Circuit ShareC where
@@ -558,7 +558,7 @@ toCNF sc =
     -- Invariant: returns (l, c) where l is the literal corresponding to the
     -- circuit input, and {l} U c is CNF equisatisfiable with the input
     -- circuit.
-    cnfTree c@(CVar _ i) = store (V i) c >> return (L i, Set.empty)
+    cnfTree c@(CVar _ i)   = store (V i) c >> return (L i, Set.empty)
     cnfTree c@(CTrue _ i)  =
         store (V i) c >> return (L i, Set.singleton . Set.singleton $ L i)
     cnfTree c@(CFalse _ i) =
@@ -607,7 +607,7 @@ toCNF sc =
                          , Set.fromList [negate lLit, negate rLit, andLit] ]
             `Set.union` lCnf `Set.union` rCnf)
 
-    store v ccode = modify $ Map.insert v ccode
+    store v ccode  = modify $ Map.insert v ccode
     extract code f =
         (IntMap.findWithDefault (error $ "toCNF: unknown code: " ++ show code)
            code . f) `liftM` ask

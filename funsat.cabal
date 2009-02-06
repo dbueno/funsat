@@ -32,7 +32,7 @@ Executable funsat
                       -W
                       -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                       -fwarn-unused-binds -fwarn-unused-imports
- Extensions:          CPP
+ Extensions:          CPP, ScopedTypeVariables
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
  Other-modules:
@@ -58,7 +58,7 @@ Executable funsat-prof
                       -W
                       -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                       -fwarn-unused-binds -fwarn-unused-imports
- Extensions:          CPP
+ Extensions:          CPP, ScopedTypeVariables
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
  Other-modules:       Funsat.Solver
@@ -89,7 +89,7 @@ Library
                       -W
                       -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                       -fwarn-unused-binds -fwarn-unused-imports
- Extensions:          CPP
+ Extensions:          CPP, ScopedTypeVariables
  Hs-source-dirs:      .
  Build-Depends:       base, parsec, containers, pretty, mtl
                       , random, array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1

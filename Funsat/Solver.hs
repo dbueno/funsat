@@ -1,5 +1,4 @@
-{-# LANGUAGE PatternSignatures
-            ,MultiParamTypeClasses
+{-# LANGUAGE MultiParamTypeClasses
             ,FunctionalDependencies
             ,FlexibleInstances
             ,FlexibleContexts

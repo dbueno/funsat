@@ -130,7 +130,7 @@ prop_solveCorrect (cnf :: CNF) =
 
 prop_resolutionChecker (cnf :: UnsatCNF) =
     case solve1 (unUnsatCNF cnf) of
-      (Sat _,_,_)    -> label "SAT" True
+      (Sat _,_,_)    -> label "SAT (unverified)" True
       (Unsat _,_,rt) -> label "UNSAT" $
           case Resolution.checkDepthFirst (fromJust rt) of
             Left e -> False
@@ -313,7 +313,7 @@ prop_circuitToCnf treeCircuit =
                             lits
                   in label "Sat" $ evalCircuit benv (generalCircuit treeCircuit)
 
-         Unsat _ -> label "Unsat" True
+         Unsat _ -> label "Unsat (unverified)" True
 
 -- circuit and simplified version should evaluate the same
 --

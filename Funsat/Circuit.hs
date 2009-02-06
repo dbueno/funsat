@@ -29,8 +29,13 @@ module Funsat.Circuit
     -- *** Circuit simplification
     , simplifyCircuit
 
+    -- ** Explicit graph circuit
+    , GraphC
+    , runGraphC
+    , shareGraph
+
     -- ** Circuit evaluator
-    , BEnv(..)
+    , BEnv
     , EvalC(..)
     , evalCircuit
 
@@ -131,7 +136,7 @@ class GeneralCircuit c where
 newtype ShareC v = ShareC { unShareC :: State (CMaps v) CCode }
 
 -- | A shared circuit that has already been constructed.
-newtype FrozenShareC v = FrozenShareC (CCode, CMaps v)
+newtype FrozenShareC v = FrozenShareC (CCode, CMaps v) deriving (Eq, Ord, Show, Read)
 
 -- | Reify a sharing circuit.
 runShareC :: ShareC v -> FrozenShareC v
@@ -176,13 +181,13 @@ data CCode = CTrue  { hlc         :: Maybe HLC
                     , circuitHash :: !CircuitHash }
            | CVar   { hlc         :: Maybe HLC
                     , circuitHash :: !CircuitHash }
-             deriving (Eq, Ord, Show)
+             deriving (Eq, Ord, Show, Read)
 
 -- | High-level circuit.
 data HLC = Xor CCode CCode
          | Onlyif CCode CCode
          | Iff CCode CCode
-           deriving (Eq, Ord, Show)
+           deriving (Eq, Ord, Show, Read)
 
 -- | Maps used to implement the common-subexpression sharing implementation of
 -- the `Circuit' class.  See `ShareC'.
@@ -202,7 +207,7 @@ data CMaps v = CMaps
     , andMap    :: IntMap (CCode, CCode)
     , orMap     :: IntMap (CCode, CCode)
     , notMap    :: IntMap CCode }
-               deriving (Eq, Ord, Show)
+               deriving (Eq, Ord, Show, Read)
 
 -- | A `CMaps' from an initial `hashCount'.
 emptyCMaps :: CircuitHash -> CMaps v
@@ -353,8 +358,9 @@ instance Circuit EvalC where
     not c     = EvalC (\env -> Prelude.not $ unEvalC c env)
 
 -- ** Graph circuit
-{-
 
+-- | A circuit type that constructs a `Graph' representation.  This is useful
+-- for visualising circuits, for example using the @graphviz@ package.
 newtype GraphC v = GraphC
     { unGraphC :: State Graph.Node (Graph.Node,
                                     [Graph.LNode String],
@@ -401,7 +407,7 @@ newNode :: State Graph.Node Graph.Node
 newNode = do i <- get ; put (succ i) ; return i
 
 
-
+{-
 defaultNodeAnnotate :: (Show v) => LNode (FrozenShareC v) -> [GraphViz.Attribute]
 defaultNodeAnnotate (_, FrozenShareC (output, cmaps)) = go output
   where
@@ -426,7 +432,11 @@ defaultEdgeAnnotate = undefined
 dotGraph :: (Graph gr) => gr (FrozenShareC v) (FrozenShareC v) -> DotGraph
 dotGraph g = graphToDot g defaultNodeAnnotate defaultEdgeAnnotate
 
+-}
 
+-- | Given a frozen shared circuit, construct a `DynGraph' that exactly
+-- represents it.  Useful for debugging constraints generated as `ShareC'
+-- circuits.
 shareGraph :: (DynGraph gr, Eq v, Show v) =>
               FrozenShareC v -> gr (FrozenShareC v) (FrozenShareC v)
 shareGraph (FrozenShareC (output, cmaps)) =
@@ -443,7 +453,7 @@ shareGraph (FrozenShareC (output, cmaps)) =
     go c@(CFalse _ i) = return (i, [(i, frz c)], [])
     go c@(CNot _ i) = do
         (child, nodes, edges) <- extract i notMap >>= go
-        return (i, (i, c) : nodes, (child, i, frz c) : edges)
+        return (i, (i, frz c) : nodes, (child, i, frz c) : edges)
     go c@(CAnd maybeFrom i) =
         maybe (extract i andMap >>= tupM2 go >>= addKids c) (goHLC c) maybeFrom
     go c@(COr maybeFrom i)  =
@@ -467,7 +477,6 @@ shareGraph (FrozenShareC (output, cmaps)) =
           code
           (f maps)
 
--}
 
 -- ** Circuit simplification
 

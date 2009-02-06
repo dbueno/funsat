@@ -284,9 +284,9 @@ treeVars :: (Ord v) => TreeC v -> Set v
 treeVars = foldTreeCircuit (flip Set.insert) Set.empty
 
 foldTreeCircuit :: (t -> v -> t) -> t -> TreeC v -> t
-foldTreeCircuit _ i TTrue = i
-foldTreeCircuit _ i TFalse = i
-foldTreeCircuit f i (TLeaf v) = f i v
+foldTreeCircuit _ i TTrue        = i
+foldTreeCircuit _ i TFalse       = i
+foldTreeCircuit f i (TLeaf v)    = f i v
 foldTreeCircuit f i (TAnd t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
 foldTreeCircuit f i (TOr t1 t2)  = foldTreeCircuit f (foldTreeCircuit f i t1) t2
 foldTreeCircuit f i (TNot t)     = foldTreeCircuit f i t

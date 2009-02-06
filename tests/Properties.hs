@@ -431,7 +431,7 @@ sizedLit n = do
   t <- oneof [return id, return negate]
   return $ L (t v)
 
--- Generate a random 3SAT problem with the given ratio of clauses/variable.
+-- | Generate a random 3SAT problem with the given ratio of clauses/variable.
 --
 -- Current research suggests:
 --
@@ -494,15 +494,6 @@ asCNF (ParseCNF.CNF v c is) =
     CNF {numVars = v
         ,numClauses = c
         ,clauses = Set.fromList . map (map fromIntegral . elems) $ is}
-
-
--- import qualified Data.ByteString.Char8 as B
-
--- hStrictGetContents :: Handle -> IO String
--- hStrictGetContents h = do
---    bs <- B.hGetContents h
---    hClose h -- not sure if this is required; ByteString documentation isn't clear.
---    return $ B.unpack bs -- lazy unpack into String
 
 
 verifyBool :: Solution -> Maybe ResolutionTrace -> CNF -> Bool

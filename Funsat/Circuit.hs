@@ -363,10 +363,18 @@ instance Circuit EvalC where
 -- for visualising circuits, for example using the @graphviz@ package.
 newtype GraphC v = GraphC
     { unGraphC :: State Graph.Node (Graph.Node,
-                                    [Graph.LNode String],
+                                    [Graph.LNode (NodeType v)],
                                     [Graph.LEdge ()]) }
 
-runGraphC :: (DynGraph gr) => GraphC v -> gr String ()
+-- | Node type labels for graphs.
+data NodeType v = NInput v
+                | NTrue
+                | NFalse
+                | NAnd
+                | NOr
+                | NNot
+
+runGraphC :: (DynGraph gr) => GraphC v -> gr (NodeType v) ()
 runGraphC graphBuilder =
     let (_, nodes, edges) = evalState (unGraphC graphBuilder) 1
     in Graph.mkGraph nodes edges
@@ -374,34 +382,34 @@ runGraphC graphBuilder =
 instance Circuit GraphC where
     input v = GraphC $ do
         n <- newNode
-        return $ (n, [(n, show v)], [])
+        return $ (n, [(n, NInput v)], [])
 
     true = GraphC $ do
         n <- newNode
-        return $ (n, [(n, "true")], [])
+        return $ (n, [(n, NTrue)], [])
 
     false = GraphC $ do
         n <- newNode
-        return $ (n, [(n, "false")], [])
+        return $ (n, [(n, NFalse)], [])
 
     and gs1 gs2 = GraphC $ do
         (lNode, lNodes, lEdges) <- unGraphC gs1
         (rNode, rNodes, rEdges) <- unGraphC gs2
         n <- newNode
-        return (n, (n, "AND") : lNodes ++ rNodes,
+        return (n, (n, NAnd) : lNodes ++ rNodes,
                    (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
 
     or gs1 gs2 = GraphC $ do
         (lNode, lNodes, lEdges) <- unGraphC gs1
         (rNode, rNodes, rEdges) <- unGraphC gs2
         n <- newNode
-        return (n, (n, "OR") : lNodes ++ rNodes,
+        return (n, (n, NOr) : lNodes ++ rNodes,
                    (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
 
     not gs = GraphC $ do
         (node, nodes, edges) <- unGraphC gs
         n <- newNode
-        return (n, (n, "NOT") : nodes, (node, n, ()) : edges)
+        return (n, (n, NNot) : nodes, (node, n, ()) : edges)
 
 newNode :: State Graph.Node Graph.Node
 newNode = do i <- get ; put (succ i) ; return i

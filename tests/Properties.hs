@@ -471,9 +471,7 @@ permute xs = choose (0, length xs - 1) >>= \idx ->
 
 newtype UnsatCNF = UnsatCNF { unUnsatCNF :: CNF } deriving (Show)
 instance Arbitrary UnsatCNF where
-    arbitrary = do
-        f <- sized (genRandom3SAT 5.19)
-        return (UnsatCNF f)
+    arbitrary = liftM UnsatCNF $ sized (genRandom3SAT 5.19)
 
 
 

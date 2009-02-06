@@ -373,6 +373,10 @@ data NodeType v = NInput v
                 | NAnd
                 | NOr
                 | NNot
+                | NXor
+                | NIff
+                | NOnlyIf
+                  deriving (Eq, Ord, Show, Read)
 
 runGraphC :: (DynGraph gr) => GraphC v -> gr (NodeType v) ()
 runGraphC graphBuilder =
@@ -392,24 +396,25 @@ instance Circuit GraphC where
         n <- newNode
         return $ (n, [(n, NFalse)], [])
 
-    and gs1 gs2 = GraphC $ do
-        (lNode, lNodes, lEdges) <- unGraphC gs1
-        (rNode, rNodes, rEdges) <- unGraphC gs2
-        n <- newNode
-        return (n, (n, NAnd) : lNodes ++ rNodes,
-                   (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
-
-    or gs1 gs2 = GraphC $ do
-        (lNode, lNodes, lEdges) <- unGraphC gs1
-        (rNode, rNodes, rEdges) <- unGraphC gs2
-        n <- newNode
-        return (n, (n, NOr) : lNodes ++ rNodes,
-                   (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
-
     not gs = GraphC $ do
         (node, nodes, edges) <- unGraphC gs
         n <- newNode
         return (n, (n, NNot) : nodes, (node, n, ()) : edges)
+
+    and    = binaryNode NAnd
+    or     = binaryNode NOr
+    xor    = binaryNode NXor
+    iff    = binaryNode NIff
+    onlyif = binaryNode NOnlyIf
+
+{-# INLINE binaryNode #-}
+binaryNode ty l r = GraphC $ do
+        (lNode, lNodes, lEdges) <- unGraphC l
+        (rNode, rNodes, rEdges) <- unGraphC r
+        n <- newNode
+        return (n, (n, ty) : lNodes ++ rNodes,
+                   (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
+
 
 newNode :: State Graph.Node Graph.Node
 newNode = do i <- get ; put (succ i) ; return i

@@ -22,6 +22,7 @@ module Properties where
 
 import Funsat.Solver hiding ((==>))
 
+import Control.Exception( assert )
 import Control.Monad
 import Data.Array.Unboxed
 import Data.BitSet (hash)
@@ -30,6 +31,7 @@ import Data.Foldable hiding (sequence_)
 import Data.List (nub, splitAt, unfoldr, delete, sort, sortBy)
 import Data.Maybe
 import Data.Ord( comparing )
+import Data.Set( Set )
 import Debug.Trace
 import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
 import Funsat.Solver( verify )
@@ -320,10 +322,14 @@ prop_circuitToCnf treeCircuit =
 -- todo: probabl should generate env and tree together on same vars
 prop_circuitSimplify :: ArbBEnv -> TreeC Var -> Property
 prop_circuitSimplify (ArbBEnv benv) c =
-    trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) $
-    evalCircuit benv (generalCircuit c)
+    trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) .
+    assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
+      evalCircuit benv (generalCircuit c)
       == evalCircuit benv (generalCircuit . simplifyCircuit $ c)
 
+
+treeVars :: (Ord v) => TreeC v -> Set v
+treeVars = foldTreeCircuit (flip Set.insert) Set.empty
 
 foldTreeCircuit :: (t -> v -> t) -> t -> TreeC v -> t
 foldTreeCircuit _ i TTrue = i

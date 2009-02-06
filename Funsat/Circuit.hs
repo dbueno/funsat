@@ -59,30 +59,22 @@ where
 -}
 
 
-import Control.Monad.Error hiding ((>=>), forM_)
 import Control.Monad.Reader
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
-import Control.Monad.Writer.Class
 import Data.Graph.Inductive.Graph( DynGraph, Graph, LNode )
 import Data.Graph.Inductive.Tree()
-import Data.GraphViz( DotGraph, graphToDot )
 import Data.IntMap( IntMap )
 import Data.List( nub )
 import Data.Map( Map )
 import Data.Maybe()
-import Data.Monoid
 import Data.Ord()
-import Data.Sequence( Seq )
 import Funsat.Types ( CNF(..), Lit(..), Var(..), var )
 import Prelude hiding( not, and, or )
 
 import qualified Data.Foldable as Foldable
 import qualified Data.Graph.Inductive.Graph as Graph
-import qualified Data.GraphViz as GraphViz
-import qualified Data.GraphViz.Attributes as Attribute
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
-import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import qualified Prelude as Prelude
 

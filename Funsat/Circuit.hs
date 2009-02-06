@@ -24,7 +24,7 @@ module Funsat.Circuit
 
     -- ** Explicit tree circuit
     , TreeC(..)
-    , foldTreeCircuit
+    , foldTreeC
 
     -- *** Circuit simplification
     , simplifyCircuit
@@ -309,14 +309,14 @@ data TreeC v = TTrue
              | TNot (TreeC v)
                deriving (Show)
 
-foldTreeCircuit :: (t -> v -> t) -> t -> TreeC v -> t
-foldTreeCircuit _ i TTrue        = i
-foldTreeCircuit _ i TFalse       = i
-foldTreeCircuit f i (TLeaf v)    = f i v
-foldTreeCircuit f i (TAnd t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
-foldTreeCircuit f i (TOr t1 t2)  = foldTreeCircuit f (foldTreeCircuit f i t1) t2
-foldTreeCircuit f i (TNot t)     = foldTreeCircuit f i t
-foldTreeCircuit f i (TXor t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
+foldTreeC :: (t -> v -> t) -> t -> TreeC v -> t
+foldTreeC _ i TTrue        = i
+foldTreeC _ i TFalse       = i
+foldTreeC f i (TLeaf v)    = f i v
+foldTreeC f i (TAnd t1 t2) = foldTreeC f (foldTreeC f i t1) t2
+foldTreeC f i (TOr t1 t2)  = foldTreeC f (foldTreeC f i t1) t2
+foldTreeC f i (TNot t)     = foldTreeC f i t
+foldTreeC f i (TXor t1 t2) = foldTreeC f (foldTreeC f i t1) t2
 
 instance Circuit TreeC where
     true  = TTrue

@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), foldTreeCircuit, FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), foldTreeC, FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
 import Funsat.Solver( verify )
 import Funsat.Types
 import Funsat.Utils
@@ -281,7 +281,7 @@ prop_circuitSimplify (ArbBEnv benv) c =
 
 
 treeVars :: (Ord v) => TreeC v -> Set v
-treeVars = foldTreeCircuit (flip Set.insert) Set.empty
+treeVars = foldTreeC (flip Set.insert) Set.empty
 
 
 

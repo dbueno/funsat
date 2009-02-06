@@ -216,42 +216,6 @@ prop_varHash (k :: Var) l =
 infixl 3 <==>
 
 
--- newtype WPTest s = WPTest (WatchedPair s)
-
--- instance Arbitrary (WPTest s) where
---     arbitrary = sized sizedWPTest
---         where sizedWPTest n = do
---                 [lit1, lit2] <- 2 `uniqElts` 1
---                 clause :: Clause <- arbitrary
---                 return $ runST $
---                          do r <- newSTRef (lit1, lit2)
---                             return (r, lit1 : lit2 : clause)
-
-newtype Nat = Nat { unNat :: Int }
-    deriving (Eq, Ord)
-instance Show Nat where
-    show (Nat i) = "Nat " ++ show i
-instance Num Nat where
-    (Nat x) + (Nat y) = Nat (x + y)
-    (Nat x) - (Nat y) | x >= y = Nat (x - y)
-                      | x < y  = error "Nat: subtraction out of range"
-    (Nat x) * (Nat y) = Nat (x * y)
-    abs = id
-    signum (Nat n) | n == 0 = 0
-                   | n > 0  = 1
-                   | n < 0  = error "Nat: signum of negative number"
-    fromInteger n | n >= 0 = Nat (fromInteger n)
-                  | n < 0  = error "Negative natural literal found"
-
-instance Arbitrary Nat where
-    arbitrary = sized $ \n -> do i <- choose (0, n)
-                                 return (fromIntegral i)
-
-
--- sanity checking for Arbitrary Nat instance.
-prop_nat (xs :: [Nat]) = trivial (null xs) $ sum xs >= 0
-prop_nat1 (xs :: [Nat]) = trivial (null xs) $ unNat (sum xs) == sum (map unNat xs)
-
 prop_count p xs =
     count p xs == length (filter p xs)
         where _types = xs :: [Int]
@@ -266,9 +230,6 @@ instance Show (a -> b) where
 
 
 -- ** CNF conversion
-
-instance Arbitrary (TreeC Var) where
-    arbitrary = sized sizedCircuit
 
 -- | Generator for a circuit containing at most `n' nodes, involving only the
 -- literals 1 .. n.
@@ -288,13 +249,6 @@ sizedCircuit n =
   where subcircuit3 = sizedCircuit (n `div` 3)
         subcircuit2 = sizedCircuit (n `div` 2)
         subcircuit1 = sizedCircuit (n - 1)
-
-newtype ArbBEnv = ArbBEnv (BEnv Var) deriving (Show)
-instance Arbitrary ArbBEnv where
-    coarbitrary = undefined
-    arbitrary = sized $ \n -> do
-                  bools <- vector (n+1) :: Gen [Bool]
-                  return . ArbBEnv $ Map.fromList (zip [V 1 .. V (n+1)] bools)
 
 -- If CNF generated from circuit satisfiable, check that circuit is by that
 -- assignment.
@@ -425,6 +379,16 @@ instance Arbitrary IAssignment where
 
 instance Arbitrary CNF where
     arbitrary = sized (genRandom3SAT 3.0)
+
+newtype ArbBEnv = ArbBEnv (BEnv Var) deriving (Show)
+instance Arbitrary ArbBEnv where
+    coarbitrary = undefined
+    arbitrary = sized $ \n -> do
+                  bools <- vector (n+1) :: Gen [Bool]
+                  return . ArbBEnv $ Map.fromList (zip [V 1 .. V (n+1)] bools)
+
+instance Arbitrary (TreeC Var) where
+    arbitrary = sized sizedCircuit
 
 sizedLit n = do
   v <- choose (1, n)

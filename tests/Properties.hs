@@ -294,9 +294,7 @@ instance Arbitrary ArbBEnv where
     coarbitrary = undefined
     arbitrary = sized $ \n -> do
                   bools <- vector (n+1) :: Gen [Bool]
-                  return . ArbBEnv $
-                    foldl' (flip (uncurry Map.insert)) Map.empty
-                                 (zip [V 1 .. V (n+1)] bools)
+                  return . ArbBEnv $ Map.fromList (zip [V 1 .. V (n+1)] bools)
 
 -- If CNF generated from circuit satisfiable, check that circuit is by that
 -- assignment.

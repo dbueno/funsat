@@ -304,7 +304,7 @@ data TreeC v = TTrue
              | TFalse
              | TLeaf v
              | TAnd (TreeC v) (TreeC v)
-             | TOr (TreeC v) (TreeC v)
+             | TOr  (TreeC v) (TreeC v)
              | TXor (TreeC v) (TreeC v)
              | TNot (TreeC v)
                deriving (Show)

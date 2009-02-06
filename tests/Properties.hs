@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), foldTreeCircuit, FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
 import Funsat.Solver( verify )
 import Funsat.Types
 import Funsat.Utils
@@ -282,15 +282,6 @@ prop_circuitSimplify (ArbBEnv benv) c =
 
 treeVars :: (Ord v) => TreeC v -> Set v
 treeVars = foldTreeCircuit (flip Set.insert) Set.empty
-
-foldTreeCircuit :: (t -> v -> t) -> t -> TreeC v -> t
-foldTreeCircuit _ i TTrue        = i
-foldTreeCircuit _ i TFalse       = i
-foldTreeCircuit f i (TLeaf v)    = f i v
-foldTreeCircuit f i (TAnd t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
-foldTreeCircuit f i (TOr t1 t2)  = foldTreeCircuit f (foldTreeCircuit f i t1) t2
-foldTreeCircuit f i (TNot t)     = foldTreeCircuit f i t
-foldTreeCircuit f i (TXor t1 t2) = foldTreeCircuit f (foldTreeCircuit f i t1) t2
 
 
 

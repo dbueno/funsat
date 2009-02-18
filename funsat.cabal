@@ -47,9 +47,17 @@ Executable funsat
                       Control.Monad.MonadST
                       Properties
 
- Build-Depends:       base, parsec, containers, pretty, mtl
-                      , array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
-                      , fgl, time
+ Build-Depends:       base,
+                      random,
+                      containers,
+                      pretty,
+                      mtl,
+                      array,
+                      QuickCheck,
+                      parse-dimacs >= 1.2 && < 2,
+                      bitset < 1,
+                      fgl,
+                      time
 
 Executable funsat-prof
  Main-is:             Main.hs
@@ -71,9 +79,17 @@ Executable funsat-prof
                       Text.Tabular
                       Control.Monad.MonadST
                       Properties
- Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
-                      , fgl, time
+ Build-Depends:       base,
+                      random,
+                      containers,
+                      pretty,
+                      mtl,
+                      array,
+                      QuickCheck,
+                      parse-dimacs >= 1.2 && < 2,
+                      bitset < 1,
+                      fgl,
+                      time
 
 
 Library
@@ -91,6 +107,12 @@ Library
                       -fwarn-unused-binds -fwarn-unused-imports
  Extensions:          CPP, ScopedTypeVariables
  Hs-source-dirs:      .
- Build-Depends:       base, parsec, containers, pretty, mtl
-                      , random, array, QuickCheck, parse-dimacs >= 1.2 && < 2, bitset < 1
-                      , fgl
+ Build-Depends:       base,
+                      containers,
+                      pretty,
+                      mtl,
+                      array,
+                      QuickCheck,
+                      parse-dimacs >= 1.2 && < 2,
+                      bitset < 1,
+                      fgl

@@ -1,5 +1,9 @@
 -*- mode: outline -*-
 
+* 0.5.2
+Maintenance update because a new (incompatible) version of bitset, version 1.0,
+was released.  Funsat should again compile via cabal-install.
+
 * 0.5.1
 ** Update for compatibility with parse-dimacs 1.2,
 which should mean faster parsing.

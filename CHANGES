@@ -1,5 +1,8 @@
 -*- mode: outline -*-
 
+* 0.6.0
+Circuit representation added.
+
 * 0.5.1
 ** Update for compatibility with parse-dimacs 1.2,
 which should mean faster parsing.

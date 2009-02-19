@@ -163,7 +163,7 @@ instance GeneralCircuit FrozenShareC where
                           in not (go ncode)
 
         getChildren int codeMap =
-            IntMap.findWithDefault (error $ "fromCCode: unknown code: " ++ show int)
+            IntMap.findWithDefault (error $ "getChildren: unknown code: " ++ show int)
             int (codeMap maps)
 
 type CircuitHash = Int

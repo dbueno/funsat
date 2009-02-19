@@ -52,7 +52,7 @@ Executable funsat
                       pretty,
                       mtl,
                       array,
-                      QuickCheck,
+                      QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       fgl,
@@ -78,7 +78,7 @@ Library
                       pretty,
                       mtl,
                       array,
-                      QuickCheck,
+                      QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       fgl

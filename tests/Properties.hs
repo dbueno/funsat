@@ -33,13 +33,11 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), foldTreeC, FrozenShareC(..), BEnv(..), evalCircuit, simplifyCircuit, CMaps(varMap) )
-import Funsat.Solver( verify )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), GeneralCircuit(..), toCNF, TreeC(..), foldTreeC, FrozenShareC(..), BEnv, evalCircuit, simplifyCircuit, CMaps(varMap) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
-import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap
-                      , sum, concat )
+import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap, sum, concat )
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import System.IO
 import System.Random
@@ -58,13 +56,6 @@ import qualified Funsat.Circuit as C
 
 main :: IO ()
 main = do
---   let s = solve1 prob1
---   case s of
---     Unsat -> return ()
---     Sat m -> if not (verifyBool m prob1)
---              then putStrLn (show (find (`isFalseUnder` m) prob1))
---              else return ()
-
       --setStdGen (mkStdGen 42)
       hPutStr stderr "prop_randAssign: " >> check config prop_randAssign
       hPutStr stderr "prop_allIsTrueUnderA: " >> check config prop_allIsTrueUnderA
@@ -107,7 +98,7 @@ main = do
 config = QC.defaultConfig { configMaxTest = 1000 }
 
 -- Special configuration for the "solve this random instance" tests.
-solveConfig = QC.defaultConfig { configMaxTest = 2000 }
+solveConfig  = QC.defaultConfig { configMaxTest = 2000 }
 resChkConfig = QC.defaultConfig{ configMaxTest = 1200 }
 
 myConfigEvery testnum args = show testnum ++ ": " ++ show args ++ "\n\n"

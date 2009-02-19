@@ -11,7 +11,7 @@ module Funsat.Circuit
     (
     -- ** Circuit type class
       Circuit(..)
-    , GeneralCircuit(..)
+    , CastCircuit(..)
 
     -- ** Explicit sharing circuit
     , ShareC(..)
@@ -123,10 +123,10 @@ class Circuit repr where
     xor :: (Ord var, Show var) => repr var -> repr var -> repr var
     xor p q = (p `or` q) `and` not (p `and` q)
 
--- | Instances of `GeneralCircuit' admit converting on circuit representation to
+-- | Instances of `CastCircuit' admit converting on circuit representation to
 -- another.
-class GeneralCircuit c where
-    generalCircuit :: (Circuit cOut, Ord var, Show var) => c var -> cOut var
+class CastCircuit c where
+    castCircuit :: (Circuit cOut, Ord var, Show var) => c var -> cOut var
 
 
 
@@ -146,11 +146,11 @@ newtype FrozenShareC v = FrozenShareC (CCode, CMaps v) deriving (Eq, Ord, Show, 
 runShareC :: ShareC v -> FrozenShareC v
 runShareC = FrozenShareC . (`runState` emptyCMaps 1) . unShareC
 
-instance GeneralCircuit ShareC where
-    generalCircuit = generalCircuit . runShareC
+instance CastCircuit ShareC where
+    castCircuit = castCircuit . runShareC
 
-instance GeneralCircuit FrozenShareC where
-    generalCircuit (FrozenShareC (code, maps)) = go code
+instance CastCircuit FrozenShareC where
+    castCircuit (FrozenShareC (code, maps)) = go code
       where
         go (CTrue{})    = true
         go (CFalse{})   = false
@@ -168,7 +168,7 @@ instance GeneralCircuit FrozenShareC where
 
 type CircuitHash = Int
 
--- | A `CCode' is a flattened tree node which has been assigned a unique number
+-- | A `CCode' represents a circuit element for `ShareC' circuits.  Since such circuits use common subcircuit eliminationA `CCode' is a flattened tree node which has been assigned a unique number
 -- in the corresponding map inside `CMaps', which indicates children, if any.
 --
 -- For example, @CAnd Nothing i@ has the two children of the tuple @lookup i
@@ -328,14 +328,14 @@ instance Circuit TreeC where
     not   = TNot
     xor   = TXor
 
-instance GeneralCircuit TreeC where
-    generalCircuit TTrue        = true
-    generalCircuit TFalse       = false
-    generalCircuit (TLeaf l)    = input l
-    generalCircuit (TAnd t1 t2) = and (generalCircuit t1) (generalCircuit t2)
-    generalCircuit (TOr t1 t2)  = or (generalCircuit t1) (generalCircuit t2)
-    generalCircuit (TXor t1 t2) = xor (generalCircuit t1) (generalCircuit t2)
-    generalCircuit (TNot t)     = not (generalCircuit t)
+instance CastCircuit TreeC where
+    castCircuit TTrue        = true
+    castCircuit TFalse       = false
+    castCircuit (TLeaf l)    = input l
+    castCircuit (TAnd t1 t2) = and (castCircuit t1) (castCircuit t2)
+    castCircuit (TOr t1 t2)  = or (castCircuit t1) (castCircuit t2)
+    castCircuit (TXor t1 t2) = xor (castCircuit t1) (castCircuit t2)
+    castCircuit (TNot t)     = not (castCircuit t)
 
 -- ** Circuit evaluator
 

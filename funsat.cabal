@@ -59,39 +59,6 @@ Executable funsat
                       fgl,
                       time
 
-Executable funsat-prof
- Main-is:             Main.hs
- Ghc-options:         -prof -auto-all
-                      -funbox-strict-fields
-                      -W
-                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
-                      -fwarn-unused-binds -fwarn-unused-imports
- Extensions:          CPP, ScopedTypeVariables
- CPP-options:         -DTESTING
- Hs-source-dirs:      . tests
- Other-modules:       Funsat.Solver
-                      Funsat.Types
-                      Funsat.Resolution
-                      Funsat.Circuit
-                      Funsat.FastDom
-                      Funsat.Utils
-                      Funsat.Monad
-                      Text.Tabular
-                      Control.Monad.MonadST
-                      Properties
- Build-Depends:       base,
-                      random,
-                      containers,
-                      pretty,
-                      mtl,
-                      array,
-                      QuickCheck,
-                      parse-dimacs >= 1.2 && < 2,
-                      bitset < 1,
-                      fgl,
-                      time
-
-
 Library
  Exposed-modules:     Funsat.Solver
                       Funsat.Types

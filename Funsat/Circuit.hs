@@ -88,34 +88,38 @@ import qualified Prelude as Prelude
 -- * Circuit representation
 
 
--- | A class representing a grammar for logical circuits.  Currently only `ite',
--- `onlyif', and `iff' have default implementations.  Instances must implement
--- `true', `false', `input', `and', `or', and `not'.
---
--- /TODO/ Implement defaults so that all instances only /need/ implement an
--- adequate (complete) boolean base, not all operations.
+-- | A class representing a grammar for logical circuits.  Default
+-- implemenations are indicated.
 class Circuit repr where
     true  :: (Ord var, Show var) => repr var
     false :: (Ord var, Show var) => repr var
     input :: (Ord var, Show var) => var -> repr var
-    and   :: (Ord var, Show var) => repr var -> repr var -> repr var
-    or    :: (Ord var, Show var) => repr var -> repr var -> repr var
     not   :: (Ord var, Show var) => repr var -> repr var
+
+    -- | Defined as @`and' p q = not (not p `or` not q)@.
+    and   :: (Ord var, Show var) => repr var -> repr var -> repr var
+    and p q = not (not p `or` not q)
+
+    -- | Defined as @`or' p q = not (not p `and` not q)@.
+    or    :: (Ord var, Show var) => repr var -> repr var -> repr var
+    or p q = not (not p `and` not q)
 
     -- | If-then-else circuit.  @ite c t e@ returns a circuit that evaluates to
     -- @t@ when @c@ evaluates to true, and @e@ otherwise.
+    --
+    -- Defined as @(c `and` t) `or` (not c `and` f)@.
     ite :: (Ord var, Show var) => repr var -> repr var -> repr var -> repr var
     ite c t f = (c `and` t) `or` (not c `and` f)
 
-    -- | @`onlyif' p q@ is equivalent to @not p `or` q@.
+    -- | Defined as @`onlyif' p q = not p `or` q@.
     onlyif :: (Ord var, Show var) => repr var -> repr var -> repr var
     onlyif p q = not p `or` q
 
-    -- | @`iff' p q@ is equivalent to @(p `onlyif` q) `and` (q `onlyif` p)@.
+    -- | Defined as @`iff' p q = (p `onlyif` q) `and` (q `onlyif` p)@.
     iff :: (Ord var, Show var) => repr var -> repr var -> repr var
     iff p q = (p `onlyif` q) `and` (q `onlyif` p)
 
-    -- | @`xor' p q@ is equivalent to @(p `or` q) `and` not (p `and` q)@.
+    -- | Defined as @`xor' p q = (p `or` q) `and` not (p `and` q)@.
     xor :: (Ord var, Show var) => repr var -> repr var -> repr var
     xor p q = (p `or` q) `and` not (p `and` q)
 

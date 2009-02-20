@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, FrozenShareC(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, GraphC(..), FrozenShareC(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
@@ -220,12 +220,12 @@ instance Show (a -> b) where
     show = const "<fcn>"
 
 
--- ** CNF conversion
+-- ** Circuits and CNF conversion
 
 -- | Generator for a circuit containing at most `n' nodes, involving only the
 -- literals 1 .. n.
 sizedCircuit :: (Circuit c) => Int -> Gen (c Var)
-sizedCircuit 0 = (return . input . V) 1
+sizedCircuit 0 = return . input . V $ 1
 sizedCircuit n =
     oneof [ return true
           , return false
@@ -261,14 +261,18 @@ prop_circuitToCnf treeCircuit =
          Unsat _ -> label "Unsat (unverified)" True
 
 -- circuit and simplified version should evaluate the same
---
--- todo: probabl should generate env and tree together on same vars
 prop_circuitSimplify :: ArbBEnv -> TreeC Var -> Property
 prop_circuitSimplify (ArbBEnv benv) c =
     trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) .
     assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
       runEvalC benv (castCircuit c)
       == runEvalC benv (castCircuit . simplifyCircuit $ c)
+
+prop_circuitGraphIsTree :: TreeC Var -> Property
+prop_circuitGraphIsTree t = t `equivalentTo` g
+  where
+    equivalentTo = undefined
+    g = castCircuit t :: GraphC Var
 
 
 treeVars :: (Ord v) => TreeC v -> Set v

@@ -37,7 +37,7 @@ module Funsat.Circuit
     -- ** Circuit evaluator
     , BEnv
     , EvalC(..)
-    , evalCircuit
+    , runEvalC
 
     -- ** Convert circuit to CNF
     , toCNF
@@ -346,8 +346,8 @@ type BEnv v = Map v Bool
 newtype EvalC v = EvalC { unEvalC :: BEnv v -> Bool }
 
 -- | Evaluate a circuit given inputs.
-evalCircuit :: BEnv v -> EvalC v -> Bool
-evalCircuit = flip unEvalC
+runEvalC :: BEnv v -> EvalC v -> Bool
+runEvalC = flip unEvalC
 
 instance Circuit EvalC where
     true    = EvalC $ const True

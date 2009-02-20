@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, FrozenShareC(..), BEnv, evalCircuit, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, FrozenShareC(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
@@ -256,7 +256,7 @@ prop_circuitToCnf treeCircuit =
                             (\l -> ((\v -> (v, litSign l)) `fmap`) $
                                    IntMap.lookup (unVar . var $ l) (varMap cmaps))
                             lits
-                  in label "Sat" $ evalCircuit benv (castCircuit treeCircuit)
+                  in label "Sat" $ runEvalC benv (castCircuit treeCircuit)
 
          Unsat _ -> label "Unsat (unverified)" True
 
@@ -267,8 +267,8 @@ prop_circuitSimplify :: ArbBEnv -> TreeC Var -> Property
 prop_circuitSimplify (ArbBEnv benv) c =
     trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) .
     assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
-      evalCircuit benv (castCircuit c)
-      == evalCircuit benv (castCircuit . simplifyCircuit $ c)
+      runEvalC benv (castCircuit c)
+      == runEvalC benv (castCircuit . simplifyCircuit $ c)
 
 
 treeVars :: (Ord v) => TreeC v -> Set v

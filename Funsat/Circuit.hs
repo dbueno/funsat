@@ -33,6 +33,7 @@ module Funsat.Circuit
     , GraphC
     , runGraphC
     , shareGraph
+    , NodeType(..)
 
     -- ** Circuit evaluator
     , BEnv

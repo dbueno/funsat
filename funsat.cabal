@@ -29,9 +29,9 @@ Extra-source-files:  README CHANGES bugs.org todo.org
 Executable funsat
  Main-is:             Main.hs
  Ghc-options:         -funbox-strict-fields
-                      -W
-                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
-                      -fwarn-unused-binds -fwarn-unused-imports
+                      -Wall -fwarn-tabs
+                      -fno-warn-name-shadowing
+                      -fno-warn-orphans
  Extensions:          CPP, ScopedTypeVariables
  CPP-options:         -DTESTING
  Hs-source-dirs:      . tests
@@ -69,9 +69,9 @@ Library
                       Text.Tabular
  Other-modules:       Funsat.FastDom Funsat.Utils
  Ghc-options:         -funbox-strict-fields
-                      -W
-                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
-                      -fwarn-unused-binds -fwarn-unused-imports
+                      -Wall -fwarn-tabs
+                      -fno-warn-name-shadowing
+                      -fno-warn-orphans
  Extensions:          CPP, ScopedTypeVariables
  Hs-source-dirs:      .
  Build-Depends:       base,

@@ -660,6 +660,9 @@ type SeenArr s = STUArray s Var Bool
 data FUIPState s = FUIPState !Lit -- p 
     !Int                          -- counter
     !(SeenArr s)
+    !Clause                     -- learned
+    !ClauseId
+    !Int                        -- bt level
 
 -- | @foldWhileM f init xs@ performs a strict left fold over @xs@ until @f init
 -- x@ returns @Left end@, in which case the fold terminates with @end@.

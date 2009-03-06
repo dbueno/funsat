@@ -592,11 +592,8 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
       out_learnedR <- liftST $ newSTRef []
       out_btlevelR <- liftST $ newSTRef 0
       let reasonL l = if l == cLit then (cClause, cCid)
-                      else
-                        let (r, rid) =
-                                Map.findWithDefault (error "analyse: reasonL")
-                                (var l) reasonMap
-                        in (r `without` l, rid)
+                      else Map.findWithDefault (error "analyse: reasonL")
+                           (var l) reasonMap
 
 
       (`doWhile` (liftM (> 0) (liftST $ readSTRef counterR))) $
@@ -614,10 +611,9 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
                do writeArray seenArr (var q) True
                   if levelL q == currentLevel
                    then modifySTRef counterR (+ 1)
-                   else if levelL q > 0
-                   then do modifySTRef out_learnedR (q:)
-                           modifySTRef out_btlevelR $ max (levelL q)
-                   else return ()
+                   else when (levelL q > 0) $
+                          do modifySTRef out_learnedR (q:)
+                             modifySTRef out_btlevelR $ max (levelL q)
            -- Select next literal to look at:
            (`doWhile` (liftST (readSTRef pR >>= readArray seenArr . var)
                        >>= return . not)) $ do

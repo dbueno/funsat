@@ -4,7 +4,7 @@ else
     DSAT="./dist/build/funsat/funsat"
 fi
 
-echo 1>&2 "Using '$DSAT'"
+echo 1>&2 "Testing '$DSAT'"
 
 # record feature set
 echo "SAT solver features under test:"

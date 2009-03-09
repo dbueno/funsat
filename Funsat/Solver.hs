@@ -586,8 +586,8 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
               liftST $ modifySTRef resolveSourcesR (clauseId:)
       -- Literals we should process.
       seenArr  <- liftST $ newSTUArray (V 1, V nVars) False
-      counterR <- liftST $ newSTRef 0 -- Number of unprocessed current-level
-                                      -- lits we know about.
+      counterR <- liftST $ newSTRef 0 -- Number of unprocessed, seen,
+                                      -- current-level lits we know about.
       pR <- liftST $ newSTRef cLit -- Invariant: literal from current dec. lev.
       out_learnedR <- liftST $ newSTRef []
       out_btlevelR <- liftST $ newSTRef 0

@@ -300,6 +300,7 @@ newtype AIG dag v = AIG{ unAIG :: dag () AIGEdge }
 -- source, this value is `False'.
 type AIGEdge = Bool
 
+--instance Circuit AIG where
 
               
 

@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, Tree(..), foldTree, GraphC(..), FrozenShared(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, Tree(..), foldTree, Graph(..), FrozenShared(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
@@ -272,7 +272,7 @@ prop_circuitGraphIsTree :: Tree Var -> Property
 prop_circuitGraphIsTree t = t `equivalentTo` g
   where
     equivalentTo = undefined
-    g = castCircuit t :: GraphC Var
+    g = castCircuit t :: Graph Var
 
 
 treeVars :: (Ord v) => Tree v -> Set v

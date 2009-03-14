@@ -29,8 +29,8 @@ module Funsat.Circuit
     , simplifyCircuit
 
     -- ** Explicit graph circuit
-    , GraphC
-    , runGraphC
+    , Graph
+    , runGraph
     , shareGraph
     , NodeType(..)
 
@@ -66,7 +66,7 @@ where
 
 import Control.Monad.Reader
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
-import Data.Graph.Inductive.Graph( DynGraph, Graph, LNode )
+import Data.Graph.Inductive.Graph( LNode )
 import Data.Graph.Inductive.Tree()
 import Data.IntMap( IntMap )
 import Data.List( nub )
@@ -78,6 +78,7 @@ import Prelude hiding( not, and, or )
 
 import qualified Data.Foldable as Foldable
 import qualified Data.Graph.Inductive.Graph as Graph
+import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -362,8 +363,8 @@ instance Circuit EvalC where
 
 -- | A circuit type that constructs a `Graph' representation.  This is useful
 -- for visualising circuits, for example using the @graphviz@ package.
-newtype GraphC v = GraphC
-    { unGraphC :: State Graph.Node (Graph.Node,
+newtype Graph v = Graph
+    { unGraph :: State Graph.Node (Graph.Node,
                                     [Graph.LNode (NodeType v)],
                                     [Graph.LEdge ()]) }
 
@@ -379,26 +380,26 @@ data NodeType v = NInput v
                 | NOnlyIf
                   deriving (Eq, Ord, Show, Read)
 
-runGraphC :: (DynGraph gr) => GraphC v -> gr (NodeType v) ()
-runGraphC graphBuilder =
-    let (_, nodes, edges) = evalState (unGraphC graphBuilder) 1
+runGraph :: (G.DynGraph gr) => Graph v -> gr (NodeType v) ()
+runGraph graphBuilder =
+    let (_, nodes, edges) = evalState (unGraph graphBuilder) 1
     in Graph.mkGraph nodes edges
 
-instance Circuit GraphC where
-    input v = GraphC $ do
+instance Circuit Graph where
+    input v = Graph $ do
         n <- newNode
         return $ (n, [(n, NInput v)], [])
 
-    true = GraphC $ do
+    true = Graph $ do
         n <- newNode
         return $ (n, [(n, NTrue)], [])
 
-    false = GraphC $ do
+    false = Graph $ do
         n <- newNode
         return $ (n, [(n, NFalse)], [])
 
-    not gs = GraphC $ do
-        (node, nodes, edges) <- unGraphC gs
+    not gs = Graph $ do
+        (node, nodes, edges) <- unGraph gs
         n <- newNode
         return (n, (n, NNot) : nodes, (node, n, ()) : edges)
 
@@ -408,11 +409,11 @@ instance Circuit GraphC where
     iff    = binaryNode NIff
     onlyif = binaryNode NOnlyIf
 
-binaryNode :: NodeType v -> GraphC v -> GraphC v -> GraphC v
+binaryNode :: NodeType v -> Graph v -> Graph v -> Graph v
 {-# INLINE binaryNode #-}
-binaryNode ty l r = GraphC $ do
-        (lNode, lNodes, lEdges) <- unGraphC l
-        (rNode, rNodes, rEdges) <- unGraphC r
+binaryNode ty l r = Graph $ do
+        (lNode, lNodes, lEdges) <- unGraph l
+        (rNode, rNodes, rEdges) <- unGraph r
         n <- newNode
         return (n, (n, ty) : lNodes ++ rNodes,
                    (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
@@ -452,7 +453,7 @@ dotGraph g = graphToDot g defaultNodeAnnotate defaultEdgeAnnotate
 -- | Given a frozen shared circuit, construct a `DynGraph' that exactly
 -- represents it.  Useful for debugging constraints generated as `Shared'
 -- circuits.
-shareGraph :: (DynGraph gr, Eq v, Show v) =>
+shareGraph :: (G.DynGraph gr, Eq v, Show v) =>
               FrozenShared v -> gr (FrozenShared v) (FrozenShared v)
 shareGraph (FrozenShared (output, cmaps)) =
     (`runReader` cmaps) $ do

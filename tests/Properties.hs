@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, GraphC(..), FrozenShared(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, Tree(..), foldTree, GraphC(..), FrozenShared(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
@@ -243,7 +243,7 @@ sizedCircuit n =
 
 -- If CNF generated from circuit satisfiable, check that circuit is by that
 -- assignment.
-prop_circuitToCnf :: TreeC Var -> Property
+prop_circuitToCnf :: Tree Var -> Property
 prop_circuitToCnf treeCircuit =
     let (cnf, FrozenShared (_output, cmaps), _cnfMap) =
             toCNF . castCircuit $ treeCircuit
@@ -261,22 +261,22 @@ prop_circuitToCnf treeCircuit =
          Unsat _ -> label "Unsat (unverified)" True
 
 -- circuit and simplified version should evaluate the same
-prop_circuitSimplify :: ArbBEnv -> TreeC Var -> Property
+prop_circuitSimplify :: ArbBEnv -> Tree Var -> Property
 prop_circuitSimplify (ArbBEnv benv) c =
     trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) .
     assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
       runEvalC benv (castCircuit c)
       == runEvalC benv (castCircuit . simplifyCircuit $ c)
 
-prop_circuitGraphIsTree :: TreeC Var -> Property
+prop_circuitGraphIsTree :: Tree Var -> Property
 prop_circuitGraphIsTree t = t `equivalentTo` g
   where
     equivalentTo = undefined
     g = castCircuit t :: GraphC Var
 
 
-treeVars :: (Ord v) => TreeC v -> Set v
-treeVars = foldTreeC (flip Set.insert) Set.empty
+treeVars :: (Ord v) => Tree v -> Set v
+treeVars = foldTree (flip Set.insert) Set.empty
 
 
 
@@ -373,7 +373,7 @@ instance Arbitrary ArbBEnv where
                   bools <- vector (n+1) :: Gen [Bool]
                   return . ArbBEnv $ Map.fromList (zip [V 1 .. V (n+1)] bools)
 
-instance Arbitrary (TreeC Var) where
+instance Arbitrary (Tree Var) where
     arbitrary = sized sizedCircuit
 
 sizedLit n = do

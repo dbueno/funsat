@@ -22,8 +22,8 @@ module Funsat.Circuit
     , emptyCMaps
 
     -- ** Explicit tree circuit
-    , TreeC(..)
-    , foldTreeC
+    , Tree(..)
+    , foldTree
 
     -- *** Circuit simplification
     , simplifyCircuit
@@ -298,25 +298,25 @@ instance Circuit Shared where
 -- | Explicit tree representation, which is a generic description of a circuit.
 -- This representation enables a conversion operation to any other type of
 -- circuit.  Trees evaluate from variable values at the leaves to the root.
-data TreeC v = TTrue
+data Tree v = TTrue
              | TFalse
              | TLeaf v
-             | TAnd (TreeC v) (TreeC v)
-             | TOr  (TreeC v) (TreeC v)
-             | TXor (TreeC v) (TreeC v)
-             | TNot (TreeC v)
+             | TAnd (Tree v) (Tree v)
+             | TOr  (Tree v) (Tree v)
+             | TXor (Tree v) (Tree v)
+             | TNot (Tree v)
                deriving (Show)
 
-foldTreeC :: (t -> v -> t) -> t -> TreeC v -> t
-foldTreeC _ i TTrue        = i
-foldTreeC _ i TFalse       = i
-foldTreeC f i (TLeaf v)    = f i v
-foldTreeC f i (TAnd t1 t2) = foldTreeC f (foldTreeC f i t1) t2
-foldTreeC f i (TOr t1 t2)  = foldTreeC f (foldTreeC f i t1) t2
-foldTreeC f i (TNot t)     = foldTreeC f i t
-foldTreeC f i (TXor t1 t2) = foldTreeC f (foldTreeC f i t1) t2
+foldTree :: (t -> v -> t) -> t -> Tree v -> t
+foldTree _ i TTrue        = i
+foldTree _ i TFalse       = i
+foldTree f i (TLeaf v)    = f i v
+foldTree f i (TAnd t1 t2) = foldTree f (foldTree f i t1) t2
+foldTree f i (TOr t1 t2)  = foldTree f (foldTree f i t1) t2
+foldTree f i (TNot t)     = foldTree f i t
+foldTree f i (TXor t1 t2) = foldTree f (foldTree f i t1) t2
 
-instance Circuit TreeC where
+instance Circuit Tree where
     true  = TTrue
     false = TFalse
     input = TLeaf
@@ -325,7 +325,7 @@ instance Circuit TreeC where
     not   = TNot
     xor   = TXor
 
-instance CastCircuit TreeC where
+instance CastCircuit Tree where
     castCircuit TTrue        = true
     castCircuit TFalse       = false
     castCircuit (TLeaf l)    = input l
@@ -497,7 +497,7 @@ shareGraph (FrozenShared (output, cmaps)) =
 -- ** Circuit simplification
 
 -- | Performs obvious constant propagations.
-simplifyCircuit :: TreeC v -> TreeC v
+simplifyCircuit :: Tree v -> Tree v
 simplifyCircuit l@(TLeaf _) = l
 simplifyCircuit TFalse      = TFalse
 simplifyCircuit TTrue       = TTrue

@@ -21,6 +21,9 @@ module Funsat.Circuit
     , CMaps(..)
     , emptyCMaps
 
+    -- ** And-inverter graphs
+    , AIG(..)
+
     -- ** Explicit tree circuit
     , Tree(..)
     , foldTree
@@ -282,16 +285,22 @@ instance Circuit Shared where
     xor l r = Shared $ do
                   hl <- unShared l ; hr <- unShared r
                   recordC CXor xorMap (\s e' -> s{ xorMap = e' }) (hl, hr)
-{-    iff l r = Shared $ do
+    iff l r = Shared $ do
                   hl <- unShared l ; hr <- unShared r
-                  let from = Iff hl hr
-                  liftM (\c -> c{ hlc = Just from }) . unShared $
-                        (l `onlyif` r) `and` (r `onlyif` l)
+                  recordC CIff iffMap (\s e' -> s{ iffMap = e' }) (hl, hr)
     onlyif l r = Shared $ do
-                     hl <- unShared l ; hr <- unShared r
-                     let from = Onlyif hl hr
-                     liftM (\c -> c{ hlc = Just from }) . unShared $
-                           not l `or` r-}
+                    hl <- unShared l ; hr <- unShared r
+                    recordC COnlyif onlyifMap (\s e' -> s{ onlyifMap = e' }) (hl, hr)
+
+-- ** And-inverter graphs
+
+newtype AIG dag v = AIG{ unAIG :: dag () AIGEdge }
+
+-- | `True' iff source is passed through un-negated.  If an AIG edge negates its
+-- source, this value is `False'.
+type AIGEdge = Bool
+
+
               
 
 -- ** Explicit tree circuit

@@ -14,8 +14,8 @@ module Funsat.Circuit
     , CastCircuit(..)
 
     -- ** Explicit sharing circuit
-    , ShareC(..)
-    , FrozenShareC(..)
+    , Shared(..)
+    , FrozenShared(..)
     , CircuitHash
     , CCode(..)
     , CMaps(..)
@@ -136,21 +136,21 @@ class CastCircuit c where
 -- boolean functions.  Part of conversion to CNF.
 
 -- | A `Circuit' constructed using common-subexpression elimination.  This is a
--- compact representation that facilitates converting to CNF.  See `runShareC'.
-newtype ShareC v = ShareC { unShareC :: State (CMaps v) CCode }
+-- compact representation that facilitates converting to CNF.  See `runShared'.
+newtype Shared v = Shared { unShared :: State (CMaps v) CCode }
 
 -- | A shared circuit that has already been constructed.
-newtype FrozenShareC v = FrozenShareC (CCode, CMaps v) deriving (Eq, Ord, Show, Read)
+newtype FrozenShared v = FrozenShared (CCode, CMaps v) deriving (Eq, Ord, Show, Read)
 
 -- | Reify a sharing circuit.
-runShareC :: ShareC v -> FrozenShareC v
-runShareC = FrozenShareC . (`runState` emptyCMaps) . unShareC
+runShared :: Shared v -> FrozenShared v
+runShared = FrozenShared . (`runState` emptyCMaps) . unShared
 
-instance CastCircuit ShareC where
-    castCircuit = castCircuit . runShareC
+instance CastCircuit Shared where
+    castCircuit = castCircuit . runShared
 
-instance CastCircuit FrozenShareC where
-    castCircuit (FrozenShareC (code, maps)) = go code
+instance CastCircuit FrozenShared where
+    castCircuit (FrozenShared (code, maps)) = go code
       where
         go (CTrue{})   = true
         go (CFalse{})  = false
@@ -169,7 +169,7 @@ instance CastCircuit FrozenShareC where
 
 type CircuitHash = Int
 
--- | A `CCode' represents a circuit element for `ShareC' circuits.  A `CCode' is
+-- | A `CCode' represents a circuit element for `Shared' circuits.  A `CCode' is
 -- a flattened tree node which has been assigned a unique number in the
 -- corresponding map inside `CMaps', which indicates children, if any.
 --
@@ -187,14 +187,14 @@ data CCode = CTrue   { circuitHash :: !CircuitHash }
              deriving (Eq, Ord, Show, Read)
 
 -- | Maps used to implement the common-subexpression sharing implementation of
--- the `Circuit' class.  See `ShareC'.
+-- the `Circuit' class.  See `Shared'.
 --
 -- /TODO/: implement using bimaps if this part is slow.
 data CMaps v = CMaps
     { hashCount :: CircuitHash
-    -- ^ Source of unique IDs used in `ShareC' circuit generation.  This
+    -- ^ Source of unique IDs used in `Shared' circuit generation.  This
     -- numbering is guaranteed to start at 1 and continue upward by ones when
-    -- using `runShareC' to freeze the circuit.
+    -- using `runShared' to freeze the circuit.
 
     , trueInt   :: Maybe CCode
     , falseInt  :: Maybe CCode
@@ -247,8 +247,8 @@ recordC cons prj upd x = do
             return (cons $ hashCount s))
         (return . cons) $ lookupv x (prj s)
 
-instance Circuit ShareC where
-    true = ShareC $ do
+instance Circuit Shared where
+    true = Shared $ do
                ti <- gets trueInt
                case ti of
                  Nothing -> do
@@ -257,7 +257,7 @@ instance Circuit ShareC where
                      modify $ \s -> s{ hashCount = succ i, trueInt = Just c }
                      return c
                  Just c -> return c
-    false = ShareC $ do
+    false = Shared $ do
                ti <- gets falseInt
                case ti of
                  Nothing -> do
@@ -266,30 +266,30 @@ instance Circuit ShareC where
                      modify $ \s -> s{ hashCount = succ i, falseInt = Just c }
                      return c
                  Just c -> return c
-    input v = ShareC $ recordC CVar varMap (\s e -> s{ varMap = e }) v
-    and e1 e2 = ShareC $ do
-                    hl <- unShareC e1
-                    hr <- unShareC e2
+    input v = Shared $ recordC CVar varMap (\s e -> s{ varMap = e }) v
+    and e1 e2 = Shared $ do
+                    hl <- unShared e1
+                    hr <- unShared e2
                     recordC CAnd andMap (\s e -> s{ andMap = e}) (hl, hr)
-    or  e1 e2 = ShareC $ do
-                    hl <- unShareC e1
-                    hr <- unShareC e2
+    or  e1 e2 = Shared $ do
+                    hl <- unShared e1
+                    hr <- unShared e2
                     recordC COr orMap (\s e -> s{ orMap = e }) (hl, hr)
-    not e = ShareC $ do
-                h <- unShareC e
+    not e = Shared $ do
+                h <- unShared e
                 recordC CNot notMap (\s e' -> s{ notMap = e' }) h
-    xor l r = ShareC $ do
-                  hl <- unShareC l ; hr <- unShareC r
+    xor l r = Shared $ do
+                  hl <- unShared l ; hr <- unShared r
                   recordC CXor xorMap (\s e' -> s{ xorMap = e' }) (hl, hr)
-{-    iff l r = ShareC $ do
-                  hl <- unShareC l ; hr <- unShareC r
+{-    iff l r = Shared $ do
+                  hl <- unShared l ; hr <- unShared r
                   let from = Iff hl hr
-                  liftM (\c -> c{ hlc = Just from }) . unShareC $
+                  liftM (\c -> c{ hlc = Just from }) . unShared $
                         (l `onlyif` r) `and` (r `onlyif` l)
-    onlyif l r = ShareC $ do
-                     hl <- unShareC l ; hr <- unShareC r
+    onlyif l r = Shared $ do
+                     hl <- unShared l ; hr <- unShared r
                      let from = Onlyif hl hr
-                     liftM (\c -> c{ hlc = Just from }) . unShareC $
+                     liftM (\c -> c{ hlc = Just from }) . unShared $
                            not l `or` r-}
               
 
@@ -423,8 +423,8 @@ newNode = do i <- get ; put (succ i) ; return i
 
 
 {-
-defaultNodeAnnotate :: (Show v) => LNode (FrozenShareC v) -> [GraphViz.Attribute]
-defaultNodeAnnotate (_, FrozenShareC (output, cmaps)) = go output
+defaultNodeAnnotate :: (Show v) => LNode (FrozenShared v) -> [GraphViz.Attribute]
+defaultNodeAnnotate (_, FrozenShared (output, cmaps)) = go output
   where
     go CTrue{}       = "true"
     go CFalse{}      = "false"
@@ -444,17 +444,17 @@ defaultNodeAnnotate (_, FrozenShareC (output, cmaps)) = go output
 
 defaultEdgeAnnotate = undefined
 
-dotGraph :: (Graph gr) => gr (FrozenShareC v) (FrozenShareC v) -> DotGraph
+dotGraph :: (Graph gr) => gr (FrozenShared v) (FrozenShared v) -> DotGraph
 dotGraph g = graphToDot g defaultNodeAnnotate defaultEdgeAnnotate
 
 -}
 
 -- | Given a frozen shared circuit, construct a `DynGraph' that exactly
--- represents it.  Useful for debugging constraints generated as `ShareC'
+-- represents it.  Useful for debugging constraints generated as `Shared'
 -- circuits.
 shareGraph :: (DynGraph gr, Eq v, Show v) =>
-              FrozenShareC v -> gr (FrozenShareC v) (FrozenShareC v)
-shareGraph (FrozenShareC (output, cmaps)) =
+              FrozenShared v -> gr (FrozenShared v) (FrozenShared v)
+shareGraph (FrozenShared (output, cmaps)) =
     (`runReader` cmaps) $ do
         (_, nodes, edges) <- go output
         return $ Graph.mkGraph (nub nodes) (nub edges)
@@ -485,7 +485,7 @@ shareGraph (FrozenShareC (output, cmaps)) =
         in return (i, (i, frz ccode) : lNodes ++ rNodes,
                       (lNode, i, frz ccode) : (rNode, i, frz ccode) : lEdges ++ rEdges)
     tupM2 f (x, y) = liftM2 (,) (f x) (f y)
-    frz ccode = FrozenShareC (ccode, cmaps)
+    frz ccode = FrozenShared (ccode, cmaps)
     extract code f = do
         maps <- ask
         return $
@@ -567,9 +567,9 @@ simplifyCircuit (TXor l r) =
 -- able to write this tail-recursively.
 --
 -- /TODO/ can easily count the number of variables while constructing cnf
-toCNF :: (Ord v) => ShareC v -> (CNF, FrozenShareC v, Map Var CCode)
+toCNF :: (Ord v) => Shared v -> (CNF, FrozenShared v, Map Var CCode)
 toCNF sc =
-    let c@(FrozenShareC (sharedCircuit, circuitMaps)) = runShareC sc
+    let c@(FrozenShared (sharedCircuit, circuitMaps)) = runShared sc
         (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` Map.empty)) $ do
                      (l, theClauses) <- toCNF' sharedCircuit
                      return $ Set.insert (Set.singleton l) theClauses

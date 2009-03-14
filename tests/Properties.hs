@@ -33,7 +33,7 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, GraphC(..), FrozenShareC(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, TreeC(..), foldTreeC, GraphC(..), FrozenShared(..), BEnv, runEvalC, simplifyCircuit, CMaps(varMap) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
@@ -245,7 +245,7 @@ sizedCircuit n =
 -- assignment.
 prop_circuitToCnf :: TreeC Var -> Property
 prop_circuitToCnf treeCircuit =
-    let (cnf, FrozenShareC (_output, cmaps), _cnfMap) =
+    let (cnf, FrozenShared (_output, cmaps), _cnfMap) =
             toCNF . castCircuit $ treeCircuit
         (solution, _, _) = solve1 cnf
     in case solution of

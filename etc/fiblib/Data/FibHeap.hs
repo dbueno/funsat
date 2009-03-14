@@ -21,161 +21,49 @@ module Data.FibHeap
 import Control.Monad ( MonadPlus(..), guard )
 import Prelude hiding ( foldr, min )
 -- import Data.Sequence ( Seq, (<|), (|>), (><), ViewL(..), ViewR(..) )
+import Data.FDList( DList )
 import Data.Foldable
 -- import Data.IntMap (IntMap)
 import Data.Tree
 import Data.Maybe ( isJust )
+
 -- import qualified Data.List as List
 import qualified Prelude as Prelude
 import qualified Data.Sequence as Seq
 import qualified Data.IntMap as IntMap
-
-
--- * Forest cursor
-
-data Path a = Point { left   :: Forest a -- ^ 1st left thing on front
-                    , right  :: Forest a -- ^ 1st right thing on front
-                    , up     :: Maybe (a, Path a)
-                    -- ^ The label of the parent and a path up.
-                    }
-              deriving (Show, Eq)
-
-emptyPath :: Path a
-emptyPath = Point [] [] Nothing
-
-data Cursor a = EmptyC
-              | Cursor { focus   :: Tree a
-                       , context :: Path a }
-                deriving Show
-
-closeCursor :: Cursor a -> Forest a
-closeCursor EmptyC = []
-closeCursor c@(Cursor t p) =
-    case up p of
-      Nothing -> left p ++ [t] ++ right p
-      _       -> (closeCursor . focusUp) c
-          
-
-focusElement :: Cursor a -> a
-focusElement EmptyC = error "focusElement: empty"
-focusElement c = (rootLabel . focus) c
-
-focusLeft, focusRight, focusUp, focusDown :: Cursor a -> Cursor a
-
-focusLeft EmptyC = error "focusLeft: empty"
-focusLeft c@(Cursor t p) = case p of
-    Point (l:ls) rs u -> Cursor l (Point ls (t:rs) u)
-    _                 -> c
-
-focusRight EmptyC = error "focusLeft: empty"
-focusRight c@(Cursor t p) = case p of
-    Point ls (r:rs) u -> Cursor r (Point (t:ls) rs u)
-    _                 -> c
-
-focusUp EmptyC = error "focusLeft: empty"
-focusUp c@(Cursor t p) = case p of
-    Point { up = Nothing }     -> c
-    Point ls rs (Just (p', u)) -> Cursor (Node p' (reverse ls ++ t : rs)) u
-
--- | Focus on the leftmost subtree of current focus.  If no such, returns
--- cursor unmodified.
-focusDown EmptyC = error "focusLeft: empty"
-focusDown c@(Cursor t p) = case t of
-    Node l (t1:ts) -> Cursor t1 (Point [] ts (Just (l, p)))
-    _              -> c
-
--- | Replace the focused tree, creating new if necessary.
-frobFocus :: Tree a -> Cursor a -> Cursor a
-frobFocus x EmptyC = Cursor x emptyPath
-frobFocus x (Cursor _ p) = Cursor x p
-
-modifyFocus :: Cursor a -> (Tree a -> Tree a) -> Cursor a
-modifyFocus EmptyC _       = EmptyC
-modifyFocus (Cursor t p) f = Cursor (f t) p
-
--- | Insert a new element at the focus, moving focused element to right.  If
--- the initial focus was empty, focuses on the new element.
-insertFocus :: Tree a -> Cursor a -> Cursor a
-insertFocus x EmptyC = Cursor x emptyPath
-insertFocus x (Cursor t p) = case p of
-    Point ls rs u -> Cursor x (Point ls (t:rs) u)
-
--- | Insert element at immediate right of focus, or at focus if empty.
-insertRight :: Tree a -> Cursor a -> Cursor a
-insertRight x EmptyC = Cursor x emptyPath
-insertRight x (Cursor t p) = case p of
-    Point ls rs u -> Cursor t (Point ls (x:rs) u)
-
-insertWithRight :: Tree a
-                -> (Tree a -> Tree a -> (Tree a, Tree a))
-                -- ^ /existing/ -> /new/ -> (/focus/, /right/)
-                -> Cursor a -> Cursor a
-insertWithRight x _ EmptyC = Cursor x emptyPath
-insertWithRight x f (Cursor t (Point ls rs u)) = Cursor t' (Point ls (r':rs) u)
-  where (t', r') = f t x
-
--- | Delete the focus subtree and try to move right, then left, then up, and
--- finally to the empty cursor, in that order.
-delete :: Cursor a -> Cursor a
-delete EmptyC = error "delete: empty"
-delete (Cursor _ p) = case p of
-    Point ls (r:rs) u         -> Cursor r (Point ls rs u)
-    Point (l:ls) [] u         -> Cursor l (Point ls [] u)
-    Point [] [] (Just (x, p')) -> Cursor (Node x []) p'
-    Point [] [] Nothing       -> EmptyC
-
--- | Delete focused element and move focus to parent, if any.  If no parent,
--- returns empty cursor.
-deleteUp :: Cursor a -> Cursor a
-deleteUp EmptyC = error "deleteUp: empty"
-deleteUp (Cursor t p) = case p of
-    Point _ _ Nothing          -> EmptyC
-    Point ls rs (Just (p', u)) -> Cursor (Node p' (reverse ls ++ t : rs)) u
+import qualified Data.FDList as L
 
 
 -- * Heap implementation
 
--- | A heap policy indicates which elements are closer to the `min' in the
--- heap.  If @x@ is less than @y@ according to `heapCompare', @x@ is closer to
--- the `min' than @y@.
-class (Eq a) => HeapPolicy p a where
-    -- | The minimum possible value.  This is used to delete elements (by
-    -- decreasing their key to the minimum possible value, then extracting the
-    -- min).
-    heapMin     :: a
-
-    -- | Compare elements for the heap.  Lesser elements are closer to the
-    -- `min'.
-    heapCompare :: p -- ^ /Must not be evaluated./
-                -> a -> a -> Ordering
-
--- Convenience for comparing nodes?
-instance (HeapPolicy p k) => Ord (Info p k a) where
-    compare n n' = heapCompare (policy n) (key n) (key n')
-
-data Heap p k a = H
-    { min       :: Cursor (Info p k a)
+data Heap k a = H
+    { min       :: DList (Info k a)
     , size      :: Int                 -- ^ Number of elements in the heap.
     , numMarked :: Int }
                   deriving Show
-    
--- data Node p k a = N
---     { key    :: k
---     , parent :: Zipper (Node p k a) -- ^ Focused on parent node.
---     , child  :: Zipper (Node p k a) -- ^ Focused on child node.
---     , mark   :: Bool
---     , degree :: Int
---     , datum  :: a }
---                 deriving Show
 
 -- | Info kept for each node in the tree.
-data Info p k a = Info
+data Info k a = Info
     { key    :: k
+    , parent :: Maybe (DList (Info k a))
+    , child  :: Maybe (DList (Info k a))
     , mark   :: Bool            -- ^ Has this node lost a child since the last
                                 -- time it was made the child of another node?
     , datum  :: a }
                   deriving Show
 
+-- | The empty Fibonacci heap.
+empty :: (Ord k) => Heap k a
+empty = H { min       = L.empty
+          , size      = 0
+          , numMarked = 0 }
+
+-- | Returns the min of the heap, if any.
+peek :: Ord k => Heap k a -> Maybe a
+peek (H{ min = m }) = if L.isEmpty m then Nothing
+                      else Just . datum . L.getCurrent $ m
+
+#if 0
 instance (Eq k) => Eq (Info p k a) where
     i == i' = key i == key i'
 
@@ -185,21 +73,10 @@ policy = const undefined
 
 -- * Operations
 
--- | The empty Fibonacci heap.
-empty :: HeapPolicy p k => Heap p k a
-empty = H { min       = EmptyC
-          , size      = 0
-          , numMarked = 0 }
-
-peek :: Heap p k a -> a
-peek = datum . focusElement . min
-
 -- | Insert given value with given key into the heap.
-insert :: HeapPolicy p k => (k, a) -> Heap p k a -> Heap p k a
-insert (k, v) heap = heap' { min = insertMinimumFocus infoNode (min heap') }
-  where heap'    = heap{ size = size heap + 1 }
-        info     = Info { key = k, mark = False, datum = v }
-        infoNode = Node info []
+insert :: HeapPolicy p k => k -> a -> Heap p k a -> Heap p k a
+insert (k, v) heap =
+    let newMininfo `L.insertRight` min heap
 
 -- | Insert the `Info' into the cursor and focus on a (possibly new) minimum
 -- element.
@@ -357,3 +234,4 @@ dfsCursor pred c@(Cursor t p@(Point ls rs _)) =
     rights (Cursor { context = (Point { right = [] }) }) = []
     rights c = focusRight c : rights (focusRight c)
       
+#endif

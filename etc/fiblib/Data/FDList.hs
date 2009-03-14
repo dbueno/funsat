@@ -1,11 +1,10 @@
--- This code is by Oleg Kiselyov, fetched initially from
+-- | This code is by Oleg Kiselyov, fetched initially from
 -- http://okmij.org/ftp/Haskell/FDList.hs.  Subsequently modified by Denis
 -- Bueno.
-
+--
 -- Haskell98
 -- Pure functional, mutation-free, constant-time-access double-linked
 -- lists
-
 module Data.FDList where
 
 -- Note that insertions, deletions, lookups have
@@ -21,10 +20,12 @@ type Ref = Int				-- positive, we shall treat 0 specially
 data Node a = Node{node_val   :: a,
 		   node_left  :: Ref,
 		   node_right :: Ref}
+              deriving (Show)
 
 data DList a = DList{dl_counter :: Ref,	    -- to generate new Refs
 		     dl_current :: Ref,     -- current node
 		     dl_mem :: IM.IntMap (Node a)} -- main `memory'
+               deriving (Show)
 
 -- Because DList contains the `pointer' to the current element, DList
 -- is also a Zipper
@@ -40,8 +41,8 @@ well_formed :: DList a -> Bool
 well_formed dl | IM.null (dl_mem dl) = dl_current dl == 0
 well_formed dl = IM.member (dl_current dl) (dl_mem dl) 
 
-is_empty :: DList a -> Bool
-is_empty dl = IM.null (dl_mem dl)
+isEmpty :: DList a -> Bool
+isEmpty dl = IM.null (dl_mem dl)
 
 
 -- auxiliary function
@@ -53,8 +54,8 @@ get_curr_node DList{dl_current=curr,dl_mem=mem} =
 -- The other operations don't care
 -- Insert to the right of the current element, if any
 -- Return the DL where the inserted node is the current one
-insert_right :: a -> DList a -> DList a
-insert_right x dl | is_empty dl =
+insertRight :: a -> DList a -> DList a
+insertRight x dl | isEmpty dl =
    let ref = dl_counter dl
        -- the following makes the list cyclic
        node = Node{node_val = x, node_left = ref, node_right = ref}
@@ -62,7 +63,7 @@ insert_right x dl | is_empty dl =
 	    dl_current = ref,
 	    dl_mem = IM.insert ref node (dl_mem dl)}
 
-insert_right x dl@DList{dl_counter = ref, dl_current = curr, dl_mem = mem} =
+insertRight x dl@DList{dl_counter = ref, dl_current = curr, dl_mem = mem} =
   DList{dl_counter = succ ref, dl_current = ref, 
 	dl_mem = IM.insert ref  new_node   $ 
                  IM.insert next next_node' $
@@ -107,8 +108,8 @@ delete dl@DList{dl_current = curr, dl_mem = mem_old} =
  upd ref f mem = IM.adjust f ref mem
 
 
-get_curr :: DList a -> a
-get_curr = node_val . get_curr_node
+getCurrent :: DList a -> a
+getCurrent = node_val . get_curr_node
 
 move_right :: DList a -> Maybe (DList a)
 move_right dl = if next == 0 then Nothing else Just (dl{dl_current=next})
@@ -129,19 +130,19 @@ move_left' :: DList a -> DList a
 move_left' dl = maybe dl id $ move_left dl
 
 fromList :: [a] -> DList a
-fromList = foldl (flip insert_right) empty
+fromList = foldl (flip insertRight) empty
 
 -- The following does not anticipate cycles (deliberately)
 takeDL :: Int -> DList a -> [a]
 takeDL 0 _ = []
-takeDL n dl | is_empty dl = []
-takeDL n dl = get_curr dl : (maybe [] (takeDL (pred n)) $ move_right dl)
+takeDL n dl | isEmpty dl = []
+takeDL n dl = getCurrent dl : (maybe [] (takeDL (pred n)) $ move_right dl)
 
 -- Reverse taking: we move left
 takeDLrev :: Int -> DList a -> [a]
 takeDLrev 0 _ = []
-takeDLrev n dl | is_empty dl = []
-takeDLrev n dl = get_curr dl : (maybe [] (takeDLrev (pred n)) $ move_left dl)
+takeDLrev n dl | isEmpty dl = []
+takeDLrev n dl = getCurrent dl : (maybe [] (takeDLrev (pred n)) $ move_left dl)
 
 -- Update the current node `inplace'
 update :: a -> DList a -> DList a
@@ -153,29 +154,29 @@ update x dl@(DList{dl_current = curr, dl_mem = mem}) =
 
 -- This one watches for a cycle and terminates when it detects one
 toList :: DList a -> [a]
-toList dl | is_empty dl = []
-toList dl = get_curr dl : collect (dl_current dl) (move_right dl)
+toList dl | isEmpty dl = []
+toList dl = getCurrent dl : collect (dl_current dl) (move_right dl)
  where
  collect ref0 Nothing = []
  collect ref0 (Just DList{dl_current = curr}) | curr == ref0 = []
- collect ref0 (Just dl) = get_curr dl : collect ref0 (move_right dl)
+ collect ref0 (Just dl) = getCurrent dl : collect ref0 (move_right dl)
 
 
 
 -- Tests
 
-test1l = insert_right 1 $ empty
+test1l = insertRight 1 $ empty
 test1l_r = takeDL 5 test1l		-- [1,1,1,1,1]
 test1l_l = takeDLrev 5 test1l		-- [1,1,1,1,1]
 test1l_c = toList test1l		-- [1]
 
-test2l = insert_right 2 $ test1l
+test2l = insertRight 2 $ test1l
 test2l_r = takeDL 5 test2l		-- [2,1,2,1,2]
 test2l_l = takeDLrev 5 test2l		-- [2,1,2,1,2]
 test2l_l'= takeDLrev 5 (move_left' test2l) -- [1,2,1,2,1]
 test2l_c = toList test2l		-- [2,1]
 
-test3l = insert_right 3 $ test2l
+test3l = insertRight 3 $ test2l
 test3l_r = takeDL 7 test3l		-- [3,1,2,3,1,2,3]
 test3l_l = takeDLrev 7 test3l		-- [3,2,1,3,2,1,3]
 test3l_l'= takeDLrev 7 (move_left' test3l) -- [2,1,3,2,1,3,2]

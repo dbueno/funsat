@@ -36,8 +36,8 @@ module Funsat.Circuit
 
     -- ** Circuit evaluator
     , BEnv
-    , EvalC(..)
-    , runEvalC
+    , Eval(..)
+    , runEval
 
     -- ** Convert circuit to CNF
     , toCNF
@@ -341,23 +341,23 @@ type BEnv v = Map v Bool
 
 -- | A circuit evaluator, that is, a circuit represented as a function from
 -- variable values to booleans.
-newtype EvalC v = EvalC { unEvalC :: BEnv v -> Bool }
+newtype Eval v = Eval { unEval :: BEnv v -> Bool }
 
 -- | Evaluate a circuit given inputs.
-runEvalC :: BEnv v -> EvalC v -> Bool
-runEvalC = flip unEvalC
+runEval :: BEnv v -> Eval v -> Bool
+runEval = flip unEval
 
-instance Circuit EvalC where
-    true    = EvalC $ const True
-    false   = EvalC $ const False
-    input v = EvalC $ \env ->
+instance Circuit Eval where
+    true    = Eval $ const True
+    false   = Eval $ const False
+    input v = Eval $ \env ->
                       Map.findWithDefault
-                        (error $ "EvalC: no such var: " ++ show v
+                        (error $ "Eval: no such var: " ++ show v
                                  ++ " in " ++ show env)
                          v env
-    and c1 c2 = EvalC (\env -> unEvalC c1 env && unEvalC c2 env)
-    or  c1 c2 = EvalC (\env -> unEvalC c1 env || unEvalC c2 env)
-    not c     = EvalC (\env -> Prelude.not $ unEvalC c env)
+    and c1 c2 = Eval (\env -> unEval c1 env && unEval c2 env)
+    or  c1 c2 = Eval (\env -> unEval c1 env || unEval c2 env)
+    not c     = Eval (\env -> Prelude.not $ unEval c env)
 
 -- ** Graph circuit
 

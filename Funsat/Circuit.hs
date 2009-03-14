@@ -18,7 +18,6 @@ module Funsat.Circuit
     , FrozenShareC(..)
     , CircuitHash
     , CCode(..)
-    , HLC(..)
     , CMaps(..)
     , emptyCMaps
 
@@ -145,7 +144,7 @@ newtype FrozenShareC v = FrozenShareC (CCode, CMaps v) deriving (Eq, Ord, Show, 
 
 -- | Reify a sharing circuit.
 runShareC :: ShareC v -> FrozenShareC v
-runShareC = FrozenShareC . (`runState` emptyCMaps 1) . unShareC
+runShareC = FrozenShareC . (`runState` emptyCMaps) . unShareC
 
 instance CastCircuit ShareC where
     castCircuit = castCircuit . runShareC
@@ -153,46 +152,39 @@ instance CastCircuit ShareC where
 instance CastCircuit FrozenShareC where
     castCircuit (FrozenShareC (code, maps)) = go code
       where
-        go (CTrue{})    = true
-        go (CFalse{})   = false
-        go (CVar _ i)   = input $ getChildren i varMap
-        go (CAnd _ i)   = let (lcode, rcode) = getChildren i andMap
-                          in and (go lcode) (go rcode)
-        go (COr _ i)    = let (lcode, rcode) = getChildren i orMap
-                          in or (go lcode) (go rcode)
-        go (CNot _ i)   = let ncode = getChildren i notMap
-                          in not (go ncode)
+        go (CTrue{})   = true
+        go (CFalse{})  = false
+        go (CVar i)    = input $ getChildren i varMap
+        go (CAnd i)    = uncurry and . go2 $ getChildren i andMap
+        go (COr i)     = uncurry or . go2 $ getChildren i orMap
+        go (CNot i)    = not . go $ getChildren i notMap
+        go (CXor i)    = uncurry xor . go2 $ getChildren i xorMap
+        go (COnlyif i) = uncurry onlyif . go2 $ getChildren i onlyifMap
+        go (CIff i)    = uncurry iff . go2 $ getChildren i iffMap
 
         getChildren int codeMap =
             IntMap.findWithDefault (error $ "getChildren: unknown code: " ++ show int)
             int (codeMap maps)
+        go2 (x, y) = (go x, go y)
 
 type CircuitHash = Int
 
--- | A `CCode' represents a circuit element for `ShareC' circuits.  Since such circuits use common subcircuit eliminationA `CCode' is a flattened tree node which has been assigned a unique number
--- in the corresponding map inside `CMaps', which indicates children, if any.
+-- | A `CCode' represents a circuit element for `ShareC' circuits.  A `CCode' is
+-- a flattened tree node which has been assigned a unique number in the
+-- corresponding map inside `CMaps', which indicates children, if any.
 --
--- For example, @CAnd Nothing i@ has the two children of the tuple @lookup i
--- (andMap cmaps)@ assuming @cmaps :: CMaps v@.
-data CCode = CTrue  { hlc         :: Maybe HLC
-                    , circuitHash :: !CircuitHash }
-           | CFalse { hlc         :: Maybe HLC
-                    , circuitHash :: !CircuitHash }
-           | CAnd   { hlc         :: Maybe HLC
-                    , circuitHash :: !CircuitHash }
-           | COr    { hlc         :: Maybe HLC
-                    , circuitHash :: !CircuitHash }
-           | CNot   { hlc         :: Maybe HLC
-                    , circuitHash :: !CircuitHash }
-           | CVar   { hlc         :: Maybe HLC
-                    , circuitHash :: !CircuitHash }
+-- For example, @CAnd i@ has the two children of the tuple @lookup i (andMap
+-- cmaps)@ assuming @cmaps :: CMaps v@.
+data CCode = CTrue   { circuitHash :: !CircuitHash }
+           | CFalse  { circuitHash :: !CircuitHash }
+           | CVar    { circuitHash :: !CircuitHash }
+           | CAnd    { circuitHash :: !CircuitHash }
+           | COr     { circuitHash :: !CircuitHash }
+           | CNot    { circuitHash :: !CircuitHash }
+           | CXor    { circuitHash :: !CircuitHash }
+           | COnlyif { circuitHash :: !CircuitHash }
+           | CIff    { circuitHash :: !CircuitHash }
              deriving (Eq, Ord, Show, Read)
-
--- | High-level circuit.
-data HLC = Xor CCode CCode
-         | Onlyif CCode CCode
-         | Iff CCode CCode
-           deriving (Eq, Ord, Show, Read)
 
 -- | Maps used to implement the common-subexpression sharing implementation of
 -- the `Circuit' class.  See `ShareC'.
@@ -211,19 +203,25 @@ data CMaps v = CMaps
 
     , andMap    :: IntMap (CCode, CCode)
     , orMap     :: IntMap (CCode, CCode)
-    , notMap    :: IntMap CCode }
+    , notMap    :: IntMap CCode
+    , xorMap    :: IntMap (CCode, CCode)
+    , onlyifMap :: IntMap (CCode, CCode)
+    , iffMap    :: IntMap (CCode, CCode) }
                deriving (Eq, Ord, Show, Read)
 
--- | A `CMaps' from an initial `hashCount'.
-emptyCMaps :: CircuitHash -> CMaps v
-emptyCMaps i = CMaps
-    { hashCount = i
+-- | A `CMaps' with an initial `hashCount' of 1.
+emptyCMaps :: CMaps v
+emptyCMaps = CMaps
+    { hashCount = 1
     , trueInt   = Nothing
     , falseInt  = Nothing
     , varMap    = IntMap.empty
     , andMap    = IntMap.empty
     , orMap     = IntMap.empty
-    , notMap    = IntMap.empty }
+    , notMap    = IntMap.empty
+    , xorMap    = IntMap.empty
+    , onlyifMap = IntMap.empty
+    , iffMap    = IntMap.empty }
 
 -- | Find key mapping to given value.
 lookupv :: Eq v => v -> IntMap v -> Maybe Int
@@ -255,7 +253,7 @@ instance Circuit ShareC where
                case ti of
                  Nothing -> do
                      i <- gets hashCount
-                     let c = CTrue Nothing i
+                     let c = CTrue i
                      modify $ \s -> s{ hashCount = succ i, trueInt = Just c }
                      return c
                  Just c -> return c
@@ -264,28 +262,26 @@ instance Circuit ShareC where
                case ti of
                  Nothing -> do
                      i <- gets hashCount
-                     let c = CFalse Nothing i
+                     let c = CFalse i
                      modify $ \s -> s{ hashCount = succ i, falseInt = Just c }
                      return c
                  Just c -> return c
-    input v = ShareC $ recordC (CVar Nothing) varMap (\s e -> s{ varMap = e }) v
+    input v = ShareC $ recordC CVar varMap (\s e -> s{ varMap = e }) v
     and e1 e2 = ShareC $ do
-                    h1 <- unShareC e1
-                    h2 <- unShareC e2
-                    recordC (CAnd Nothing) andMap (\s e -> s{ andMap = e}) (h1, h2)
+                    hl <- unShareC e1
+                    hr <- unShareC e2
+                    recordC CAnd andMap (\s e -> s{ andMap = e}) (hl, hr)
     or  e1 e2 = ShareC $ do
-                    h1 <- unShareC e1
-                    h2 <- unShareC e2
-                    recordC (COr Nothing) orMap (\s e -> s{ orMap = e }) (h1, h2)
+                    hl <- unShareC e1
+                    hr <- unShareC e2
+                    recordC COr orMap (\s e -> s{ orMap = e }) (hl, hr)
     not e = ShareC $ do
                 h <- unShareC e
-                recordC (CNot Nothing) notMap (\s e' -> s{ notMap = e' }) h
+                recordC CNot notMap (\s e' -> s{ notMap = e' }) h
     xor l r = ShareC $ do
                   hl <- unShareC l ; hr <- unShareC r
-                  let from = Xor hl hr
-                  liftM (\c -> c{ hlc = Just from }) . unShareC $
-                        (l `or` r) `and` not (l `and` r)
-    iff l r = ShareC $ do
+                  recordC CXor xorMap (\s e' -> s{ xorMap = e' }) (hl, hr)
+{-    iff l r = ShareC $ do
                   hl <- unShareC l ; hr <- unShareC r
                   let from = Iff hl hr
                   liftM (\c -> c{ hlc = Just from }) . unShareC $
@@ -294,7 +290,7 @@ instance Circuit ShareC where
                      hl <- unShareC l ; hr <- unShareC r
                      let from = Onlyif hl hr
                      liftM (\c -> c{ hlc = Just from }) . unShareC $
-                           not l `or` r
+                           not l `or` r-}
               
 
 -- ** Explicit tree circuit
@@ -412,6 +408,7 @@ instance Circuit GraphC where
     iff    = binaryNode NIff
     onlyif = binaryNode NOnlyIf
 
+binaryNode :: NodeType v -> GraphC v -> GraphC v -> GraphC v
 {-# INLINE binaryNode #-}
 binaryNode ty l r = GraphC $ do
         (lNode, lNodes, lEdges) <- unGraphC l
@@ -464,23 +461,24 @@ shareGraph (FrozenShareC (output, cmaps)) =
   where
     -- Invariant: The returned node is always a member of the returned list of
     -- nodes.  Returns: (node, node-list, edge-list).
-    go c@(CVar _ i) = do
-        --v <- extract i varMap
+    go c@(CVar i) = do
+        --v <- extract i varMap TODO
         return (i, [(i, frz c)], [])
-    go c@(CTrue _ i)  = return (i, [(i, frz c)], [])
-    go c@(CFalse _ i) = return (i, [(i, frz c)], [])
-    go c@(CNot _ i) = do
+    go c@(CTrue i)  = return (i, [(i, frz c)], [])
+    go c@(CFalse i) = return (i, [(i, frz c)], [])
+    go c@(CNot i) = do
         (child, nodes, edges) <- extract i notMap >>= go
         return (i, (i, frz c) : nodes, (child, i, frz c) : edges)
-    go c@(CAnd maybeFrom i) =
-        maybe (extract i andMap >>= tupM2 go >>= addKids c) (goHLC c) maybeFrom
-    go c@(COr maybeFrom i)  =
-        maybe (extract i orMap  >>= tupM2 go >>= addKids c) (goHLC c) maybeFrom
+    go c@(CAnd i) = extract i andMap >>= tupM2 go >>= addKids c
+    go c@(COr i) = extract i orMap >>= tupM2 go >>= addKids c
+    go c@(CXor i) = extract i xorMap >>= tupM2 go >>= addKids c
+    go c@(COnlyif i) = extract i onlyifMap >>= tupM2 go >>= addKids c
+    go c@(CIff i) = extract i iffMap >>= tupM2 go >>= addKids c
 
-    -- Use the high-level circuit children when displaying.
-    goHLC parent (Xor hl hr)    = tupM2 go (hl, hr) >>= addKids parent
-    goHLC parent (Onlyif hl hr) = tupM2 go (hl, hr) >>= addKids parent
-    goHLC parent (Iff hl hr)    = tupM2 go (hl, hr) >>= addKids parent
+--     -- Use the high-level circuit children when displaying.
+--     goHLC parent (Xor hl hr)    = tupM2 go (hl, hr) >>= addKids parent
+--     goHLC parent (Onlyif hl hr) = tupM2 go (hl, hr) >>= addKids parent
+--     goHLC parent (Iff hl hr)    = tupM2 go (hl, hr) >>= addKids parent
 
     addKids ccode ((lNode, lNodes, lEdges), (rNode, rNodes, rEdges)) =
         let i = circuitHash ccode
@@ -573,7 +571,7 @@ toCNF :: (Ord v) => ShareC v -> (CNF, FrozenShareC v, Map Var CCode)
 toCNF sc =
     let c@(FrozenShareC (sharedCircuit, circuitMaps)) = runShareC sc
         (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` Map.empty)) $ do
-                     (l, theClauses) <- cnfTree sharedCircuit
+                     (l, theClauses) <- toCNF' sharedCircuit
                      return $ Set.insert (Set.singleton l) theClauses
     in ( CNF { numVars =   Set.fold max 1
                          . Set.map (Set.fold max 1)
@@ -584,21 +582,20 @@ toCNF sc =
        , c
        , m )
   where
-    -- Invariant: returns (l, c) where l is the literal corresponding to the
-    -- circuit input, and {l} U c is CNF equisatisfiable with the input
-    -- circuit.
-    cnfTree c@(CVar _ i)   = store (V i) c >> return (L i, Set.empty)
-    cnfTree c@(CTrue _ i)  =
+    -- Returns (l :: Lit, c :: Set Clause) where {l} U c is CNF equisatisfiable
+    -- with the input circuit.
+    toCNF' c@(CVar i)   = store (V i) c >> return (L i, Set.empty)
+    toCNF' c@(CTrue i)  =
         store (V i) c >> return (L i, Set.singleton . Set.singleton $ L i)
-    cnfTree c@(CFalse _ i) =
+    toCNF' c@(CFalse i) =
         store (V i) c >> return (L i, Set.fromList [Set.singleton (negate (L i))])
 
     -- x <-> -y
     --   <-> (-x, -y) & (y, x)
-    cnfTree c@(CNot _ i) = do
+    toCNF' c@(CNot i) = do
         store (V i) c
         eTree <- extract i notMap
-        (eLit, eCnf) <- cnfTree eTree
+        (eLit, eCnf) <- toCNF' eTree
         let notLit = L i
         return
           ( notLit
@@ -608,11 +605,11 @@ toCNF sc =
 
     -- x <-> (y | z)
     --   <-> (-y, x) & (-z, x) & (-x, y, z)
-    cnfTree c@(COr _ i) = do
+    toCNF' c@(COr i) = do
         store (V i) c
         (l, r) <- extract i orMap
-        (lLit, lCnf) <- cnfTree l
-        (rLit, rCnf) <- cnfTree r
+        (lLit, lCnf) <- toCNF' l
+        (rLit, rCnf) <- toCNF' r
         let orLit = L i
         return
           ( orLit
@@ -623,19 +620,20 @@ toCNF sc =
               
     -- x <-> (y & z)
     --   <-> (-x, y), (-x, z) & (-y, -z, x)
-    cnfTree c@(CAnd _ i) = do
+    toCNF' c@(CAnd i) = do
         store (V i) c
         (l, r) <- extract i andMap
-        (lLit, lCnf) <- cnfTree l
-        (rLit, rCnf) <- cnfTree r
+        (lLit, lCnf) <- toCNF' l
+        (rLit, rCnf) <- toCNF' r
         let andLit = L i
         return
           ( andLit
           , Set.fromList [ Set.fromList [negate andLit, lLit]
                          , Set.fromList [negate andLit, rLit]
                          , Set.fromList [negate lLit, negate rLit, andLit] ]
-            `Set.union` lCnf `Set.union` rCnf)
+            `Set.union` lCnf `Set.union` rCnf )
 
+    -- record that var v maps to circuit element ccode
     store v ccode  = modify $ Map.insert v ccode
     extract code f =
         (IntMap.findWithDefault (error $ "toCNF: unknown code: " ++ show code)

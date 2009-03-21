@@ -17,7 +17,7 @@ Build-Depends:       base,
                      containers
 Build-type:          Simple
 
-Exposed-modules:     Data.FibHeap
+Exposed-modules:     Data.FibHeap Data.FibHeapST
 Ghc-options:         -Wall
 Extensions:          CPP
 CPP-Options:         -DTESTING

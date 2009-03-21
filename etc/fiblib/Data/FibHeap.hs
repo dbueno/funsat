@@ -15,20 +15,21 @@ module Data.FibHeap
 #endif
     where
 
--- import Control.Arrow ( (&&&) )
-import Control.Monad ( MonadPlus(..), guard )
-import Prelude hiding ( foldr, min )
+import Control.Applicative
+import Control.Monad
+import Control.Monad.ST
+import Data.STRef
+import Prelude hiding ( foldr, foldl, min )
 -- import Data.Sequence ( Seq, (<|), (|>), (><), ViewL(..), ViewR(..) )
+import Data.Array.ST
 import Data.FDList
-import Data.Foldable
+-- import Data.Foldable
 -- import Data.IntMap (IntMap)
-import Data.Tree
-import Data.Maybe ( isJust )
+import Data.Maybe ( isJust, fromJust )
 
 -- import qualified Data.List as List
 import qualified Prelude as Prelude
-import qualified Data.Sequence as Seq
-import qualified Data.IntMap as IntMap
+-- import qualified Data.IntMap as IntMap
 import qualified Data.FDList as L
 
 
@@ -47,9 +48,11 @@ data Info k a = Info
     , child  :: Maybe (DList (Info k a))
     , mark   :: Bool            -- ^ Has this node lost a child since the last
                                 -- time it was made the child of another node?
+    , degree :: Int
     , datum  :: a }
                   deriving Show
 
+emptyInfo :: k -> a -> Info k a
 emptyInfo k v = Info{ key = k
                     , parent = Nothing
                     , child = Nothing
@@ -82,20 +85,61 @@ insert h@(H{ min = m }) k v =
     l' = insertRight newInfo m
     newInfo = emptyInfo k v
 
+extractMin :: (Ord k) => Heap k a -> Maybe (Info k a, Heap k a)
+extractMin h | L.isEmpty (min h) = Nothing
+extractMin h@(H{ min = rootList}) = Just
+    ( minNode
+    , consolidate $
+      h{ min  = foldl (flip insertRight) m' children
+       , size = pred (size h) } )
+  where
+    minNode = getCurrent rootList
+    m' = L.delete rootList
+    children = maybe L.empty id $ child minNode
+
+
+consolidate :: (Ord k) => Heap k a -> Heap k a
+consolidate heap = runST $ do
+    h <- newSTRef heap
+    a <- mkConsolidateArray (1 + maxDegree heap)
+    mapM_ (fillArray h a) (toList (min heap))
+    
+    return undefined
+
+  where
+    fillArray h a w = do
+        degreeRef <- newSTRef $ degree w
+        xR <- readSTRef w
+        whileM (isJust <$> (readArray a =<< readSTRef degreeRef)) $ do
+            itR <- newSTRef $ fromJust <$> (readArray a =<< readSTRef degreeRef)
+            it <- readSTRef itR ; x <- readSTRef xR
+            when (key it < key x) $ swap itR xR
+            itR `linkUnder` xR
+
+mkConsolidateArray :: Int -> ST s (STArray s Int (Maybe (Info k a)))
+mkConsolidateArray len = newArray (0, len) Nothing
+
+maxDegree :: Heap k a -> Int
+maxDegree heap =
+    if size heap == 0 then
+        error "conslidate of empty heap"
+    else
+        floor $ logphi (fromIntegral $ size heap)
+  where
+    logphi x = log x / log ((1 + sqrt 5) / 2)
+
+whileM :: ST s Bool -> ST s () -> ST s ()
+whileM testM bodyM = do
+    t <- testM
+    when t (bodyM >> whileM testM bodyM)
+
+swap :: STRef s a -> STRef s a -> ST s ()
+swap r r' = do
+    tmp <- readSTRef r
+    readSTRef r' >>= writeSTRef r
+    writeSTRef r' tmp
+
 #if 0
-
--- | Insert given value with given key into the heap.
-insert :: HeapPolicy p k => k -> a -> Heap p k a -> Heap p k a
-insert (k, v) heap =
-    let newMininfo `L.insertRight` min heap
-
--- | Insert the `Info' into the cursor and focus on a (possibly new) minimum
--- element.
-insertMinimumFocus :: Ord a => Tree a -> Cursor a -> Cursor a
-insertMinimumFocus node tree = insertWithRight node focusOnMin tree
-    where
-      focusOnMin n n' = (argmin rootLabel n n', argmax rootLabel n n')
-
 
 -- | Extract the minimum node from the heap, as determined by `heapCompare'.
 --

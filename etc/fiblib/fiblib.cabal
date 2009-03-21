@@ -12,7 +12,8 @@ License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional
-Build-Depends:       base,
+Build-Depends:       array,
+                     base,
                      QuickCheck < 2,
                      containers
 Build-type:          Simple

@@ -12,12 +12,19 @@ module Data.FDList
     , insertRight
     , delete
     , getCurrent
+    , take
+    , takeRev
     , moveLeft
     , moveLeft'
     , moveRight
-    , moveRight' )
+    , moveRight'
+    , foldl
+    , toList )
     where
 
+import Prelude hiding( take, foldl )
+
+import qualified Prelude
 -- Note that insertions, deletions, lookups have
 -- a worst-case complexity of O(min(n,W)), where W is either 32 or 64
 -- (depending on the paltform). That means the access time is bounded
@@ -140,20 +147,23 @@ moveLeft dl = if next == 0 then Nothing else Just (dl{dl_current=next})
 moveLeft' :: DList a -> DList a
 moveLeft' dl = maybe dl id $ moveLeft dl
 
+foldl :: (b -> a -> b) -> b -> DList a -> b
+foldl f init l = Prelude.foldl f init (toList l)
+
 fromList :: [a] -> DList a
-fromList = foldl (flip insertRight) empty
+fromList = Prelude.foldl (flip insertRight) empty
 
 -- The following does not anticipate cycles (deliberately)
-takeDL :: Int -> DList a -> [a]
-takeDL 0 _ = []
-takeDL n dl | isEmpty dl = []
-takeDL n dl = getCurrent dl : (maybe [] (takeDL (pred n)) $ moveRight dl)
+take :: Int -> DList a -> [a]
+take 0 _ = []
+take n dl | isEmpty dl = []
+take n dl = getCurrent dl : (maybe [] (take (pred n)) $ moveRight dl)
 
 -- Reverse taking: we move left
-takeDLrev :: Int -> DList a -> [a]
-takeDLrev 0 _ = []
-takeDLrev n dl | isEmpty dl = []
-takeDLrev n dl = getCurrent dl : (maybe [] (takeDLrev (pred n)) $ moveLeft dl)
+takeRev :: Int -> DList a -> [a]
+takeRev 0 _ = []
+takeRev n dl | isEmpty dl = []
+takeRev n dl = getCurrent dl : (maybe [] (takeRev (pred n)) $ moveLeft dl)
 
 -- Update the current node `inplace'
 update :: a -> DList a -> DList a
@@ -177,54 +187,54 @@ toList dl = getCurrent dl : collect (dl_current dl) (moveRight dl)
 -- Tests
 
 test1l = insertRight 1 $ empty
-test1l_r = takeDL 5 test1l		-- [1,1,1,1,1]
-test1l_l = takeDLrev 5 test1l		-- [1,1,1,1,1]
+test1l_r = take 5 test1l		-- [1,1,1,1,1]
+test1l_l = takeRev 5 test1l		-- [1,1,1,1,1]
 test1l_c = toList test1l		-- [1]
 
 test2l = insertRight 2 $ test1l
-test2l_r = takeDL 5 test2l		-- [2,1,2,1,2]
-test2l_l = takeDLrev 5 test2l		-- [2,1,2,1,2]
-test2l_l'= takeDLrev 5 (moveLeft' test2l) -- [1,2,1,2,1]
+test2l_r = take 5 test2l		-- [2,1,2,1,2]
+test2l_l = takeRev 5 test2l		-- [2,1,2,1,2]
+test2l_l'= takeRev 5 (moveLeft' test2l) -- [1,2,1,2,1]
 test2l_c = toList test2l		-- [2,1]
 
 test3l = insertRight 3 $ test2l
-test3l_r = takeDL 7 test3l		-- [3,1,2,3,1,2,3]
-test3l_l = takeDLrev 7 test3l		-- [3,2,1,3,2,1,3]
-test3l_l'= takeDLrev 7 (moveLeft' test3l) -- [2,1,3,2,1,3,2]
+test3l_r = take 7 test3l		-- [3,1,2,3,1,2,3]
+test3l_l = takeRev 7 test3l		-- [3,2,1,3,2,1,3]
+test3l_l'= takeRev 7 (moveLeft' test3l) -- [2,1,3,2,1,3,2]
 test3l_c = toList (moveRight' test3l)	-- [1,2,3]
 
 
 test31l = delete test3l
-test31l_r = takeDL 7 test31l		-- [1,2,1,2,1,2,1]
-test31l_l = takeDLrev 7 test31l		-- [1,2,1,2,1,2,1]
+test31l_r = take 7 test31l		-- [1,2,1,2,1,2,1]
+test31l_l = takeRev 7 test31l		-- [1,2,1,2,1,2,1]
 test31l_c = toList test31l		-- [1,2]
 
 test32l = delete test31l
-test32l_r = takeDL 5 test32l		-- [2,2,2,2,2]
-test32l_l = takeDLrev 5 test32l		-- [2,2,2,2,2]
+test32l_r = take 5 test32l		-- [2,2,2,2,2]
+test32l_l = takeRev 5 test32l		-- [2,2,2,2,2]
 test32l_c = toList test32l		-- [2]
 
 
 test33l = delete test32l
-test33l_r = takeDL 5 test33l		-- []
+test33l_r = take 5 test33l		-- []
 
 
 testl = fromList [1..5]
-testl_r = takeDL 11 testl		-- [5,1,2,3,4,5,1,2,3,4,5]
-testl_l = takeDLrev 11 testl		-- [5,4,3,2,1,5,4,3,2,1,5]
+testl_r = take 11 testl		-- [5,1,2,3,4,5,1,2,3,4,5]
+testl_l = takeRev 11 testl		-- [5,4,3,2,1,5,4,3,2,1,5]
 testl_c = toList testl			-- [5,1,2,3,4]
 
 testl1 = update (-1) testl
-testl1_r = takeDL 11 testl1		-- [-1,1,2,3,4,-1,1,2,3,4,-1]
+testl1_r = take 11 testl1		-- [-1,1,2,3,4,-1,1,2,3,4,-1]
 testl1_c = toList testl1		-- [-1,1,2,3,4]
 
 testl2 = update (-2) . moveRight' . moveRight' $ testl1
-testl2_r = takeDL 11 testl2		-- [-2,3,4,-1,1,-2,3,4,-1,1,-2]
-testl2_l = takeDLrev 11 testl2		-- [-2,1,-1,4,3,-2,1,-1,4,3,-2]
+testl2_r = take 11 testl2		-- [-2,3,4,-1,1,-2,3,4,-1,1,-2]
+testl2_l = takeRev 11 testl2		-- [-2,1,-1,4,3,-2,1,-1,4,3,-2]
 testl2_c = toList testl2		-- [-2,3,4,-1,1]
 
 -- Old testl is still available: there are no destructive updates
 testl3 = update (-2) . moveRight' . moveRight' $ testl
-testl3_r = takeDL 11 testl3		-- [-2,3,4,5,1,-2,3,4,5,1,-2]
+testl3_r = take 11 testl3		-- [-2,3,4,5,1,-2,3,4,5,1,-2]
 testl3_c = toList testl3		-- [-2,3,4,5,1]
 

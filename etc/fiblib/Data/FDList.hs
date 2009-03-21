@@ -5,7 +5,18 @@
 -- Haskell98
 -- Pure functional, mutation-free, constant-time-access double-linked
 -- lists
-module Data.FDList where
+module Data.FDList
+    ( DList
+    , empty
+    , isEmpty
+    , insertRight
+    , delete
+    , getCurrent
+    , moveLeft
+    , moveLeft'
+    , moveRight
+    , moveRight' )
+    where
 
 -- Note that insertions, deletions, lookups have
 -- a worst-case complexity of O(min(n,W)), where W is either 32 or 64
@@ -111,23 +122,23 @@ delete dl@DList{dl_current = curr, dl_mem = mem_old} =
 getCurrent :: DList a -> a
 getCurrent = node_val . get_curr_node
 
-move_right :: DList a -> Maybe (DList a)
-move_right dl = if next == 0 then Nothing else Just (dl{dl_current=next})
+moveRight :: DList a -> Maybe (DList a)
+moveRight dl = if next == 0 then Nothing else Just (dl{dl_current=next})
  where
  next = node_right $ get_curr_node dl
 
 -- If no right, just stay inplace
-move_right' :: DList a -> DList a
-move_right' dl = maybe dl id $ move_right dl
+moveRight' :: DList a -> DList a
+moveRight' dl = maybe dl id $ moveRight dl
 
-move_left :: DList a -> Maybe (DList a)
-move_left dl = if next == 0 then Nothing else Just (dl{dl_current=next})
+moveLeft :: DList a -> Maybe (DList a)
+moveLeft dl = if next == 0 then Nothing else Just (dl{dl_current=next})
  where
  next = node_left $ get_curr_node dl
 
 -- If no left, just stay inplace
-move_left' :: DList a -> DList a
-move_left' dl = maybe dl id $ move_left dl
+moveLeft' :: DList a -> DList a
+moveLeft' dl = maybe dl id $ moveLeft dl
 
 fromList :: [a] -> DList a
 fromList = foldl (flip insertRight) empty
@@ -136,13 +147,13 @@ fromList = foldl (flip insertRight) empty
 takeDL :: Int -> DList a -> [a]
 takeDL 0 _ = []
 takeDL n dl | isEmpty dl = []
-takeDL n dl = getCurrent dl : (maybe [] (takeDL (pred n)) $ move_right dl)
+takeDL n dl = getCurrent dl : (maybe [] (takeDL (pred n)) $ moveRight dl)
 
 -- Reverse taking: we move left
 takeDLrev :: Int -> DList a -> [a]
 takeDLrev 0 _ = []
 takeDLrev n dl | isEmpty dl = []
-takeDLrev n dl = getCurrent dl : (maybe [] (takeDLrev (pred n)) $ move_left dl)
+takeDLrev n dl = getCurrent dl : (maybe [] (takeDLrev (pred n)) $ moveLeft dl)
 
 -- Update the current node `inplace'
 update :: a -> DList a -> DList a
@@ -155,11 +166,11 @@ update x dl@(DList{dl_current = curr, dl_mem = mem}) =
 -- This one watches for a cycle and terminates when it detects one
 toList :: DList a -> [a]
 toList dl | isEmpty dl = []
-toList dl = getCurrent dl : collect (dl_current dl) (move_right dl)
+toList dl = getCurrent dl : collect (dl_current dl) (moveRight dl)
  where
  collect ref0 Nothing = []
  collect ref0 (Just DList{dl_current = curr}) | curr == ref0 = []
- collect ref0 (Just dl) = getCurrent dl : collect ref0 (move_right dl)
+ collect ref0 (Just dl) = getCurrent dl : collect ref0 (moveRight dl)
 
 
 
@@ -173,14 +184,14 @@ test1l_c = toList test1l		-- [1]
 test2l = insertRight 2 $ test1l
 test2l_r = takeDL 5 test2l		-- [2,1,2,1,2]
 test2l_l = takeDLrev 5 test2l		-- [2,1,2,1,2]
-test2l_l'= takeDLrev 5 (move_left' test2l) -- [1,2,1,2,1]
+test2l_l'= takeDLrev 5 (moveLeft' test2l) -- [1,2,1,2,1]
 test2l_c = toList test2l		-- [2,1]
 
 test3l = insertRight 3 $ test2l
 test3l_r = takeDL 7 test3l		-- [3,1,2,3,1,2,3]
 test3l_l = takeDLrev 7 test3l		-- [3,2,1,3,2,1,3]
-test3l_l'= takeDLrev 7 (move_left' test3l) -- [2,1,3,2,1,3,2]
-test3l_c = toList (move_right' test3l)	-- [1,2,3]
+test3l_l'= takeDLrev 7 (moveLeft' test3l) -- [2,1,3,2,1,3,2]
+test3l_c = toList (moveRight' test3l)	-- [1,2,3]
 
 
 test31l = delete test3l
@@ -207,13 +218,13 @@ testl1 = update (-1) testl
 testl1_r = takeDL 11 testl1		-- [-1,1,2,3,4,-1,1,2,3,4,-1]
 testl1_c = toList testl1		-- [-1,1,2,3,4]
 
-testl2 = update (-2) . move_right' . move_right' $ testl1
+testl2 = update (-2) . moveRight' . moveRight' $ testl1
 testl2_r = takeDL 11 testl2		-- [-2,3,4,-1,1,-2,3,4,-1,1,-2]
 testl2_l = takeDLrev 11 testl2		-- [-2,1,-1,4,3,-2,1,-1,4,3,-2]
 testl2_c = toList testl2		-- [-2,3,4,-1,1]
 
 -- Old testl is still available: there are no destructive updates
-testl3 = update (-2) . move_right' . move_right' $ testl
+testl3 = update (-2) . moveRight' . moveRight' $ testl
 testl3_r = takeDL 11 testl3		-- [-2,3,4,5,1,-2,3,4,5,1,-2]
 testl3_c = toList testl3		-- [-2,3,4,5,1]
 

@@ -1,7 +1,5 @@
-{-# LANGUAGE   MultiParamTypeClasses
-             , FlexibleInstances
-             , EmptyDataDecls #-}
 
+-- | Fibonacci heap implementation.
 module Data.FibHeap
 #ifndef TESTING
     ( Heap(..)
@@ -21,7 +19,7 @@ module Data.FibHeap
 import Control.Monad ( MonadPlus(..), guard )
 import Prelude hiding ( foldr, min )
 -- import Data.Sequence ( Seq, (<|), (|>), (><), ViewL(..), ViewR(..) )
-import Data.FDList( DList )
+import Data.FDList
 import Data.Foldable
 -- import Data.IntMap (IntMap)
 import Data.Tree
@@ -38,7 +36,7 @@ import qualified Data.FDList as L
 
 data Heap k a = H
     { min       :: DList (Info k a)
-    , size      :: Int                 -- ^ Number of elements in the heap.
+    , size      :: Int          -- ^ Number of elements in the heap.
     , numMarked :: Int }
                   deriving Show
 
@@ -52,6 +50,15 @@ data Info k a = Info
     , datum  :: a }
                   deriving Show
 
+emptyInfo k v = Info{ key = k
+                    , parent = Nothing
+                    , child = Nothing
+                    , mark = False
+                    , datum = v }
+
+instance (Eq k) => Eq (Info k a) where
+    i == i' = key i == key i'
+
 -- | The empty Fibonacci heap.
 empty :: (Ord k) => Heap k a
 empty = H { min       = L.empty
@@ -63,15 +70,19 @@ peek :: Ord k => Heap k a -> Maybe a
 peek (H{ min = m }) = if L.isEmpty m then Nothing
                       else Just . datum . L.getCurrent $ m
 
-#if 0
-instance (Eq k) => Eq (Info p k a) where
-    i == i' = key i == key i'
-
-
-policy :: Info p k a -> p
-policy = const undefined
-
 -- * Operations
+
+insert :: (Ord k) => Heap k a -> k -> a -> Heap k a
+insert h@(H{ min = m }) k v =
+    h{ min  = if not (L.isEmpty m) && k < key (getCurrent m) then
+                  moveLeft' l'
+              else l'
+     , size = succ (size h) }
+  where
+    l' = insertRight newInfo m
+    newInfo = emptyInfo k v
+
+#if 0
 
 -- | Insert given value with given key into the heap.
 insert :: HeapPolicy p k => k -> a -> Heap p k a -> Heap p k a

@@ -326,20 +326,6 @@ solveStepInvariants _m = assert True $ do
      assert ((length . trail) s == (length . nub . trail) s) $
      return ()
 
-             
--- | The solution to a SAT problem.  In each case we return an assignment,
--- which is obviously right in the `Sat' case; in the `Unsat' case, the reason
--- is to assist in the generation of an unsatisfiable core.
-data Solution = Sat IAssignment | Unsat IAssignment deriving (Eq)
-
-instance Show Solution where
-   show (Sat a)     = "satisfiable: " ++ showAssignment a
-   show (Unsat _)   = "unsatisfiable"
-
-finalAssignment :: Solution -> IAssignment
-finalAssignment (Sat a)   = a
-finalAssignment (Unsat a) = a
-
 -- ** Internals
 
 -- | Value of the `level' array if corresponding variable unassigned.  Had
@@ -883,8 +869,6 @@ a1 >< a2 =
 infixl 5 ><
 
 -- *** Misc
-showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
-                                                  (a!i) /= 0])
 
 initialActivity :: Double
 initialActivity = 1.0

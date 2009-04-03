@@ -40,6 +40,7 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet ( BitSet )
 import Data.Foldable hiding ( sequence_ )
+import Data.List( intercalate )
 import Data.Map ( Map )
 import Data.Set ( Set )
 import Data.STRef
@@ -111,6 +112,21 @@ data CNF = CNF
     , numClauses :: Int
     , clauses    :: Set Clause } deriving (Show, Read, Eq)
 
+-- | The solution to a SAT problem.  In each case we return an assignment,
+-- which is obviously right in the `Sat' case; in the `Unsat' case, the reason
+-- is to assist in the generation of an unsatisfiable core.
+data Solution = Sat IAssignment | Unsat IAssignment deriving (Eq)
+
+instance Show Solution where
+   show (Sat a)     = "satisfiable: " ++ showAssignment a
+   show (Unsat _)   = "unsatisfiable"
+
+finalAssignment :: Solution -> IAssignment
+finalAssignment (Sat a)   = a
+finalAssignment (Unsat a) = a
+
+
+
 
 -- | Represents a container of type @t@ storing elements of type @a@ that
 -- support membership, insertion, and deletion.
@@ -175,6 +191,10 @@ instance (BitSet.Hash Var) where
 -- updating an assignment with newly-assigned literals takes constant time,
 -- and can be done destructively, but safely.
 type IAssignment = UArray Var Int
+
+showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
+                                                  (a!i) /= 0])
+
 
 -- | Mutable array corresponding to the `IAssignment' representation.
 type MAssignment s = STUArray s Var Int

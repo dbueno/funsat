@@ -703,6 +703,9 @@ removeComplex (FrozenShared code maps) = go code
 
 onTup f (x, y) = (f x, f y)
 
+-- | Projects a funsat `Solution' back into the original circuit space,
+-- returning a boolean environment containing an assignment of all circuit
+-- inputs to true and false.
 projectCircuitSolution :: (Ord v) => Solution -> CircuitProblem v -> BEnv v
 projectCircuitSolution (Sat lits) pblm =
     -- only the lits whose vars are (varMap maps) go to benv

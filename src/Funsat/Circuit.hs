@@ -677,7 +677,7 @@ toCNF cIn =
         (IntMap.findWithDefault (error $ "toCNF: unknown code: " ++ show code)
            code . f) `liftM` ask
 
--- removes iff, xor, onlyif, ite
+-- | Returns an equivalent circuit with no iff, xor, onlyif, and ite nodes.
 removeComplex :: (Ord v, Show v, Circuit c) => FrozenShared v -> c v
 removeComplex (FrozenShared code maps) = go code
   where

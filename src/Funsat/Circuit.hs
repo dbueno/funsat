@@ -40,7 +40,9 @@ module Funsat.Circuit
     , runEval
 
     -- ** Convert circuit to CNF
+    , CircuitProblem(..)
     , toCNF
+    , projectCircuitSolution
     )
 where
 
@@ -75,7 +77,7 @@ import Data.Map( Map )
 import Data.Maybe()
 import Data.Ord()
 import Data.Set( Set )
-import Funsat.Types ( CNF(..), Lit(..), Var(..), var, lit, IAssignment )
+import Funsat.Types( CNF(..), Lit(..), Var(..), var, lit, Solution(..), litSign, litAssignment )
 import Prelude hiding( not, and, or )
 
 import qualified Data.Bimap as Bimap
@@ -568,6 +570,11 @@ findVar ccode = do
                     return . lit $ v
       Just v'  -> return . lit $ v'
 
+data CircuitProblem v = CircuitProblem
+    { circuitCnf :: CNF
+    , circuitFrz :: FrozenShared v
+    , circuitCodeMap :: Bimap Var CCode }
+
 -- | Produces a CNF formula that is satisfiable if and only if the input circuit
 -- is satisfiable.  /Note that it does not produce an equivalent CNF formula./
 -- It is not equivalent in general because the transformation introduces
@@ -585,20 +592,22 @@ findVar ccode = do
 -- able to write this tail-recursively.
 --
 -- /TODO/ can easily count the number of variables while constructing cnf
-toCNF :: (Ord v) => Shared v -> (CNF, FrozenShared v, Bimap Var CCode)
-toCNF sc =
-    let c@(FrozenShared sharedCircuit circuitMaps) = runShared sc
+toCNF :: (Ord v, Show v) => Shared v -> CircuitProblem v
+toCNF cIn =
+    let c@(FrozenShared sharedCircuit circuitMaps) =
+            runShared . removeComplex . runShared $ cIn
         (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` emptyCNFState)) $ do
                      (CP l theClauses) <- toCNF' sharedCircuit
                      return $ Set.insert (Set.singleton l) theClauses
-    in ( CNF { numVars =   Set.fold max 1
-                         . Set.map (Set.fold max 1)
-                         . Set.map (Set.map (unVar . var))
-                         $ cnf
-             , numClauses = Set.size cnf
-             , clauses = Set.map Foldable.toList cnf }
-       , c
-       , toCnfMap m )
+    in CircuitProblem
+       { circuitCnf = CNF { numVars =   Set.fold max 1
+                          . Set.map (Set.fold max 1)
+                          . Set.map (Set.map (unVar . var))
+                          $ cnf
+                          , numClauses = Set.size cnf
+                          , clauses = Set.map Foldable.toList cnf }
+       , circuitFrz = c
+       , circuitCodeMap = toCnfMap m }
   where
     -- Returns (CP l c) where {l} U c is CNF equisatisfiable with the input
     -- circuit.
@@ -660,10 +669,10 @@ toCNF sc =
 removeComplex :: (Ord v, Show v, Circuit c) => FrozenShared v -> c v
 removeComplex (FrozenShared code maps) = go code
   where
-  go (CTrue{}) = true
+  go (CTrue{})  = true
   go (CFalse{}) = false
   go c@(CVar{}) = input $ getChildren c (varMap maps)
-  go c@(COr{}) = uncurry or (go `onTup` getChildren c (orMap maps))
+  go c@(COr{})  = uncurry or (go `onTup` getChildren c (orMap maps))
   go c@(CAnd{}) = uncurry and (go `onTup` getChildren c (andMap maps))
   go c@(CNot{}) = not . go $ getChildren c (notMap maps)
   go c@(CXor{}) =
@@ -680,6 +689,17 @@ removeComplex (FrozenShared code maps) = go code
 
 onTup f (x, y) = (f x, f y)
 
-projectSolution :: IAssignment -> FrozenShared v -> BEnv v
-projectSolution lits fr = undefined
+projectCircuitSolution :: (Ord v) => Solution -> CircuitProblem v -> BEnv v
+projectCircuitSolution (Sat lits) pblm =
+    -- only the lits whose vars are (varMap maps) go to benv
+    foldl (\m l -> case IntMap.lookup (litHash l) (varMap maps) of
+                     Nothing -> m
+                     Just v  -> Map.insert v (litSign l) m)
+          Map.empty
+          (litAssignment lits)
+  where
+  (FrozenShared _ maps) = circuitFrz pblm
+  litHash l = case Bimap.lookup (var l) (circuitCodeMap pblm) of
+                Nothing -> error $ "projectSolution: unknown lit: " ++ show l
+                Just code -> circuitHash code
 

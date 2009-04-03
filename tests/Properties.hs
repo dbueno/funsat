@@ -230,17 +230,14 @@ instance Show (a -> b) where
 -- assignment.
 prop_circuitToCnf :: Tree Var -> Property
 prop_circuitToCnf treeCircuit =
-    let (cnf, _, cnfMap) =
+    let pblm@(CircuitProblem cnf _ cnfMap) =
             toCNF . castCircuit $ treeCircuit
         (solution, _, _) = solve1 cnf
     in case solution of
-         Sat a -> let lits = litAssignment a
-                      ccodeVars = trace (show lits) $ mapMaybe
-                            (\l -> (\c -> (c, litSign l)) <$> Bimap.lookup (var l) cnfMap)
-                            lits
-                      benv = Map.fromList
-                           $ map (\(CVar i, b) -> (V i, b)) ccodeVars
-                  in label "Sat" $ runEval benv (castCircuit treeCircuit)
+         Sat a -> let benv = projectCircuitSolution solution pblm
+                  in label "Sat"
+                     . trivial (Map.null benv)
+                     $ runEval benv (castCircuit treeCircuit)
 
          Unsat _ -> label "Unsat (unverified)" True
 
@@ -377,12 +374,12 @@ sizedCircuit n =
           , liftM2 C.and subcircuit2 subcircuit2
           , liftM2 C.or  subcircuit2 subcircuit2
           , liftM C.not subcircuit1
---           , liftM3 ite subcircuit3 subcircuit3 subcircuit3
---           , liftM2 onlyif subcircuit2 subcircuit2
---           , liftM2 C.iff subcircuit2 subcircuit2
---           , liftM2 xor subcircuit2 subcircuit2
+          , liftM3 ite subcircuit3 subcircuit3 subcircuit3
+          , liftM2 onlyif subcircuit2 subcircuit2
+          , liftM2 C.iff subcircuit2 subcircuit2
+          , liftM2 xor subcircuit2 subcircuit2
           ]
-  where -- subcircuit3 = sizedCircuit (n `div` 3)
+  where subcircuit3 = sizedCircuit (n `div` 3)
         subcircuit2 = sizedCircuit (n `div` 2)
         subcircuit1 = sizedCircuit (n - 1)
 

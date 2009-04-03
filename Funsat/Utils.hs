@@ -25,9 +25,7 @@
 
 {-|
 
-Generic utilities that happen to be used in the SAT solver.  In pretty much
-every case, these functions will be useful for any number of manipulations,
-and are not SAT-solver specific.
+Generic utilities that happen to be used in the SAT solver.
 
 -}
 module Funsat.Utils where

@@ -23,7 +23,7 @@ License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
-Extra-source-files:  README CHANGES bugs.org todo.org
+Extra-source-files:  README CHANGES
 
 
 Executable funsat

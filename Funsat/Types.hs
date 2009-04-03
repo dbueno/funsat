@@ -101,6 +101,9 @@ instance Read Lit where
 var :: Lit -> Var
 var = V . abs . unLit
 
+lit :: Var -> Lit
+lit = L . unVar
+
 type Clause = [Lit]
 
 data CNF = CNF

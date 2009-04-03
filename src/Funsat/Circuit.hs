@@ -156,20 +156,22 @@ instance CastCircuit Shared where
 instance CastCircuit FrozenShared where
     castCircuit (FrozenShared code maps) = go code
       where
-        go (CTrue{})   = true
-        go (CFalse{})  = false
-        go (CVar i)    = input $ getChildren i varMap
-        go (CAnd i)    = uncurry and . go2 $ getChildren i andMap
-        go (COr i)     = uncurry or . go2 $ getChildren i orMap
-        go (CNot i)    = not . go $ getChildren i notMap
-        go (CXor i)    = uncurry xor . go2 $ getChildren i xorMap
-        go (COnlyif i) = uncurry onlyif . go2 $ getChildren i onlyifMap
-        go (CIff i)    = uncurry iff . go2 $ getChildren i iffMap
+        go (CTrue{})     = true
+        go (CFalse{})    = false
+        go c@(CVar{})    = input $ getChildren c (varMap maps)
+        go c@(CAnd{})    = uncurry and . go2 $ getChildren c (andMap maps)
+        go c@(COr{})     = uncurry or . go2 $ getChildren c (orMap maps)
+        go c@(CNot{})    = not . go $ getChildren c (notMap maps)
+        go c@(CXor{})    = uncurry xor . go2 $ getChildren c (xorMap maps)
+        go c@(COnlyif{}) = uncurry onlyif . go2 $ getChildren c (onlyifMap maps)
+        go c@(CIff{})    = uncurry iff . go2 $ getChildren c (iffMap maps)
 
-        getChildren int codeMap =
-            IntMap.findWithDefault (error $ "getChildren: unknown code: " ++ show int)
-            int (codeMap maps)
-        go2 (x, y) = (go x, go y)
+        go2 = (go `onTup`)
+
+getChildren :: CCode -> IntMap v -> v
+getChildren code codeMap =
+            IntMap.findWithDefault (error $ "getChildren: unknown code: " ++ show code)
+            (circuitHash code) codeMap
 
 type CircuitHash = Int
 
@@ -551,6 +553,7 @@ data CNFResult = CP !Lit !(Set (Set Lit))
 data CNFState = CNFS{ toCnfVars :: [Var] -- ^ infinite fresh var source
                     , toCnfMap  :: Bimap Var CCode -- ^ record var mapping
                     }
+emptyCNFState :: CNFState
 emptyCNFState = CNFS{ toCnfVars = [V 1 ..]
                     , toCnfMap = Bimap.empty }
 
@@ -560,7 +563,8 @@ findVar ccode = do
     m <- gets toCnfMap
     v:vs <- gets toCnfVars
     case Bimap.lookupR ccode m of
-      Nothing -> do modify $ \s -> s{ toCnfMap = Bimap.insert v ccode m }
+      Nothing -> do modify $ \s -> s{ toCnfMap = Bimap.insert v ccode m
+                                    , toCnfVars = vs }
                     return . lit $ v
       Just v'  -> return . lit $ v'
 
@@ -598,12 +602,12 @@ toCNF sc =
   where
     -- Returns (CP l c) where {l} U c is CNF equisatisfiable with the input
     -- circuit.
-    toCNF' c@(CVar i)   = do l <- findVar c
+    toCNF' c@(CVar{})   = do l <- findVar c
                              return (CP l Set.empty)
-    toCNF' c@(CTrue i)  = do
+    toCNF' c@(CTrue{})  = do
         l <- findVar c
         return (CP l (Set.singleton . Set.singleton $ l))
-    toCNF' c@(CFalse i) = do
+    toCNF' c@(CFalse{}) = do
         l <- findVar c
         return (CP l (Set.fromList [Set.singleton (negate l)]))
 
@@ -653,8 +657,28 @@ toCNF sc =
            code . f) `liftM` ask
 
 -- removes iff, xor, onlyif, ite
-removeComplex :: FrozenShared v -> Shared v
-removeComplex (FrozenShared code maps) = undefined 
+removeComplex :: (Ord v, Show v, Circuit c) => FrozenShared v -> c v
+removeComplex (FrozenShared code maps) = go code
+  where
+  go (CTrue{}) = true
+  go (CFalse{}) = false
+  go c@(CVar{}) = input $ getChildren c (varMap maps)
+  go c@(COr{}) = uncurry or (go `onTup` getChildren c (orMap maps))
+  go c@(CAnd{}) = uncurry and (go `onTup` getChildren c (andMap maps))
+  go c@(CNot{}) = not . go $ getChildren c (notMap maps)
+  go c@(CXor{}) =
+      let (l, r) = go `onTup` getChildren c (xorMap maps)
+      in (l `or` r) `and` not (l `and` r)
+  go c@(COnlyif{}) =
+      let (p, q) = go `onTup` getChildren c (onlyifMap maps)
+      in not p `or` q
+  go c@(CIff{}) =
+      let (p, q) = go `onTup` getChildren c (iffMap maps)
+      in (not p `or` q) `and` (not q `or` p)
+
+-- (c `and` t) `or` (not c `and` f)
+
+onTup f (x, y) = (f x, f y)
 
 projectSolution :: IAssignment -> FrozenShared v -> BEnv v
 projectSolution lits fr = undefined

@@ -471,9 +471,7 @@ shareGraph (FrozenShared output cmaps) =
   where
     -- Invariant: The returned node is always a member of the returned list of
     -- nodes.  Returns: (node, node-list, edge-list).
-    go c@(CVar i) = do
-        --v <- extract i varMap TODO
-        return (i, [(i, frz c)], [])
+    go c@(CVar i) = return (i, [(i, frz c)], [])
     go c@(CTrue i)  = return (i, [(i, frz c)], [])
     go c@(CFalse i) = return (i, [(i, frz c)], [])
     go c@(CNot i) = do
@@ -484,11 +482,16 @@ shareGraph (FrozenShared output cmaps) =
     go c@(CXor i) = extract i xorMap >>= tupM2 go >>= addKids c
     go c@(COnlyif i) = extract i onlyifMap >>= tupM2 go >>= addKids c
     go c@(CIff i) = extract i iffMap >>= tupM2 go >>= addKids c
-
---     -- Use the high-level circuit children when displaying.
---     goHLC parent (Xor hl hr)    = tupM2 go (hl, hr) >>= addKids parent
---     goHLC parent (Onlyif hl hr) = tupM2 go (hl, hr) >>= addKids parent
---     goHLC parent (Iff hl hr)    = tupM2 go (hl, hr) >>= addKids parent
+    go c@(CIte i) = do (x, y, z) <- extract i iteMap
+                       ( (cNode, cNodes, cEdges)
+                        ,(tNode, tNodes, tEdges)
+                        ,(eNode, eNodes, eEdges)) <- liftM3 (,,) (go x) (go y) (go z)
+                       return (i, (i, frz c) : cNodes ++ tNodes ++ eNodes
+                              ,(cNode, i, frz c)
+                               : (tNode, i, frz c)
+                               : (eNode, i, frz c)
+                               : cEdges ++ tEdges ++ eEdges)
+                           
 
     addKids ccode ((lNode, lNodes, lEdges), (rNode, rNodes, rEdges)) =
         let i = circuitHash ccode
@@ -551,19 +554,15 @@ simplifyCircuit (TXor l r) =
            _      -> TNot r'
          _      -> TXor l' r'
 
--- ** Pseudo-boolean circuits (TODO)
-
--- TODO Want to encode cardinality constraints as circuits, in order to
--- implement a cardinality-based optimisation loop.  This appears to be the
--- easiest route to *good* and correct plans.
-
 
 -- ** Convert circuit to CNF
 
 -- this data is private to toCNF.
 data CNFResult = CP !Lit !(Set (Set Lit))
-data CNFState = CNFS{ toCnfVars :: [Var] -- ^ infinite fresh var source
-                    , toCnfMap  :: Bimap Var CCode -- ^ record var mapping
+data CNFState = CNFS{ toCnfVars :: [Var]
+                      -- ^ infinite fresh var source, starting at 1
+                    , toCnfMap  :: Bimap Var CCode
+                      -- ^ record var mapping
                     }
 emptyCNFState :: CNFState
 emptyCNFState = CNFS{ toCnfVars = [V 1 ..]

@@ -192,13 +192,9 @@ data CCode = CTrue   { circuitHash :: !CircuitHash }
 
 -- | Maps used to implement the common-subexpression sharing implementation of
 -- the `Circuit' class.  See `Shared'.
---
--- /TODO/: implement using bimaps if this part is slow.
 data CMaps v = CMaps
-    { hashCount :: CircuitHash
-    -- ^ Source of unique IDs used in `Shared' circuit generation.  This
-    -- numbering is guaranteed to start at 1 and continue upward by ones when
-    -- using `runShared' to freeze the circuit.
+    { hashCount :: [CircuitHash]
+    -- ^ Source of unique IDs used in `Shared' circuit generation.
 
     , trueInt   :: Maybe CCode
     , falseInt  :: Maybe CCode
@@ -216,7 +212,7 @@ data CMaps v = CMaps
 -- | A `CMaps' with an initial `hashCount' of 1.
 emptyCMaps :: CMaps v
 emptyCMaps = CMaps
-    { hashCount = 1
+    { hashCount = [1 ..]
     , trueInt   = Nothing
     , falseInt  = Nothing
     , varMap    = IntMap.empty
@@ -244,11 +240,12 @@ recordC :: (Eq a) =>
 recordC _ _ _ x | x `seq` False = undefined
 recordC cons prj upd x = do
   s <- get
-  maybe (do let s' = upd (s{ hashCount = succ (hashCount s) })
-                         (IntMap.insert (hashCount s) x (prj s))
+  c:cs <- gets hashCount
+  maybe (do let s' = upd (s{ hashCount = cs })
+                         (IntMap.insert c x (prj s))
             put s'
             -- trace "updating map" (return ())
-            return (cons $ hashCount s))
+            return (cons c))
         (return . cons) $ lookupv x (prj s)
 
 instance Circuit Shared where
@@ -256,18 +253,18 @@ instance Circuit Shared where
                ti <- gets trueInt
                case ti of
                  Nothing -> do
-                     i <- gets hashCount
+                     i:is <- gets hashCount
                      let c = CTrue i
-                     modify $ \s -> s{ hashCount = succ i, trueInt = Just c }
+                     modify $ \s -> s{ hashCount = is, trueInt = Just c }
                      return c
                  Just c -> return c
     false = Shared $ do
                ti <- gets falseInt
                case ti of
                  Nothing -> do
-                     i <- gets hashCount
+                     i:is <- gets hashCount
                      let c = CFalse i
-                     modify $ \s -> s{ hashCount = succ i, falseInt = Just c }
+                     modify $ \s -> s{ hashCount = is, falseInt = Just c }
                      return c
                  Just c -> return c
     input v = Shared $ recordC CVar varMap (\s e -> s{ varMap = e }) v

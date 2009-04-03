@@ -21,9 +21,6 @@ module Funsat.Circuit
     , CMaps(..)
     , emptyCMaps
 
-    -- ** And-inverter graphs
-    , AIG(..)
-
     -- ** Explicit tree circuit
     , Tree(..)
     , foldTree
@@ -291,18 +288,6 @@ instance Circuit Shared where
     onlyif l r = Shared $ do
                     hl <- unShared l ; hr <- unShared r
                     recordC COnlyif onlyifMap (\s e' -> s{ onlyifMap = e' }) (hl, hr)
-
--- ** And-inverter graphs
-
-newtype AIG dag v = AIG{ unAIG :: dag () AIGEdge }
-
--- | `True' iff source is passed through un-negated.  If an AIG edge negates its
--- source, this value is `False'.
-type AIGEdge = Bool
-
---instance Circuit AIG where
-
-              
 
 -- ** Explicit tree circuit
 

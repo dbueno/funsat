@@ -167,8 +167,11 @@ instance CastCircuit FrozenShared where
         go c@(CXor{})    = uncurry xor . go2 $ getChildren c (xorMap maps)
         go c@(COnlyif{}) = uncurry onlyif . go2 $ getChildren c (onlyifMap maps)
         go c@(CIff{})    = uncurry iff . go2 $ getChildren c (iffMap maps)
+        go c@(CIte{})    = uncurry3 ite . go3 $ getChildren c (iteMap maps)
 
         go2 = (go `onTup`)
+        go3 (x, y, z) = (go x, go y, go z)
+        uncurry3 f (x, y, z) = f x y z
 
 getChildren :: CCode -> IntMap v -> v
 getChildren code codeMap =
@@ -192,6 +195,7 @@ data CCode = CTrue   { circuitHash :: !CircuitHash }
            | CXor    { circuitHash :: !CircuitHash }
            | COnlyif { circuitHash :: !CircuitHash }
            | CIff    { circuitHash :: !CircuitHash }
+           | CIte    { circuitHash :: !CircuitHash }
              deriving (Eq, Ord, Show, Read)
 
 -- | Maps used to implement the common-subexpression sharing implementation of
@@ -210,7 +214,8 @@ data CMaps v = CMaps
     , notMap    :: IntMap CCode
     , xorMap    :: IntMap (CCode, CCode)
     , onlyifMap :: IntMap (CCode, CCode)
-    , iffMap    :: IntMap (CCode, CCode) }
+    , iffMap    :: IntMap (CCode, CCode)
+    , iteMap    :: IntMap (CCode, CCode, CCode) }
                deriving (Eq, Ord, Show, Read)
 
 -- | A `CMaps' with an initial `hashCount' of 1.
@@ -225,7 +230,8 @@ emptyCMaps = CMaps
     , notMap    = IntMap.empty
     , xorMap    = IntMap.empty
     , onlyifMap = IntMap.empty
-    , iffMap    = IntMap.empty }
+    , iffMap    = IntMap.empty
+    , iteMap    = IntMap.empty }
 
 -- | Find key mapping to given value.
 lookupv :: Eq v => v -> IntMap v -> Maybe Int
@@ -292,6 +298,10 @@ instance Circuit Shared where
     onlyif l r = Shared $ do
                     hl <- unShared l ; hr <- unShared r
                     recordC COnlyif onlyifMap (\s e' -> s{ onlyifMap = e' }) (hl, hr)
+    ite x t e = Shared $ do
+        hx <- unShared x
+        ht <- unShared t ; he <- unShared e
+        recordC CIte iteMap (\s e' -> s{ iteMap = e' }) (hx, ht, he)
 
 -- ** Explicit tree circuit
 
@@ -684,8 +694,10 @@ removeComplex (FrozenShared code maps) = go code
   go c@(CIff{}) =
       let (p, q) = go `onTup` getChildren c (iffMap maps)
       in (not p `or` q) `and` (not q `or` p)
-
--- (c `and` t) `or` (not c `and` f)
+  go c@(CIte{}) =
+      let (cc, tc, ec) = getChildren c (iteMap maps)
+          (cond, t, e) = (go cc, go tc, go ec)
+      in (cond `and` t) `or` (not cond `and` e)
 
 onTup f (x, y) = (f x, f y)
 

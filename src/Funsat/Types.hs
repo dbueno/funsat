@@ -84,6 +84,7 @@ instance Num Lit where
     fromInteger l | l == 0    = error "0 is not a literal"
                   | otherwise = L $ fromInteger l
 
+-- | Transform the number inside the literal.
 inLit :: (Int -> Int) -> Lit -> Lit
 inLit f = L . f . unLit
 
@@ -102,6 +103,7 @@ instance Read Lit where
 var :: Lit -> Var
 var = V . abs . unLit
 
+-- | The positive literal for the given variable.
 lit :: Var -> Lit
 lit = L . unVar
 
@@ -192,6 +194,7 @@ instance (BitSet.Hash Var) where
 -- and can be done destructively, but safely.
 type IAssignment = UArray Var Int
 
+showAssignment :: IAssignment -> String
 showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
                                                   (a!i) /= 0])
 

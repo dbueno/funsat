@@ -22,9 +22,11 @@ module Properties where
 
 import Funsat.Solver hiding ((==>))
 
+import Control.Applicative( (<$>) )
 import Control.Exception( assert )
 import Control.Monad
 import Data.Array.Unboxed
+import Data.Bimap( Bimap )
 import Data.BitSet (hash)
 import Data.Bits hiding( xor )
 import Data.Foldable hiding (sequence_)
@@ -33,7 +35,8 @@ import Data.Maybe
 import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
-import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif), CastCircuit(..), toCNF, Tree(..), foldTree, Graph(..), FrozenShared(..), BEnv, runEval, simplifyCircuit, CMaps(varMap) )
+import Funsat.Circuit hiding( Circuit(..) )
+import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif) )
 import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
@@ -43,6 +46,7 @@ import System.IO
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
 
+import qualified Data.Bimap as Bimap
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
@@ -222,40 +226,20 @@ instance Show (a -> b) where
 
 -- ** Circuits and CNF conversion
 
--- | Generator for a circuit containing at most `n' nodes, involving only the
--- literals 1 .. n.
-sizedCircuit :: (Circuit c) => Int -> Gen (c Var)
-sizedCircuit 0 = return . input . V $ 1
-sizedCircuit n =
-    oneof [ return true
-          , return false
-          , (return . input . V) n
-          , liftM2 C.and subcircuit2 subcircuit2
-          , liftM2 C.or  subcircuit2 subcircuit2
-          , liftM C.not subcircuit1
-          , liftM3 ite subcircuit3 subcircuit3 subcircuit3
-          , liftM2 onlyif subcircuit2 subcircuit2
-          , liftM2 C.iff subcircuit2 subcircuit2
-          , liftM2 xor subcircuit2 subcircuit2 ]
-  where subcircuit3 = sizedCircuit (n `div` 3)
-        subcircuit2 = sizedCircuit (n `div` 2)
-        subcircuit1 = sizedCircuit (n - 1)
-
 -- If CNF generated from circuit satisfiable, check that circuit is by that
 -- assignment.
 prop_circuitToCnf :: Tree Var -> Property
 prop_circuitToCnf treeCircuit =
-    let (cnf, FrozenShared (_output, cmaps), _cnfMap) =
+    let (cnf, _, cnfMap) =
             toCNF . castCircuit $ treeCircuit
         (solution, _, _) = solve1 cnf
     in case solution of
          Sat a -> let lits = litAssignment a
-                      benv =
-                          Map.fromList 
-                          $ mapMaybe
-                            (\l -> ((\v -> (v, litSign l)) `fmap`) $
-                                   IntMap.lookup (unVar . var $ l) (varMap cmaps))
+                      ccodeVars = trace (show lits) $ mapMaybe
+                            (\l -> (\c -> (c, litSign l)) <$> Bimap.lookup (var l) cnfMap)
                             lits
+                      benv = Map.fromList
+                           $ map (\(CVar i, b) -> (V i, b)) ccodeVars
                   in label "Sat" $ runEval benv (castCircuit treeCircuit)
 
          Unsat _ -> label "Unsat (unverified)" True
@@ -380,6 +364,27 @@ sizedLit n = do
   v <- choose (1, n)
   t <- oneof [return id, return negate]
   return $ L (t v)
+
+
+-- | Generator for a circuit containing at most `n' nodes, involving only the
+-- literals 1 .. n.
+sizedCircuit :: (Circuit c) => Int -> Gen (c Var)
+sizedCircuit 0 = return . input . V $ 1
+sizedCircuit n =
+    oneof [ return true
+          , return false
+          , (return . input . V) n
+          , liftM2 C.and subcircuit2 subcircuit2
+          , liftM2 C.or  subcircuit2 subcircuit2
+          , liftM C.not subcircuit1
+--           , liftM3 ite subcircuit3 subcircuit3 subcircuit3
+--           , liftM2 onlyif subcircuit2 subcircuit2
+--           , liftM2 C.iff subcircuit2 subcircuit2
+--           , liftM2 xor subcircuit2 subcircuit2
+          ]
+  where -- subcircuit3 = sizedCircuit (n `div` 3)
+        subcircuit2 = sizedCircuit (n `div` 2)
+        subcircuit1 = sizedCircuit (n - 1)
 
 -- | Generate a random 3SAT problem with the given ratio of clauses/variable.
 --

@@ -34,7 +34,7 @@ Executable funsat
                       -fno-warn-orphans
  Extensions:          CPP, ScopedTypeVariables
  CPP-options:         -DTESTING
- Hs-source-dirs:      . tests
+ Hs-source-dirs:      . src tests
  Other-modules:
                       Funsat.Solver
                       Funsat.Types
@@ -74,7 +74,7 @@ Library
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
  Extensions:          CPP, ScopedTypeVariables
- Hs-source-dirs:      .
+ Hs-source-dirs:      src
  Build-Depends:       base,
                       containers,
                       pretty,

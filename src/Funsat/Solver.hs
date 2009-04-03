@@ -132,7 +132,7 @@ solve cfg fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
     -- starting with an initial assignment.
 --     trace ("input " ++ show f) $
-    either (error "no solution") id $
+    either (error "solve: invariant violated") id $
     runST $
     evalSSTErrMonad
         (do initialAssignment <- liftST $ newSTUArray (V 1, V (numVars f)) 0

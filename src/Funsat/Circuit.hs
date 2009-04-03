@@ -580,6 +580,9 @@ findVar ccode = do
                     return . lit $ v
       Just v'  -> return . lit $ v'
 
+-- | A circuit problem packages up the CNF corresponding to a given
+-- `FrozenShared' circuit, and the mapping between the variables in the CNF and
+-- the circuit elements of the circuit.
 data CircuitProblem v = CircuitProblem
     { circuitCnf :: CNF
     , circuitFrz :: FrozenShared v

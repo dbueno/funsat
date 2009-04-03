@@ -16,6 +16,7 @@ module Funsat.Circuit
     -- ** Explicit sharing circuit
     , Shared(..)
     , FrozenShared(..)
+    , runShared
     , CircuitHash
     , CCode(..)
     , CMaps(..)
@@ -604,10 +605,10 @@ data CircuitProblem v = CircuitProblem
 -- able to write this tail-recursively.
 --
 -- /TODO/ can easily count the number of variables while constructing cnf
-toCNF :: (Ord v, Show v) => Shared v -> CircuitProblem v
+toCNF :: (Ord v, Show v) => FrozenShared v -> CircuitProblem v
 toCNF cIn =
     let c@(FrozenShared sharedCircuit circuitMaps) =
-            runShared . removeComplex . runShared $ cIn
+            runShared . removeComplex $ cIn
         (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` emptyCNFState)) $ do
                      (CP l theClauses) <- toCNF' sharedCircuit
                      return $ Set.insert (Set.singleton l) theClauses

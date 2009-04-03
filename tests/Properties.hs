@@ -231,7 +231,7 @@ instance Show (a -> b) where
 prop_circuitToCnf :: Tree Var -> Property
 prop_circuitToCnf treeCircuit =
     let pblm@(CircuitProblem cnf _ cnfMap) =
-            toCNF . castCircuit $ treeCircuit
+            toCNF . runShared . castCircuit $ treeCircuit
         (solution, _, _) = solve1 cnf
     in case solution of
          Sat a -> let benv = projectCircuitSolution solution pblm

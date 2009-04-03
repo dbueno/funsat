@@ -597,62 +597,68 @@ toCNF sc =
              , numClauses = Set.size cnf
              , clauses = Set.map Foldable.toList cnf }
        , c
-       , m )
+       , toCnfMap m )
   where
-    -- Returns (l :: Lit, c :: Set Clause) where {l} U c is CNF equisatisfiable
-    -- with the input circuit.
-    toCNF' c@(CVar i)   = store (V i) c >> return (L i, Set.empty)
-    toCNF' c@(CTrue i)  =
-        store (V i) c >> return (L i, Set.singleton . Set.singleton $ L i)
-    toCNF' c@(CFalse i) =
-        store (V i) c >> return (L i, Set.fromList [Set.singleton (negate (L i))])
+    -- Returns (CP l c) where {l} U c is CNF equisatisfiable with the input
+    -- circuit.
+    toCNF' c@(CVar i)   = do l <- findVar c
+                             return (CP l Set.empty)
+    toCNF' c@(CTrue i)  = do
+        l <- findVar c
+        return (CP l (Set.singleton . Set.singleton $ l))
+    toCNF' c@(CFalse i) = do
+        l <- findVar c
+        return (CP l (Set.fromList [Set.singleton (negate l)]))
 
-    -- x <-> -y
-    --   <-> (-x, -y) & (y, x)
+--     -- x <-> -y
+--     --   <-> (-x, -y) & (y, x)
     toCNF' c@(CNot i) = do
-        store (V i) c
+        notLit <- findVar c
         eTree <- extract i notMap
-        (eLit, eCnf) <- toCNF' eTree
-        let notLit = L i
+        (CP eLit eCnf) <- toCNF' eTree
         return
-          ( notLit
-          , Set.fromList [ Set.fromList [negate notLit, negate eLit]
+          (CP notLit
+              (Set.fromList [ Set.fromList [negate notLit, negate eLit]
                          , Set.fromList [eLit, notLit] ]
-            `Set.union` eCnf )
+              `Set.union` eCnf))
 
-    -- x <-> (y | z)
-    --   <-> (-y, x) & (-z, x) & (-x, y, z)
+--     -- x <-> (y | z)
+--     --   <-> (-y, x) & (-z, x) & (-x, y, z)
     toCNF' c@(COr i) = do
-        store (V i) c
+        orLit <- findVar c
         (l, r) <- extract i orMap
-        (lLit, lCnf) <- toCNF' l
-        (rLit, rCnf) <- toCNF' r
-        let orLit = L i
+        (CP lLit lCnf) <- toCNF' l
+        (CP rLit rCnf) <- toCNF' r
         return
-          ( orLit
-          , Set.fromList [ Set.fromList [negate lLit, orLit]
+          (CP orLit
+              (Set.fromList [ Set.fromList [negate lLit, orLit]
                          , Set.fromList [negate rLit, orLit]
                          , Set.fromList [negate orLit, lLit, rLit] ]
-            `Set.union` lCnf `Set.union` rCnf )
+              `Set.union` lCnf `Set.union` rCnf))
               
-    -- x <-> (y & z)
-    --   <-> (-x, y), (-x, z) & (-y, -z, x)
+--     -- x <-> (y & z)
+--     --   <-> (-x, y), (-x, z) & (-y, -z, x)
     toCNF' c@(CAnd i) = do
-        store (V i) c
+        andLit <- findVar c
         (l, r) <- extract i andMap
-        (lLit, lCnf) <- toCNF' l
-        (rLit, rCnf) <- toCNF' r
-        let andLit = L i
+        (CP lLit lCnf) <- toCNF' l
+        (CP rLit rCnf) <- toCNF' r
         return
-          ( andLit
-          , Set.fromList [ Set.fromList [negate andLit, lLit]
+          (CP andLit
+             (Set.fromList [ Set.fromList [negate andLit, lLit]
                          , Set.fromList [negate andLit, rLit]
                          , Set.fromList [negate lLit, negate rLit, andLit] ]
-            `Set.union` lCnf `Set.union` rCnf )
+             `Set.union` lCnf `Set.union` rCnf))
+        
 
-    -- record that var v maps to circuit element ccode
-    store v ccode  = modify $ Map.insert v ccode
     extract code f =
         (IntMap.findWithDefault (error $ "toCNF: unknown code: " ++ show code)
            code . f) `liftM` ask
+
+-- removes iff, xor, onlyif, ite
+removeComplex :: FrozenShared v -> Shared v
+removeComplex (FrozenShared code maps) = undefined 
+
+projectSolution :: IAssignment -> FrozenShared v -> BEnv v
+projectSolution lits fr = undefined
 

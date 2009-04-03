@@ -66,6 +66,7 @@ where
 
 import Control.Monad.Reader
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
+import Data.Bimap( Bimap )
 import Data.Graph.Inductive.Graph( LNode )
 import Data.Graph.Inductive.Tree()
 import Data.IntMap( IntMap )
@@ -73,9 +74,11 @@ import Data.List( nub )
 import Data.Map( Map )
 import Data.Maybe()
 import Data.Ord()
-import Funsat.Types ( CNF(..), Lit(..), Var(..), var )
+import Data.Set( Set )
+import Funsat.Types ( CNF(..), Lit(..), Var(..), var, lit, IAssignment )
 import Prelude hiding( not, and, or )
 
+import qualified Data.Bimap as Bimap
 import qualified Data.Foldable as Foldable
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Graph as G
@@ -141,17 +144,17 @@ class CastCircuit c where
 newtype Shared v = Shared { unShared :: State (CMaps v) CCode }
 
 -- | A shared circuit that has already been constructed.
-newtype FrozenShared v = FrozenShared (CCode, CMaps v) deriving (Eq, Ord, Show, Read)
+data FrozenShared v = FrozenShared !CCode !(CMaps v) deriving (Eq, Ord, Show, Read)
 
 -- | Reify a sharing circuit.
 runShared :: Shared v -> FrozenShared v
-runShared = FrozenShared . (`runState` emptyCMaps) . unShared
+runShared = uncurry FrozenShared . (`runState` emptyCMaps) . unShared
 
 instance CastCircuit Shared where
     castCircuit = castCircuit . runShared
 
 instance CastCircuit FrozenShared where
-    castCircuit (FrozenShared (code, maps)) = go code
+    castCircuit (FrozenShared code maps) = go code
       where
         go (CTrue{})   = true
         go (CFalse{})  = false
@@ -450,7 +453,7 @@ dotGraph g = graphToDot g defaultNodeAnnotate defaultEdgeAnnotate
 -- circuits.
 shareGraph :: (G.DynGraph gr, Eq v, Show v) =>
               FrozenShared v -> gr (FrozenShared v) (FrozenShared v)
-shareGraph (FrozenShared (output, cmaps)) =
+shareGraph (FrozenShared output cmaps) =
     (`runReader` cmaps) $ do
         (_, nodes, edges) <- go output
         return $ Graph.mkGraph (nub nodes) (nub edges)
@@ -481,7 +484,7 @@ shareGraph (FrozenShared (output, cmaps)) =
         in return (i, (i, frz ccode) : lNodes ++ rNodes,
                       (lNode, i, frz ccode) : (rNode, i, frz ccode) : lEdges ++ rEdges)
     tupM2 f (x, y) = liftM2 (,) (f x) (f y)
-    frz ccode = FrozenShared (ccode, cmaps)
+    frz ccode = FrozenShared ccode cmaps
     extract code f = do
         maps <- ask
         return $
@@ -546,6 +549,24 @@ simplifyCircuit (TXor l r) =
 
 -- ** Convert circuit to CNF
 
+-- this data is private to toCNF.
+data CNFResult = CP !Lit !(Set (Set Lit))
+data CNFState = CNFS{ toCnfVars :: [Var] -- ^ infinite fresh var source
+                    , toCnfMap  :: Bimap Var CCode -- ^ record var mapping
+                    }
+emptyCNFState = CNFS{ toCnfVars = [V 1 ..]
+                    , toCnfMap = Bimap.empty }
+
+-- retrieve and create (if necessary) a cnf variable for the given ccode.
+--findVar :: (MonadState CNFState m) => CCode -> m Lit
+findVar ccode = do
+    m <- gets toCnfMap
+    v:vs <- gets toCnfVars
+    case Bimap.lookupR ccode m of
+      Nothing -> do modify $ \s -> s{ toCnfMap = Bimap.insert v ccode m }
+                    return . lit $ v
+      Just v'  -> return . lit $ v'
+
 -- | Produces a CNF formula that is satisfiable if and only if the input circuit
 -- is satisfiable.  /Note that it does not produce an equivalent CNF formula./
 -- It is not equivalent in general because the transformation introduces
@@ -563,11 +584,11 @@ simplifyCircuit (TXor l r) =
 -- able to write this tail-recursively.
 --
 -- /TODO/ can easily count the number of variables while constructing cnf
-toCNF :: (Ord v) => Shared v -> (CNF, FrozenShared v, Map Var CCode)
+toCNF :: (Ord v) => Shared v -> (CNF, FrozenShared v, Bimap Var CCode)
 toCNF sc =
-    let c@(FrozenShared (sharedCircuit, circuitMaps)) = runShared sc
-        (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` Map.empty)) $ do
-                     (l, theClauses) <- toCNF' sharedCircuit
+    let c@(FrozenShared sharedCircuit circuitMaps) = runShared sc
+        (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` emptyCNFState)) $ do
+                     (CP l theClauses) <- toCNF' sharedCircuit
                      return $ Set.insert (Set.singleton l) theClauses
     in ( CNF { numVars =   Set.fold max 1
                          . Set.map (Set.fold max 1)

@@ -100,7 +100,7 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.Foldable hiding ( sequence_ )
 import Data.Int( Int64 )
-import Data.List( intercalate, nub, tails, sortBy, sort )
+import Data.List( nub, tails, sortBy, sort )
 import Data.Maybe
 import Data.Ord( comparing )
 import Data.STRef

@@ -620,7 +620,9 @@ toCNF cIn =
        , circuitCodeMap = toCnfMap m }
   where
     -- Returns (CP l c) where {l} U c is CNF equisatisfiable with the input
-    -- circuit.
+    -- circuit.  Note that CNF conversion only has cases for And, Or, Not, True,
+    -- False, and Var circuits.  We therefore remove the complex circuit before
+    -- passing stuff to this function.
     toCNF' c@(CVar{})   = do l <- findVar c
                              return (CP l Set.empty)
     toCNF' c@(CTrue{})  = do

@@ -30,7 +30,8 @@
 -- Malik.
 module Funsat.Resolution
     ( -- * Interface
-      checkDepthFirst
+      genUnsatCore
+    , checkDepthFirst
      -- * Data Types
     , ResolutionTrace(..)
     , initResolutionTrace
@@ -76,6 +77,7 @@ data ResolutionTrace = ResolutionTrace
     , traceAntecedents :: Map Var ClauseId }
                        deriving (Show)
 
+initResolutionTrace :: ClauseId -> IAssignment -> ResolutionTrace
 initResolutionTrace finalClauseId finalAssignment = ResolutionTrace
     { traceFinalClauseId = finalClauseId
     , traceFinalAssignment = finalAssignment
@@ -127,6 +129,9 @@ instance Error ResolutionError where -- Just for the Error monad.
 --       Left err -> err
 --       Right ucore ->
 --           let (sol, rt) solver (rescaleIntoCNF ucore)
+
+genUnsatCore :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
+genUnsatCore = checkDepthFirst
 
 -- | The depth-first method.
 checkDepthFirst :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
@@ -202,6 +207,7 @@ recursiveBuild clauseId = do
     withClauseInCore =
         (modify (\s -> s{ unsatCore = IntSet.insert clauseId (unsatCore s) }) >>)
 
+recursiveBuildIds :: ClauseId -> ClauseId -> [ClauseId] -> ResM Clause
 recursiveBuildIds clauseId firstSourceId sourceIds = do
     rc <- recursiveBuild firstSourceId -- recursive_build(id)
     clause <- foldM buildAndResolve rc sourceIds

@@ -41,7 +41,7 @@ import Funsat.Types
 import Funsat.Utils
 import Language.CNF.Parse.ParseDIMACS( parseFile )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap, sum, concat )
-import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
+import Funsat.Resolution( ResolutionTrace(..) )
 import System.IO
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
@@ -127,7 +127,7 @@ prop_resolutionChecker (cnf :: UnsatCNF) =
     case solve1 (unUnsatCNF cnf) of
       (Sat _,_,_)    -> label "SAT (unverified)" True
       (Unsat _,_,rt) -> label "UNSAT" $
-          case Resolution.checkDepthFirst (fromJust rt) of
+          case Resolution.genUnsatCore (fromJust rt) of
             Left e -> False
             Right unsatCore ->
                 case solve1 ((unUnsatCNF cnf){ clauses = Set.fromList unsatCore}) of

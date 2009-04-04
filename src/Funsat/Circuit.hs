@@ -709,22 +709,28 @@ removeComplex (FrozenShared code maps) = go code
           (cond, t, e) = (go cc, go tc, go ec)
       in (cond `and` t) `or` (not cond `and` e)
 
+onTup :: (a -> b) -> (a, a) -> (b, b)
 onTup f (x, y) = (f x, f y)
 
 -- | Projects a funsat `Solution' back into the original circuit space,
 -- returning a boolean environment containing an assignment of all circuit
 -- inputs to true and false.
 projectCircuitSolution :: (Ord v) => Solution -> CircuitProblem v -> BEnv v
-projectCircuitSolution (Sat lits) pblm =
-    -- only the lits whose vars are (varMap maps) go to benv
-    foldl (\m l -> case IntMap.lookup (litHash l) (varMap maps) of
-                     Nothing -> m
-                     Just v  -> Map.insert v (litSign l) m)
-          Map.empty
-          (litAssignment lits)
+projectCircuitSolution sol pblm = case sol of
+                                    Sat lits   -> projectLits lits
+                                    Unsat lits -> projectLits lits
   where
-  (FrozenShared _ maps) = circuitFrz pblm
-  litHash l = case Bimap.lookup (var l) (circuitCodeMap pblm) of
-                Nothing -> error $ "projectSolution: unknown lit: " ++ show l
-                Just code -> circuitHash code
+  projectLits lits =
+      -- only the lits whose vars are (varMap maps) go to benv
+      foldl (\m l -> case IntMap.lookup (litHash l) (varMap maps) of
+                       Nothing -> m
+                       Just v  -> Map.insert v (litSign l) m)
+            Map.empty
+            (litAssignment lits)
+    where
+    (FrozenShared _ maps) = circuitFrz pblm
+    litHash l = case Bimap.lookup (var l) (circuitCodeMap pblm) of
+                  Nothing -> error $ "projectSolution: unknown lit: " ++ show l
+                  Just code -> circuitHash code
+
 

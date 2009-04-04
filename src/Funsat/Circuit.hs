@@ -674,7 +674,12 @@ toCNF cIn =
                          , Set.fromList [negate andLit, rLit]
                          , Set.fromList [negate lLit, negate rLit, andLit] ]
              `Set.union` lCnf `Set.union` rCnf))
-        
+
+    toCNF' c = do
+        m <- ask
+        error $  "toCNF' bug: unknown code: " ++ show c
+              ++ " with maps:\n" ++ show m
+
 
     extract code f =
         (IntMap.findWithDefault (error $ "toCNF: unknown code: " ++ show code)

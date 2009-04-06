@@ -316,7 +316,7 @@ data Tree v = TTrue
              | TOr  (Tree v) (Tree v)
              | TXor (Tree v) (Tree v)
              | TNot (Tree v)
-               deriving (Show)
+               deriving (Show, Eq, Ord)
 
 foldTree :: (t -> v -> t) -> t -> Tree v -> t
 foldTree _ i TTrue        = i

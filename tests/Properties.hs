@@ -245,7 +245,7 @@ prop_circuitToCnf treeCircuit =
 -- circuit and simplified version should evaluate the same
 prop_circuitSimplify :: ArbBEnv -> Circuit.Tree Var -> Property
 prop_circuitSimplify (ArbBEnv benv) c =
-    trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) .
+    trivial (c == TTrue || c == TFalse) $
     assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
       runEval benv (castCircuit c)
       == runEval benv (castCircuit . simplifyCircuit $ c)

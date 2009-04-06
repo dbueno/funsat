@@ -18,7 +18,7 @@ Synopsis:            A modern DPLL-style SAT solver
 Homepage:            http://github.com/dbueno/funsat
 Category:            Algorithms
 Stability:           beta
-License:             LGPL
+License:             BSD3
 License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>

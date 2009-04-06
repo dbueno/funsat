@@ -9,7 +9,7 @@ Description:
     conjunctive normal form.
 
 Category:            Parsing
-License:             LGPL
+License:             BSD3
 License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>

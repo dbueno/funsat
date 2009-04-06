@@ -4,7 +4,7 @@ Description:         A complete (in the logical sense) SAT solver with non-chron
 Synopsis:            A minimal SAT solver
 Category:            Algorithms
 Stability:           alpha
-License:             LGPL
+License:             BSD3
 License-file:        LICENSE
 
 Author:              Denis Bueno

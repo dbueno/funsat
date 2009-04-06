@@ -6,7 +6,7 @@ Description:
         into (non-negative) @Int@s.  Supports insertion, deletion, size, and
         membership testing, and is completely pure (functional).
 Category:            Data Structures
-License:             LGPL
+License:             BSD3
 License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>

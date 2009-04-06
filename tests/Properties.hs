@@ -250,12 +250,14 @@ prop_circuitSimplify (ArbBEnv benv) c =
       runEval benv (castCircuit c)
       == runEval benv (castCircuit . simplifyCircuit $ c)
 
-prop_circuitGraphIsTree :: Circuit.Tree Var -> Property
-prop_circuitGraphIsTree t = t `equivalentTo` g
+{-
+prop_circuitGraphIsTree :: C.Shared Var -> Property
+prop_circuitGraphIsTree sh = c `equivalentTo` g
   where
-    equivalentTo = undefined
-    g = castCircuit t :: Graph Var
-
+  equivalentTo = undefined
+  g = castCircuit c :: Graph Var
+  c = C.runShared sh
+-}
 
 treeVars :: (Ord v) => Circuit.Tree v -> Set v
 treeVars = C.foldTree (flip Set.insert) Set.empty

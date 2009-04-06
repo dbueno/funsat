@@ -56,6 +56,7 @@ import qualified Funsat.Resolution as Resolution
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 import qualified Test.QuickCheck as QC
 import qualified Funsat.Circuit as C
+import qualified Funsat.Circuit as Circuit
 
 
 main :: IO ()
@@ -228,7 +229,7 @@ instance Show (a -> b) where
 
 -- If CNF generated from circuit satisfiable, check that circuit is by that
 -- assignment.
-prop_circuitToCnf :: Tree Var -> Property
+prop_circuitToCnf :: Circuit.Tree Var -> Property
 prop_circuitToCnf treeCircuit =
     let pblm@(CircuitProblem cnf _ cnfMap) =
             toCNF . runShared . castCircuit $ treeCircuit
@@ -242,22 +243,22 @@ prop_circuitToCnf treeCircuit =
          Unsat _ -> label "Unsat (unverified)" True
 
 -- circuit and simplified version should evaluate the same
-prop_circuitSimplify :: ArbBEnv -> Tree Var -> Property
+prop_circuitSimplify :: ArbBEnv -> Circuit.Tree Var -> Property
 prop_circuitSimplify (ArbBEnv benv) c =
     trivial (case c of TTrue -> True ; TFalse -> True ; _ -> False) .
     assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
       runEval benv (castCircuit c)
       == runEval benv (castCircuit . simplifyCircuit $ c)
 
-prop_circuitGraphIsTree :: Tree Var -> Property
+prop_circuitGraphIsTree :: Circuit.Tree Var -> Property
 prop_circuitGraphIsTree t = t `equivalentTo` g
   where
     equivalentTo = undefined
     g = castCircuit t :: Graph Var
 
 
-treeVars :: (Ord v) => Tree v -> Set v
-treeVars = foldTree (flip Set.insert) Set.empty
+treeVars :: (Ord v) => Circuit.Tree v -> Set v
+treeVars = C.foldTree (flip Set.insert) Set.empty
 
 
 

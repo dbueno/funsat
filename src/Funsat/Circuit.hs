@@ -460,7 +460,7 @@ dotGraph g = graphToDot g defaultNodeAnnotate defaultEdgeAnnotate
 
 -}
 
--- | Given a frozen shared circuit, construct a `DynGraph' that exactly
+-- | Given a frozen shared circuit, construct a `G.DynGraph' that exactly
 -- represents it.  Useful for debugging constraints generated as `Shared'
 -- circuits.
 shareGraph :: (G.DynGraph gr, Eq v, Show v) =>

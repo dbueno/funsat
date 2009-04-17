@@ -10,9 +10,8 @@ Description:
     convenient embedding of a reasonably fast SAT solver as a constraint
     solving backend in other applications.
 
-    Currently along this theme we provide /unsatisfiable core/ generation,
-    giving (hopefully) small unsatisfiable sub-problems of unsatisfiable input
-    problems (see "Funsat.Resolution").
+    Currently along this theme we provide /unsatisfiable core/ generation (see
+    "Funsat.Resolution") and a logical circuit interface (see "Funsat.Circuit").
 
 Synopsis:            A modern DPLL-style SAT solver
 Homepage:            http://github.com/dbueno/funsat

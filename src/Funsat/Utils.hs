@@ -88,10 +88,12 @@ getUnit c m = case filter (not . (`isFalseUnder` m)) c of
 
 
 {-# INLINE mytrace #-}
+mytrace :: String -> a -> a
 mytrace msg expr = unsafePerformIO $ do
     hPutStr stderr msg
     return expr
 
+outputConflict :: FilePath -> String -> a -> a
 outputConflict fn g x = unsafePerformIO $ do writeFile fn g
                                              return x
 
@@ -148,6 +150,7 @@ tracing x = trace (show x) x
 
 -- | Returns a predicate which holds exactly when both of the given predicates
 -- hold.
+(.&&.) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
 p .&&. q = \x -> p x && q x
 
 

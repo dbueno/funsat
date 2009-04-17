@@ -59,9 +59,11 @@ instance (Show a) => Show (Table a) where
               colStrings = [ padString (cellWidth c) (show d)
                              | c@(Cell {cellData=d}) <- cols ]
 
+padString :: Int -> String -> String
 padString maxWidth str = str ++ replicate padLen ' '
     where padLen = maxWidth - length str
 
+zipn :: [[a]] -> [[a]]
 zipn xss | any null xss = []
 zipn xss = map head xss : zipn (map tail xss)
 

@@ -73,7 +73,6 @@ where
 import Control.Monad.Reader
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
 import Data.Bimap( Bimap )
-import Data.IntMap( IntMap )
 import Data.List( nub )
 import Data.Map( Map )
 import Data.Maybe()
@@ -86,7 +85,6 @@ import qualified Data.Bimap as Bimap
 import qualified Data.Foldable as Foldable
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Graph as G
-import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Prelude as Prelude
@@ -148,7 +146,7 @@ class CastCircuit c where
 newtype Shared v = Shared { unShared :: State (CMaps v) CCode }
 
 -- | A shared circuit that has already been constructed.
-data FrozenShared v = FrozenShared !CCode !(CMaps v) deriving (Eq, Ord, Show, Read)
+data FrozenShared v = FrozenShared !CCode !(CMaps v) deriving (Eq, Show)
 
 -- | Reify a sharing circuit.
 runShared :: Shared v -> FrozenShared v
@@ -175,8 +173,11 @@ instance CastCircuit FrozenShared where
         go3 (x, y, z) = (go x, go y, go z)
         uncurry3 f (x, y, z) = f x y z
 
-getChildren :: CCode -> IntMap v -> v
-getChildren code codeMap = IntMap.findWithDefault findError (circuitHash code) codeMap
+getChildren :: (Ord v) => CCode -> Bimap CircuitHash v -> v
+getChildren code codeMap =
+    case Bimap.lookup (circuitHash code) codeMap of
+      Nothing -> findError
+      Just c  -> c
   where findError = error $ "getChildren: unknown code: " ++ show code
 
 -- | 0 is false, 1 is true.  Any positive value labels a logical circuit node.
@@ -211,43 +212,41 @@ data CMaps v = CMaps
     -- ^ Source of unique IDs used in `Shared' circuit generation.  Should not
     -- include 0 or 1.
 
-    , varMap    :: IntMap v
+    , varMap    :: Bimap CircuitHash v
      -- ^ Mapping of generated integer IDs to variables.
 
-    , andMap    :: IntMap (CCode, CCode)
-    , orMap     :: IntMap (CCode, CCode)
-    , notMap    :: IntMap CCode
-    , xorMap    :: IntMap (CCode, CCode)
-    , onlyifMap :: IntMap (CCode, CCode)
-    , iffMap    :: IntMap (CCode, CCode)
-    , iteMap    :: IntMap (CCode, CCode, CCode) }
-               deriving (Eq, Ord, Show, Read)
+    , andMap    :: Bimap CircuitHash (CCode, CCode)
+    , orMap     :: Bimap CircuitHash (CCode, CCode)
+    , notMap    :: Bimap CircuitHash CCode
+    , xorMap    :: Bimap CircuitHash (CCode, CCode)
+    , onlyifMap :: Bimap CircuitHash (CCode, CCode)
+    , iffMap    :: Bimap CircuitHash (CCode, CCode)
+    , iteMap    :: Bimap CircuitHash (CCode, CCode, CCode) }
+               deriving (Eq, Show)
 
 -- | A `CMaps' with an initial `hashCount' of 2.
 emptyCMaps :: CMaps v
 emptyCMaps = CMaps
     { hashCount = [2 ..]
-    , varMap    = IntMap.empty
-    , andMap    = IntMap.empty
-    , orMap     = IntMap.empty
-    , notMap    = IntMap.empty
-    , xorMap    = IntMap.empty
-    , onlyifMap = IntMap.empty
-    , iffMap    = IntMap.empty
-    , iteMap    = IntMap.empty }
+    , varMap    = Bimap.empty
+    , andMap    = Bimap.empty
+    , orMap     = Bimap.empty
+    , notMap    = Bimap.empty
+    , xorMap    = Bimap.empty
+    , onlyifMap = Bimap.empty
+    , iffMap    = Bimap.empty
+    , iteMap    = Bimap.empty }
 
 -- | Find key mapping to given value.
-lookupv :: Eq v => v -> IntMap v -> Maybe Int
-lookupv v = IntMap.foldWithKey 
-              (\k e z -> maybe (if e == v then Just k else Nothing) (const z) z) 
-              Nothing
+lookupv :: Ord v => v -> Bimap Int v -> Maybe Int
+lookupv = Bimap.lookupR
 
 -- prj: "projects relevant map out of state"
 -- upd: "stores new map back in state"
-recordC :: (Eq a) =>
+recordC :: (Ord a) =>
            (CircuitHash -> b)
-        -> (CMaps v -> IntMap a)            -- ^ prj
-        -> (CMaps v -> IntMap a -> CMaps v) -- ^ upd
+        -> (CMaps v -> Bimap Int a)            -- ^ prj
+        -> (CMaps v -> Bimap Int a -> CMaps v) -- ^ upd
         -> a
         -> State (CMaps v) b
 recordC _ _ _ x | x `seq` False = undefined
@@ -255,7 +254,7 @@ recordC cons prj upd x = do
   s <- get
   c:cs <- gets hashCount
   maybe (do let s' = upd (s{ hashCount = cs })
-                         (IntMap.insert c x (prj s))
+                         (Bimap.insert c x (prj s))
             put s'
             -- trace "updating map" (return ())
             return (cons c))
@@ -544,10 +543,10 @@ shareGraph (FrozenShared output cmaps) =
     frz ccode = FrozenShared ccode cmaps
     extract code f = do
         maps <- ask
-        return $
-          IntMap.findWithDefault (error $ "shareGraph: unknown code: " ++ show code)
-          code
-          (f maps)
+        let lookupError = error $ "shareGraph: unknown code: " ++ show code
+        case Bimap.lookup code (f maps) of
+          Nothing -> lookupError
+          Just x  -> return x
 
 
 -- ** Circuit simplification
@@ -718,9 +717,11 @@ toCNF cIn =
               ++ " with maps:\n" ++ show m
 
 
-    extract code f =
-        (IntMap.findWithDefault (error $ "toCNF: unknown code: " ++ show code)
-           code . f) `liftM` ask
+    extract code f = do
+        m <- asks f
+        case Bimap.lookup code m of
+          Nothing -> error $ "toCNF: unknown code: " ++ show code
+          Just x  -> return x
 
 -- | Returns an equivalent circuit with no iff, xor, onlyif, and ite nodes.
 removeComplex :: (Ord v, Show v, Circuit c) => FrozenShared v -> c v
@@ -759,7 +760,7 @@ projectCircuitSolution sol pblm = case sol of
   where
   projectLits lits =
       -- only the lits whose vars are (varMap maps) go to benv
-      foldl (\m l -> case IntMap.lookup (litHash l) (varMap maps) of
+      foldl (\m l -> case Bimap.lookup (litHash l) (varMap maps) of
                        Nothing -> m
                        Just v  -> Map.insert v (litSign l) m)
             Map.empty

@@ -18,6 +18,8 @@ module Funsat.Circuit
     , FrozenShared(..)
     , runShared
     , CircuitHash
+    , falseHash
+    , trueHash
     , CCode(..)
     , CMaps(..)
     , emptyCMaps
@@ -177,7 +179,12 @@ getChildren code codeMap =
             IntMap.findWithDefault (error $ "getChildren: unknown code: " ++ show code)
             (circuitHash code) codeMap
 
+-- | 0 is false, 1 is true.  Any positive value labels a logical circuit node.
 type CircuitHash = Int
+
+falseHash, trueHash :: CircuitHash
+falseHash = 0
+trueHash  = 1
 
 -- | A `CCode' represents a circuit element for `Shared' circuits.  A `CCode' is
 -- a flattened tree node which has been assigned a unique number in the
@@ -201,10 +208,9 @@ data CCode = CTrue   { circuitHash :: !CircuitHash }
 -- the `Circuit' class.  See `Shared'.
 data CMaps v = CMaps
     { hashCount :: [CircuitHash]
-    -- ^ Source of unique IDs used in `Shared' circuit generation.
+    -- ^ Source of unique IDs used in `Shared' circuit generation.  Should not
+    -- include 0 or 1.
 
-    , trueInt   :: Maybe CCode
-    , falseInt  :: Maybe CCode
     , varMap    :: IntMap v
      -- ^ Mapping of generated integer IDs to variables.
 
@@ -217,12 +223,10 @@ data CMaps v = CMaps
     , iteMap    :: IntMap (CCode, CCode, CCode) }
                deriving (Eq, Ord, Show, Read)
 
--- | A `CMaps' with an initial `hashCount' of 1.
+-- | A `CMaps' with an initial `hashCount' of 2.
 emptyCMaps :: CMaps v
 emptyCMaps = CMaps
-    { hashCount = [1 ..]
-    , trueInt   = Nothing
-    , falseInt  = Nothing
+    { hashCount = [2 ..]
     , varMap    = IntMap.empty
     , andMap    = IntMap.empty
     , orMap     = IntMap.empty
@@ -258,24 +262,8 @@ recordC cons prj upd x = do
         (return . cons) $ lookupv x (prj s)
 
 instance Circuit Shared where
-    true = Shared $ do
-               ti <- gets trueInt
-               case ti of
-                 Nothing -> do
-                     i:is <- gets hashCount
-                     let c = CTrue i
-                     modify $ \s -> s{ hashCount = is, trueInt = Just c }
-                     return c
-                 Just c -> return c
-    false = Shared $ do
-               ti <- gets falseInt
-               case ti of
-                 Nothing -> do
-                     i:is <- gets hashCount
-                     let c = CFalse i
-                     modify $ \s -> s{ hashCount = is, falseInt = Just c }
-                     return c
-                 Just c -> return c
+    false = Shared . return $ CFalse falseHash
+    true  = Shared . return $ CTrue trueHash
     input v = Shared $ recordC CVar varMap (\s e -> s{ varMap = e }) v
     and e1 e2 = Shared $ do
                     hl <- unShared e1

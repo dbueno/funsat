@@ -13,7 +13,7 @@ Description:
     Currently along this theme we provide unsatisfiable core generation (see
     "Funsat.Resolution") and a logical circuit interface (see "Funsat.Circuit").
 
-    New in 0.6: circuits.
+    New in 0.6: circuits and BSD3 license.
 
 Synopsis:            A modern DPLL-style SAT solver
 Homepage:            http://github.com/dbueno/funsat

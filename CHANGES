@@ -1,7 +1,8 @@
 -*- mode: outline -*-
 
 * 0.6.0
-Logical circuit representation added.
+- Logical circuit representation added.
+- License is now BSD3, which is apparently happier for some people.
 
 * 0.5.2
 Maintenance update because a new (incompatible) version of bitset, version 1.0,

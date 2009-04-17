@@ -9,16 +9,20 @@
     Copyright 2008 Denis Bueno
 -}
 
--- | Generates and checks a resolution proof of UNSAT from a resolution trace
--- of a SAT solver (Funsat in particular will generate this trace).  This is
--- based on the implementation discussed in the paper ''Validating SAT Solvers
--- Using an Independent Resolution-Based Checker: Practical Implementations
--- and Other Applications'' by Lintao Zhang and Sharad Malik.
+-- | Generates and checks a resolution proof of `Funsat.Types.Unsat' from a
+-- resolution trace of a SAT solver (`Funsat.Solver.solve' will generate this
+-- trace).  As a side effect of this process an /unsatisfiable core/ is
+-- generated from the resolution trace.  This core is a (hopefully small) subset
+-- of the input clauses which is still unsatisfiable.  Intuitively, it a concise
+-- reason why the problem is unsatisfiable.
 --
--- As a side effect of this process an /unsatisfiable core/ is generated from
--- the resolution trace, as discussed in the paper ''Extracting Small
--- Unsatisfiable Cores from Unsatisfiable Boolean Formula'' by Zhang and
--- Malik.
+-- The resolution trace checker is based on the implementation from the paper
+-- ''Validating SAT Solvers Using an Independent Resolution-Based Checker:
+-- Practical Implementations and Other Applications'' by Lintao Zhang and Sharad
+-- Malik.  Unsatisfiable cores are discussed in the paper ''Extracting Small
+-- Unsatisfiable Cores from Unsatisfiable Boolean Formula'' by Zhang and Malik.
+--
+-- 
 module Funsat.Resolution
     ( -- * Interface
       genUnsatCore

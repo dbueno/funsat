@@ -338,10 +338,13 @@ instance (G.Graph gr) => Circuit (AndInverterGraph gr) where
 data Tree v = TTrue
              | TFalse
              | TLeaf v
+             | TNot (Tree v)
              | TAnd (Tree v) (Tree v)
              | TOr  (Tree v) (Tree v)
              | TXor (Tree v) (Tree v)
-             | TNot (Tree v)
+             | TIff (Tree v) (Tree v)
+             | TOnlyIf (Tree v) (Tree v)
+             | TIte (Tree v) (Tree v) (Tree v)
                deriving (Show, Eq, Ord)
 
 foldTree :: (t -> v -> t) -> t -> Tree v -> t
@@ -352,6 +355,9 @@ foldTree f i (TAnd t1 t2) = foldTree f (foldTree f i t1) t2
 foldTree f i (TOr t1 t2)  = foldTree f (foldTree f i t1) t2
 foldTree f i (TNot t)     = foldTree f i t
 foldTree f i (TXor t1 t2) = foldTree f (foldTree f i t1) t2
+foldTree f i (TIff t1 t2) = foldTree f (foldTree f i t1) t2
+foldTree f i (TOnlyIf t1 t2) = foldTree f (foldTree f i t1) t2
+foldTree f i (TIte x t e) = foldTree f (foldTree f (foldTree f i x) t) e
 
 instance Circuit Tree where
     true  = TTrue
@@ -361,6 +367,9 @@ instance Circuit Tree where
     or    = TOr
     not   = TNot
     xor   = TXor
+    iff   = TIff
+    onlyif = TOnlyIf
+    ite   = TIte
 
 instance CastCircuit Tree where
     castCircuit TTrue        = true
@@ -370,6 +379,9 @@ instance CastCircuit Tree where
     castCircuit (TOr t1 t2)  = or (castCircuit t1) (castCircuit t2)
     castCircuit (TXor t1 t2) = xor (castCircuit t1) (castCircuit t2)
     castCircuit (TNot t)     = not (castCircuit t)
+    castCircuit (TIff t1 t2) = iff (castCircuit t1) (castCircuit t2)
+    castCircuit (TOnlyIf t1 t2) = onlyif (castCircuit t1) (castCircuit t2)
+    castCircuit (TIte x t e) = ite (castCircuit x) (castCircuit t) (castCircuit e)
 
 -- ** Circuit evaluator
 
@@ -595,6 +607,34 @@ simplifyTree (TXor l r) =
            TTrue  -> TFalse
            _      -> TNot r'
          _      -> TXor l' r'
+simplifyTree (TIff l r) =
+    let l' = simplifyTree l
+        r' = simplifyTree r
+    in case l' of
+         TFalse -> case r' of
+           TFalse -> TTrue
+           TTrue  -> TFalse
+           _      -> l' `TIff` r'
+         TTrue  -> case r' of
+           TTrue  -> TTrue
+           TFalse -> TFalse
+           _      -> l' `TIff` r'
+         _ -> l' `TIff` r'
+simplifyTree (l `TOnlyIf` r) =
+    let l' = simplifyTree l
+        r' = simplifyTree r
+    in case l' of
+         TFalse -> TTrue
+         TTrue  -> r'
+         _      -> l' `TOnlyIf` r'
+simplifyTree (TIte x t e) =
+    let x' = simplifyTree x
+        t' = simplifyTree t
+        e' = simplifyTree e
+    in case x' of
+         TTrue  -> t'
+         TFalse -> e'
+         _      -> TIte x' t' e'
 
 
 -- ** Convert circuit to CNF

@@ -643,11 +643,6 @@ data CircuitProblem v = CircuitProblem
 -- output CNF formula is linear in the size of the circuit.  Contrast this with
 -- the naive DeMorgan-laws transformation which produces an exponential-size CNF
 -- formula.
---
--- /TODO/ especially with the sharing-slash-flat representation, I should be
--- able to write this tail-recursively.
---
--- /TODO/ can easily count the number of variables while constructing cnf
 toCNF :: (Ord v, Show v) => FrozenShared v -> CircuitProblem v
 toCNF cIn =
     let c@(FrozenShared sharedCircuit circuitMaps) =

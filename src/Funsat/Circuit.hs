@@ -627,9 +627,9 @@ findVar ccode = do
 -- `FrozenShared' circuit, and the mapping between the variables in the CNF and
 -- the circuit elements of the circuit.
 data CircuitProblem v = CircuitProblem
-    { circuitCnf :: CNF
-    , circuitFrz :: FrozenShared v
-    , circuitCodeMap :: Bimap Var CCode }
+    { problemCnf :: CNF
+    , problemCircuit :: FrozenShared v
+    , problemCodeMap :: Bimap Var CCode }
 
 -- | Produces a CNF formula that is satisfiable if and only if the input circuit
 -- is satisfiable.  /Note that it does not produce an equivalent CNF formula./
@@ -651,14 +651,14 @@ toCNF cIn =
                      (CP l theClauses) <- toCNF' sharedCircuit
                      return $ Set.insert (Set.singleton l) theClauses
     in CircuitProblem
-       { circuitCnf = CNF { numVars =   Set.fold max 1
+       { problemCnf = CNF { numVars =   Set.fold max 1
                           . Set.map (Set.fold max 1)
                           . Set.map (Set.map (unVar . var))
                           $ cnf
                           , numClauses = Set.size cnf
                           , clauses = Set.map Foldable.toList cnf }
-       , circuitFrz = c
-       , circuitCodeMap = toCnfMap m }
+       , problemCircuit = c
+       , problemCodeMap = toCnfMap m }
   where
     -- Returns (CP l c) where {l} U c is CNF equisatisfiable with the input
     -- circuit.  Note that CNF conversion only has cases for And, Or, Not, True,
@@ -766,8 +766,8 @@ projectCircuitSolution sol pblm = case sol of
             Map.empty
             (litAssignment lits)
     where
-    (FrozenShared _ maps) = circuitFrz pblm
-    litHash l = case Bimap.lookup (var l) (circuitCodeMap pblm) of
+    (FrozenShared _ maps) = problemCircuit pblm
+    litHash l = case Bimap.lookup (var l) (problemCodeMap pblm) of
                   Nothing -> error $ "projectSolution: unknown lit: " ++ show l
                   Just code -> circuitHash code
 

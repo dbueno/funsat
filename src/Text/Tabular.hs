@@ -12,9 +12,9 @@
 
 Tabular output.
 
-Converting any matrix of showable data types into a tabular form for which the
-layout is automatically done properly.  Currently there is no maximum row
-width, just a dynamically-calculated column width.
+Converts any matrix of showable data types into a tabular form for which the
+layout is automatically done properly.  Currently there is no maximum row width,
+just a dynamically-calculated column width.
 
 If the input matrix is mal-formed, the largest well-formed submatrix is
 chosen.  That is, elements along too-long dimensions are chopped off.

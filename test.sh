@@ -1,3 +1,5 @@
+#!/bin/bash
+
 DSAT="./dist/build/funsat/funsat"
 
 # record feature set

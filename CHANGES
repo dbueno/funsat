@@ -1,5 +1,8 @@
 -*- mode: outline -*-
 
+* 0.6.0
+Logical circuit representation added.
+
 * 0.5.2
 Maintenance update because a new (incompatible) version of bitset, version 1.0,
 was released.  Funsat should again compile via cabal-install.

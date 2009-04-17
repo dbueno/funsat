@@ -1,5 +1,4 @@
-{-# LANGUAGE PatternSignatures
-            ,MultiParamTypeClasses
+{-# LANGUAGE MultiParamTypeClasses
             ,FunctionalDependencies
             ,FlexibleInstances
             ,FlexibleContexts
@@ -92,7 +91,7 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.Foldable hiding ( sequence_ )
 import Data.Int( Int64 )
-import Data.List( intercalate, nub, tails, sortBy, sort )
+import Data.List( nub, tails, sortBy, sort )
 import Data.Maybe
 import Data.Ord( comparing )
 import Data.STRef
@@ -124,7 +123,7 @@ solve cfg fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
     -- starting with an initial assignment.
 --     trace ("input " ++ show f) $
-    either (error "no solution") id $
+    either (error "solve: invariant violated") id $
     runST $
     evalSSTErrMonad
         (do initialAssignment <- liftST $ newSTUArray (V 1, V (numVars f)) 0
@@ -317,20 +316,6 @@ solveStepInvariants _m = assert True $ do
     assert ((length . dl) s == (length . nub . dl) s) $
      assert ((length . trail) s == (length . nub . trail) s) $
      return ()
-
-             
--- | The solution to a SAT problem.  In each case we return an assignment,
--- which is obviously right in the `Sat' case; in the `Unsat' case, the reason
--- is to assist in the generation of an unsatisfiable core.
-data Solution = Sat IAssignment | Unsat IAssignment deriving (Eq)
-
-instance Show Solution where
-   show (Sat a)     = "satisfiable: " ++ showAssignment a
-   show (Unsat _)   = "unsatisfiable"
-
-finalAssignment :: Solution -> IAssignment
-finalAssignment (Sat a)   = a
-finalAssignment (Unsat a) = a
 
 -- ** Internals
 
@@ -578,8 +563,8 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
               liftST $ modifySTRef resolveSourcesR (clauseId:)
       -- Literals we should process.
       seenArr  <- liftST $ newSTUArray (V 1, V nVars) False
-      counterR <- liftST $ newSTRef 0 -- Number of unprocessed current-level
-                                      -- lits we know about.
+      counterR <- liftST $ newSTRef (0 :: Int) -- Number of unprocessed current-level
+                                               -- lits we know about.
       pR <- liftST $ newSTRef cLit -- Invariant: literal from current dec. lev.
       out_learnedR <- liftST $ newSTRef []
       out_btlevelR <- liftST $ newSTRef 0
@@ -875,8 +860,6 @@ a1 >< a2 =
 infixl 5 ><
 
 -- *** Misc
-showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
-                                                  (a!i) /= 0])
 
 initialActivity :: Double
 initialActivity = 1.0

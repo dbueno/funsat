@@ -1,5 +1,4 @@
-{-# LANGUAGE PatternSignatures
-            ,MultiParamTypeClasses
+{-# LANGUAGE MultiParamTypeClasses
             ,FunctionalDependencies
             ,FlexibleInstances
             ,FlexibleContexts
@@ -32,6 +31,7 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet ( BitSet )
 import Data.Foldable hiding ( sequence_ )
+import Data.List( intercalate )
 import Data.Map ( Map )
 import Data.Set ( Set )
 import Data.STRef
@@ -75,6 +75,7 @@ instance Num Lit where
     fromInteger l | l == 0    = error "0 is not a literal"
                   | otherwise = L $ fromInteger l
 
+-- | Transform the number inside the literal.
 inLit :: (Int -> Int) -> Lit -> Lit
 inLit f = L . f . unLit
 
@@ -93,12 +94,31 @@ instance Read Lit where
 var :: Lit -> Var
 var = V . abs . unLit
 
+-- | The positive literal for the given variable.
+lit :: Var -> Lit
+lit = L . unVar
+
 type Clause = [Lit]
 
 data CNF = CNF
     { numVars    :: Int
     , numClauses :: Int
     , clauses    :: Set Clause } deriving (Show, Read, Eq)
+
+-- | The solution to a SAT problem.  In each case we return an assignment,
+-- which is obviously right in the `Sat' case; in the `Unsat' case, the reason
+-- is to assist in the generation of an unsatisfiable core.
+data Solution = Sat IAssignment | Unsat IAssignment deriving (Eq)
+
+instance Show Solution where
+   show (Sat a)     = "satisfiable: " ++ showAssignment a
+   show (Unsat _)   = "unsatisfiable"
+
+finalAssignment :: Solution -> IAssignment
+finalAssignment (Sat a)   = a
+finalAssignment (Unsat a) = a
+
+
 
 
 -- | Represents a container of type @t@ storing elements of type @a@ that
@@ -164,6 +184,11 @@ instance (BitSet.Hash Var) where
 -- updating an assignment with newly-assigned literals takes constant time,
 -- and can be done destructively, but safely.
 type IAssignment = UArray Var Int
+
+showAssignment :: IAssignment -> String
+showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
+                                                  (a!i) /= 0])
+
 
 -- | Mutable array corresponding to the `IAssignment' representation.
 type MAssignment s = STUArray s Var Int

@@ -1,5 +1,5 @@
 Name:                funsat
-Version:             0.5.2
+Version:             0.6.0
 Cabal-Version:       >= 1.2
 Description:
 
@@ -23,22 +23,23 @@ License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
-Extra-source-files:  README CHANGES bugs.org todo.org
+Extra-source-files:  README CHANGES
 
 
 Executable funsat
  Main-is:             Main.hs
  Ghc-options:         -funbox-strict-fields
-                      -W
-                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
-                      -fwarn-unused-binds -fwarn-unused-imports
- Extensions:          CPP
+                      -Wall -fwarn-tabs
+                      -fno-warn-name-shadowing
+                      -fno-warn-orphans
+ Extensions:          CPP, ScopedTypeVariables
  CPP-options:         -DTESTING
- Hs-source-dirs:      . tests
+ Hs-source-dirs:      . src tests
  Other-modules:
                       Funsat.Solver
                       Funsat.Types
                       Funsat.Resolution
+                      Funsat.Circuit
                       Funsat.FastDom
                       Funsat.Utils
                       Funsat.Monad
@@ -55,24 +56,25 @@ Executable funsat
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
+                      bimap >= 0.2 && < 0.3,
                       fgl,
                       time
-
 
 Library
  Exposed-modules:     Funsat.Solver
                       Funsat.Types
                       Funsat.Resolution
+                      Funsat.Circuit
                       Funsat.Monad
                       Control.Monad.MonadST
                       Text.Tabular
  Other-modules:       Funsat.FastDom Funsat.Utils
  Ghc-options:         -funbox-strict-fields
-                      -W
-                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
-                      -fwarn-unused-binds -fwarn-unused-imports
- Extensions:          CPP
- Hs-source-dirs:      . tests
+                      -Wall -fwarn-tabs
+                      -fno-warn-name-shadowing
+                      -fno-warn-orphans
+ Extensions:          CPP, ScopedTypeVariables
+ Hs-source-dirs:      src
  Build-Depends:       base,
                       containers,
                       pretty,
@@ -81,4 +83,5 @@ Library
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
+                      bimap >= 0.2 && < 0.3,
                       fgl

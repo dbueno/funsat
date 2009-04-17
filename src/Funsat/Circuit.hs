@@ -27,7 +27,7 @@ module Funsat.Circuit
     , foldTree
 
     -- *** Circuit simplification
-    , simplifyCircuit
+    , simplifyTree
 
     -- ** Explicit graph circuit
     , Graph
@@ -550,19 +550,19 @@ shareGraph (FrozenShared output cmaps) =
 -- ** Circuit simplification
 
 -- | Performs obvious constant propagations.
-simplifyCircuit :: Tree v -> Tree v
-simplifyCircuit l@(TLeaf _) = l
-simplifyCircuit TFalse      = TFalse
-simplifyCircuit TTrue       = TTrue
-simplifyCircuit (TNot t) =
-    let t' = simplifyCircuit t
+simplifyTree :: Tree v -> Tree v
+simplifyTree l@(TLeaf _) = l
+simplifyTree TFalse      = TFalse
+simplifyTree TTrue       = TTrue
+simplifyTree (TNot t) =
+    let t' = simplifyTree t
     in case t' of
          TTrue  -> TFalse
          TFalse -> TTrue
          _      -> TNot t'
-simplifyCircuit (TAnd l r) =
-    let l' = simplifyCircuit l
-        r' = simplifyCircuit r
+simplifyTree (TAnd l r) =
+    let l' = simplifyTree l
+        r' = simplifyTree r
     in case l' of
          TFalse -> TFalse
          TTrue  -> case r' of
@@ -573,9 +573,9 @@ simplifyCircuit (TAnd l r) =
            TTrue -> l'
            TFalse -> TFalse
            _ -> TAnd l' r'
-simplifyCircuit (TOr l r) =
-    let l' = simplifyCircuit l
-        r' = simplifyCircuit r
+simplifyTree (TOr l r) =
+    let l' = simplifyTree l
+        r' = simplifyTree r
     in case l' of
          TFalse -> r'
          TTrue  -> TTrue
@@ -583,9 +583,9 @@ simplifyCircuit (TOr l r) =
            TTrue  -> TTrue
            TFalse -> l'
            _      -> TOr l' r'
-simplifyCircuit (TXor l r) =
-    let l' = simplifyCircuit l
-        r' = simplifyCircuit r
+simplifyTree (TXor l r) =
+    let l' = simplifyTree l
+        r' = simplifyTree r
     in case l' of
          TFalse -> r'
          TTrue  -> case r' of

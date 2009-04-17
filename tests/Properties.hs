@@ -248,7 +248,7 @@ prop_circuitSimplify (ArbBEnv benv) c =
     trivial (c == TTrue || c == TFalse) $
     assert (treeVars c `Set.isSubsetOf` Map.keysSet benv) $
       runEval benv (castCircuit c)
-      == runEval benv (castCircuit . simplifyCircuit $ c)
+      == runEval benv (castCircuit . simplifyTree $ c)
 
 {-
 prop_circuitGraphIsTree :: C.Shared Var -> Property

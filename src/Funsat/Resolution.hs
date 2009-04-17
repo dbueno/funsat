@@ -49,6 +49,9 @@ import Funsat.Utils( isSingle, getUnit, isFalseUnder )
 -- IDs = Ints
 -- Lits = Lits
 
+
+-- | A resolution trace records how the SAT solver proved the original CNF
+-- formula unsatisfiable.
 data ResolutionTrace = ResolutionTrace
     { traceFinalClauseId :: ClauseId
       -- ^ The id of the last, conflicting clause in the solving process.
@@ -125,6 +128,12 @@ instance Error ResolutionError where -- Just for the Error monad.
 --       Right ucore ->
 --           let (sol, rt) solver (rescaleIntoCNF ucore)
 
+-- | Check the given resolution trace of a (putatively) unsatisfiable formula.
+-- If the result is `ResolutionError', the proof trace has failed to establish
+-- the unsatisfiability of the formula.  Otherwise, an unsatisfiable core of
+-- clauses is returned.
+--
+-- This function simply calls `checkDepthFirst'.
 genUnsatCore :: ResolutionTrace -> Either ResolutionError UnsatisfiableCore
 genUnsatCore = checkDepthFirst
 

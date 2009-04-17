@@ -13,17 +13,14 @@ module Properties where
 
 import Funsat.Solver hiding ((==>))
 
-import Control.Applicative( (<$>) )
 import Control.Exception( assert )
 import Control.Monad
 import Data.Array.Unboxed
-import Data.Bimap( Bimap )
 import Data.BitSet (hash)
 import Data.Bits hiding( xor )
 import Data.Foldable hiding (sequence_)
-import Data.List (nub, splitAt, unfoldr, delete, sort, sortBy)
+import Data.List (nub, splitAt)
 import Data.Maybe
-import Data.Ord( comparing )
 import Data.Set( Set )
 import Debug.Trace
 import Funsat.Circuit hiding( Circuit(..) )
@@ -37,12 +34,10 @@ import System.IO
 import System.Random
 import Test.QuickCheck hiding (defaultConfig)
 
-import qualified Data.Bimap as Bimap
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import qualified Data.IntMap as IntMap
 import qualified Funsat.Resolution as Resolution
 import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
 import qualified Test.QuickCheck as QC
@@ -121,7 +116,7 @@ prop_resolutionChecker (cnf :: UnsatCNF) =
       (Sat _,_,_)    -> label "SAT (unverified)" True
       (Unsat _,_,rt) -> label "UNSAT" $
           case Resolution.genUnsatCore (fromJust rt) of
-            Left e -> False
+            Left _e -> False
             Right unsatCore ->
                 case solve1 ((unUnsatCNF cnf){ clauses = Set.fromList unsatCore}) of
                   (Sat _,_,_) -> False
@@ -223,16 +218,16 @@ instance Show (a -> b) where
 -- assignment.
 prop_circuitToCnf :: Circuit.Tree Var -> Property
 prop_circuitToCnf treeCircuit =
-    let pblm@(CircuitProblem cnf _ cnfMap) =
+    let pblm@(CircuitProblem{ problemCnf = cnf }) =
             toCNF . runShared . castCircuit $ treeCircuit
         (solution, _, _) = solve1 cnf
     in case solution of
-         Sat a -> let benv = projectCircuitSolution solution pblm
+         Sat{} -> let benv = projectCircuitSolution solution pblm
                   in label "Sat"
                      . trivial (Map.null benv)
                      $ runEval benv (castCircuit treeCircuit)
 
-         Unsat _ -> label "Unsat (unverified)" True
+         Unsat{} -> label "Unsat (unverified)" True
 
 -- circuit and simplified version should evaluate the same
 prop_circuitSimplify :: ArbBEnv -> Circuit.Tree Var -> Property

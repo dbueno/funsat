@@ -78,9 +78,10 @@ main = do
       hPutStr stderr "prop_circuitToCnf: " >> check config prop_circuitToCnf
       hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
 
-      -- Add more tests above here.  Setting the rng keeps the SAT instances
-      -- the same even if more tests are added above.  Reproducible results
-      -- are important.
+      -- Add more tests above here.  Setting the rng keeps the SAT instances the
+      -- same even if more tests are added above.  I want this because if I make
+      -- a change that makes the solver dramatically faster or slower, I know
+      -- this wasn't due to the test distribution.
       gen <- getStdGen
       setStdGen (mkStdGen 42)
       hPutStr stderr "prop_solveCorrect: "

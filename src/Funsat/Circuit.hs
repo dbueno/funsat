@@ -70,8 +70,6 @@ where
 import Control.Monad.Reader
 import Control.Monad.State.Lazy hiding ((>=>), forM_)
 import Data.Bimap( Bimap )
-import Data.Graph.Inductive.Graph( LNode )
-import Data.Graph.Inductive.Tree()
 import Data.IntMap( IntMap )
 import Data.List( nub )
 import Data.Map( Map )
@@ -303,6 +301,47 @@ instance Circuit Shared where
         hx <- unShared x
         ht <- unShared t ; he <- unShared e
         recordC CIte iteMap (\s e' -> s{ iteMap = e' }) (hx, ht, he)
+
+
+{-
+-- | An And-Inverter graph edge may complement its input.
+data AIGEdge = AIGPos | AIGNeg
+type AIGGr g v = g (Maybe v) AIGEdge
+-- | * 0 is the output.
+data AndInverterGraph gr v = AIG
+    { aigGraph :: AIGGr gr v
+      -- ^ Node 0 is the output node.  Node 1 is hardwired with a 'true' input.
+      -- The edge from Node 1 to 0 may or may not be complemented.
+
+    , aigInputs :: [G.Node]
+      -- ^ Node 1 is always an input set to true.
+    }
+
+instance (G.Graph gr, Show v, Ord v) => Monoid (AndInverterGraph gr v) where
+   mempty = true
+   mappend a1 a2 =
+        AIG{ aigGraph  = mergedGraph
+           , aigInputs = nub (aigInputs a1 ++ aigInputs a2) }
+      where
+      mergedGraph = G.mkGraph
+                    (G.labNodes (aigGraph a1) ++ G.labNodes (aigGraph a2))
+                    (G.labEdges (aigGraph a1) ++ G.labEdges (aigGraph a2))
+
+instance (G.Graph gr) => Circuit (AndInverterGraph gr) where
+    true = AIG{ aigGraph = G.mkGraph [(0,Nothing), (1,Nothing)] [(1, 0, AIGPos)]
+              , aigInputs = [1] }
+
+    false = AIG{ aigGraph = G.mkGraph [(0,Nothing), (1,Nothing)] [(1, 0, AIGNeg)]
+               , aigInputs = [1] }
+
+    input v = let [n] = G.newNodes 1 true
+              in AIG{ aigGraph = G.insNode (n, Just v) true
+                    , aigInputs `= [n, 1] }
+-}
+
+--     and l r = let g' = l `mappend` r
+--                   [n] = G.newNodes 1 g'
+--               in G.insNode (n, Nothing)
 
 -- ** Explicit tree circuit
 

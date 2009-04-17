@@ -10,8 +10,10 @@ Description:
     convenient embedding of a reasonably fast SAT solver as a constraint
     solving backend in other applications.
 
-    Currently along this theme we provide /unsatisfiable core/ generation (see
+    Currently along this theme we provide unsatisfiable core generation (see
     "Funsat.Resolution") and a logical circuit interface (see "Funsat.Circuit").
+
+    New in 0.6: circuits.
 
 Synopsis:            A modern DPLL-style SAT solver
 Homepage:            http://github.com/dbueno/funsat
@@ -35,15 +37,14 @@ Executable funsat
  CPP-options:         -DTESTING
  Hs-source-dirs:      . src tests
  Other-modules:
+                      Control.Monad.MonadST
+                      Funsat.FastDom
+                      Funsat.Monad
+                      Funsat.Resolution
                       Funsat.Solver
                       Funsat.Types
-                      Funsat.Resolution
-                      Funsat.Circuit
-                      Funsat.FastDom
                       Funsat.Utils
-                      Funsat.Monad
                       Text.Tabular
-                      Control.Monad.MonadST
                       Properties
 
  Build-Depends:       base,
@@ -60,12 +61,12 @@ Executable funsat
                       time
 
 Library
- Exposed-modules:     Funsat.Solver
-                      Funsat.Types
-                      Funsat.Resolution
+ Exposed-modules:     Control.Monad.MonadST
                       Funsat.Circuit
                       Funsat.Monad
-                      Control.Monad.MonadST
+                      Funsat.Resolution
+                      Funsat.Solver
+                      Funsat.Types
                       Text.Tabular
  Other-modules:       Funsat.FastDom Funsat.Utils
  Ghc-options:         -funbox-strict-fields

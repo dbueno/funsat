@@ -131,7 +131,7 @@ class Circuit repr where
     xor :: (Ord var, Show var) => repr var -> repr var -> repr var
     xor p q = (p `or` q) `and` not (p `and` q)
 
--- | Instances of `CastCircuit' admit converting on circuit representation to
+-- | Instances of `CastCircuit' admit converting one circuit representation to
 -- another.
 class CastCircuit c where
     castCircuit :: (Circuit cOut, Ord var, Show var) => c var -> cOut var
@@ -176,9 +176,8 @@ instance CastCircuit FrozenShared where
         uncurry3 f (x, y, z) = f x y z
 
 getChildren :: CCode -> IntMap v -> v
-getChildren code codeMap =
-            IntMap.findWithDefault (error $ "getChildren: unknown code: " ++ show code)
-            (circuitHash code) codeMap
+getChildren code codeMap = IntMap.findWithDefault findError (circuitHash code) codeMap
+  where findError = error $ "getChildren: unknown code: " ++ show code
 
 -- | 0 is false, 1 is true.  Any positive value labels a logical circuit node.
 type CircuitHash = Int

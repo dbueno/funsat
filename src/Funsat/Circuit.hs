@@ -36,6 +36,7 @@ module Funsat.Circuit
     , runGraph
     , shareGraph
     , NodeType(..)
+    , EdgeType(..)
 
     -- ** Circuit evaluator
     , BEnv
@@ -398,12 +399,12 @@ instance Circuit Eval where
 
 -- ** Graph circuit
 
--- | A circuit type that constructs a `Graph' representation.  This is useful
+-- | A circuit type that constructs a `G.Graph' representation.  This is useful
 -- for visualising circuits, for example using the @graphviz@ package.
 newtype Graph v = Graph
     { unGraph :: State Graph.Node (Graph.Node,
                                     [Graph.LNode (NodeType v)],
-                                    [Graph.LEdge ()]) }
+                                    [Graph.LEdge EdgeType]) }
 
 -- | Node type labels for graphs.
 data NodeType v = NInput v
@@ -415,9 +416,16 @@ data NodeType v = NInput v
                 | NXor
                 | NIff
                 | NOnlyIf
+                | NIte
                   deriving (Eq, Ord, Show, Read)
 
-runGraph :: (G.DynGraph gr) => Graph v -> gr (NodeType v) ()
+data EdgeType = ETest -- ^ the edge is the condition for an `ite' element
+              | EThen -- ^ the edge is the /then/ branch for an `ite' element
+              | EElse -- ^ the edge is the /else/ branch for an `ite' element
+              | EVoid -- ^ no special annotation
+                 deriving (Eq, Ord, Show, Read)
+
+runGraph :: (G.DynGraph gr) => Graph v -> gr (NodeType v) EdgeType
 runGraph graphBuilder =
     let (_, nodes, edges) = evalState (unGraph graphBuilder) 1
     in Graph.mkGraph nodes edges
@@ -438,13 +446,21 @@ instance Circuit Graph where
     not gs = Graph $ do
         (node, nodes, edges) <- unGraph gs
         n <- newNode
-        return (n, (n, NNot) : nodes, (node, n, ()) : edges)
+        return (n, (n, NNot) : nodes, (node, n, EVoid) : edges)
 
     and    = binaryNode NAnd
     or     = binaryNode NOr
     xor    = binaryNode NXor
     iff    = binaryNode NIff
     onlyif = binaryNode NOnlyIf
+    ite x t e = Graph $ do
+        (xNode, xNodes, xEdges) <- unGraph x
+        (tNode, tNodes, tEdges) <- unGraph t
+        (eNode, eNodes, eEdges) <- unGraph e
+        n <- newNode
+        return (n, (n, NIte) : xNodes ++ tNodes ++ eNodes
+               , (xNode, n, ETest) : (tNode, n, EThen) : (eNode, n, EElse)
+                 : xEdges ++ tEdges ++ eEdges)
 
 binaryNode :: NodeType v -> Graph v -> Graph v -> Graph v
 {-# INLINE binaryNode #-}
@@ -453,7 +469,7 @@ binaryNode ty l r = Graph $ do
         (rNode, rNodes, rEdges) <- unGraph r
         n <- newNode
         return (n, (n, ty) : lNodes ++ rNodes,
-                   (lNode, n, ()) : (rNode, n, ()) : lEdges ++ rEdges)
+                   (lNode, n, EVoid) : (rNode, n, EVoid) : lEdges ++ rEdges)
 
 
 newNode :: State Graph.Node Graph.Node

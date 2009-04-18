@@ -108,7 +108,7 @@ data CNF = CNF
 -- | The solution to a SAT problem.  In each case we return an assignment,
 -- which is obviously right in the `Sat' case; in the `Unsat' case, the reason
 -- is to assist in the generation of an unsatisfiable core.
-data Solution = Sat IAssignment | Unsat IAssignment deriving (Eq)
+data Solution = Sat !IAssignment | Unsat !IAssignment deriving (Eq)
 
 instance Show Solution where
    show (Sat a)     = "satisfiable: " ++ showAssignment a

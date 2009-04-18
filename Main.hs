@@ -136,7 +136,7 @@ main = do
 
             startingTime <- getCurrentTime
             let cfg = defaultConfig
-                  { configUseVSIDS = optUseVsids opts
+                  { configUseVSIDS    = optUseVsids opts
                   , configUseRestarts = optUseRestarts opts }
                 (solution, stats, rt) = solve cfg cnf
             endingTime <- solution `seq` getCurrentTime

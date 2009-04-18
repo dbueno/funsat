@@ -126,11 +126,13 @@ main = do
     forM_ files (parseAndSolve opts)
          where
          parseAndSolve opts path = do
+            parseStart <- getCurrentTime
             cnf <- parseCNF path
             putStrLn $ show (numVars cnf) ++ " variables, "
                        ++ show (numClauses cnf) ++ " clauses"
             Set.map seqList (clauses cnf)
-              `seq` putStrLn ("Solving " ++ path ++ "...")
+              `seq` putStrLn ("Solving " ++ path ++ " ...")
+            parseEnd <- getCurrentTime
 
             startingTime <- getCurrentTime
             let cfg = defaultConfig
@@ -141,7 +143,9 @@ main = do
             print solution
             print $ statTable stats `Tabular.combine`
                     Tabular.mkTable
-                     [[ WrapString "Real time "
+                     [[ WrapString "Parsing time "
+                      , WrapString $ show (diffUTCTime parseEnd parseStart) ]
+                     ,[ WrapString "Real time "
                       , WrapString $ show (diffUTCTime endingTime startingTime)]]
             putStr "Verifying solution..."
             case verify solution rt cnf of

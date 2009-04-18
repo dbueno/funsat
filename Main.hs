@@ -15,7 +15,7 @@ module Main where
 import Control.Monad( when, forM_ )
 import Data.Array.Unboxed( elems )
 import Data.Int( Int64 )
-import Data.Version( Version(..), showVersion )
+import Data.Version( showVersion )
 import Funsat.Solver
     ( solve
     , verify
@@ -24,6 +24,7 @@ import Funsat.Solver
     , ShowWrapped(..)
     , statTable )
 import Funsat.Types( CNF(..) )
+import Paths_funsat( version )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
 import System.Environment( getArgs )
@@ -37,10 +38,6 @@ import qualified Text.Tabular as Tabular
 #ifdef TESTING
 import qualified Properties
 #endif
-
-funsatVersion :: Version
-funsatVersion = Version{ versionBranch = [0,6,1]
-                       , versionTags   = [] }
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -113,7 +110,7 @@ main = do
 
     when (optVersion opts) $ do
         putStr "funsat "
-        putStrLn (showVersion funsatVersion)
+        putStrLn (showVersion version)
         exitWith ExitSuccess
 
     putStr "Feature config: "

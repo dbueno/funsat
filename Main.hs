@@ -87,6 +87,7 @@ defaultOptions = Options
                  , optPrintFeatures = False
                  , optVersion       = False }
 
+-- | Show default value of option at the end of the given string.
 withDefault :: (Show v) => (Options -> v) -> String -> String
 withDefault f s = s ++ " Default " ++ show (f defaultOptions) ++ "."
 

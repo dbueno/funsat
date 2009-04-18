@@ -101,7 +101,7 @@ prop_solveCorrect (cnf :: CNF) =
     classify (numClauses cnf > 15 || numVars cnf > 10) "c>15, v>10" $
     classify (numClauses cnf > 30 || numVars cnf > 20) "c>30, v>20" $
     classify (numVars cnf > 20) "c>30, v>30" $
-    case solve (defaultConfig cnf) cnf of
+    case solve defaultConfig cnf of
       (Sat m,_,rt) -> label "SAT" $ verifyBool (Sat m) rt cnf
       (Unsat _,_,rt) -> label "UNSAT" $
                         case Resolution.checkDepthFirst (fromJust rt) of

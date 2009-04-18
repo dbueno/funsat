@@ -166,7 +166,7 @@ solve cfg fIn =
 
 -- | Solve with the default configuration `defaultConfig'.
 solve1 :: CNF -> (Solution, Stats, Maybe ResolutionTrace)
-solve1 f = solve (defaultConfig f) f
+solve1 = solve defaultConfig
 
 -- | This function applies `solveStep' recursively until SAT instance is
 -- solved, starting with the given initial assignment.  It also implements the
@@ -228,8 +228,8 @@ data DPLLConfig = Cfg
 --  * VSIDS to be enabled
 --
 --  * restarts to be enabled
-defaultConfig :: CNF -> DPLLConfig
-defaultConfig _f = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
+defaultConfig :: DPLLConfig
+defaultConfig = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
                       , configRestartBump = 1.5
                       , configUseVSIDS = True
                       , configUseRestarts = True }

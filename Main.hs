@@ -14,6 +14,7 @@ module Main where
 
 import Control.Monad( when, forM_ )
 import Data.Array.Unboxed( elems )
+import Data.Int( Int64 )
 import Data.Version( Version(..), showVersion )
 import Funsat.Solver
     ( solve
@@ -43,22 +44,37 @@ funsatVersion = Version{ versionBranch = [0,6,1]
 
 options :: [OptDescr (Options -> Options)]
 options =
-    [ Option [] ["no-vsids"] (NoArg $ \o -> o{ optUseVsids = False })
+    [ Option [] ["restart-at"]
+      (ReqArg (\i o -> o{ optRestartAt = read i }) "INT")
+      (withDefault optRestartAt
+       "Restart after INT conflicts.")
+
+    , Option [] ["restart-bump"]
+      (ReqArg (\d o -> o{ optRestartBump = read d }) "FLOAT")
+      (withDefault optRestartBump
+       "Alter the number of conflicts required to restart by multiplying by FLOAT.")
+
+    , Option [] ["no-vsids"] (NoArg $ \o -> o{ optUseVsids = False })
       "Use static variable ordering."
+
     , Option [] ["no-restarts"] (NoArg $ \o -> o{ optUseRestarts = False })
       "Never restart."
 #ifdef TESTING
     , Option [] ["verify"] (NoArg $ \o -> o{ optVerify = True })
       "Run quickcheck properties and unit tests."
 #endif
+
     , Option [] ["print-features"] (NoArg $ \o -> o{ optPrintFeatures = True })
       "Print the optimisations the SAT solver supports and exit."
+
     , Option [] ["version"] (NoArg $ \o -> o{ optVersion = True })
       "Print the version of funsat and exit."
     ]
 
 data Options = Options
-    { optUseVsids      :: Bool
+    { optRestartAt     :: Int64
+    , optRestartBump   :: Double
+    , optUseVsids      :: Bool
     , optUseRestarts   :: Bool
     , optVerify        :: Bool
     , optPrintFeatures :: Bool
@@ -66,11 +82,16 @@ data Options = Options
                deriving (Show)
 defaultOptions :: Options
 defaultOptions = Options
-                 { optUseVsids      = True
+                 { optRestartAt     = configRestart defaultConfig
+                 , optRestartBump   = configRestartBump defaultConfig
+                 , optUseVsids      = True
                  , optUseRestarts   = True
                  , optVerify        = False
                  , optPrintFeatures = False
                  , optVersion       = False }
+
+withDefault :: (Show v) => (Options -> v) -> String -> String
+withDefault f s = s ++ " Default " ++ show (f defaultOptions) ++ "."
 
 validateArgv :: [String] -> IO (Options, [FilePath])
 validateArgv argv = do
@@ -78,6 +99,7 @@ validateArgv argv = do
     (o,n,[]  ) -> return (foldl (flip ($)) defaultOptions o, n)
     (_,_,errs) -> ioError (userError (concat errs ++ usageInfo usageHeader options))
 
+usageHeader :: String
 usageHeader = "\nUsage: funsat [OPTION...] cnf-files..."
 
 main :: IO ()
@@ -113,8 +135,7 @@ main = do
               `seq` putStrLn ("Solving " ++ path ++ "...")
 
             startingTime <- getCurrentTime
-            let cfg =
-                  (defaultConfig cnf)
+            let cfg = defaultConfig
                   { configUseVSIDS = optUseVsids opts
                   , configUseRestarts = optUseRestarts opts }
                 (solution, stats, rt) = solve cfg cnf

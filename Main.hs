@@ -14,10 +14,7 @@ module Main where
 
 import Control.Monad( when, forM_ )
 import Data.Array.Unboxed( elems )
-import Data.Foldable( fold, toList, elem )
-import Data.List( intercalate )
-import Data.Monoid
-import Data.Set( Set )
+import Data.Version( Version(..), showVersion )
 import Funsat.Solver
     ( solve
     , verify
@@ -31,129 +28,117 @@ import System.Console.GetOpt
 import System.Environment( getArgs )
 import System.Exit( ExitCode(..), exitWith )
 import Data.Time.Clock
-import qualified Data.Set as Set
-import qualified Language.CNF.Parse.ParseDIMACS as ParseCNF
-import qualified Text.Tabular as Tabular
 
+import qualified Data.Set as Set
+import qualified Language.CNF.Parse.ParseDIMACS as ParseDIMACS
+import qualified Text.Tabular as Tabular
 
 #ifdef TESTING
 import qualified Properties
 #endif
 
-data Feature = WatchedLiterals
-             | ClauseLearning
-             | Restarts
-             | VSIDS
-             | ResolutionChecker
-             | UnsatCoreGeneration
-               deriving (Eq, Ord)
-instance Show Feature where
-    show WatchedLiterals = "watched literals"
-    show ClauseLearning  = "conflict clause learning"
-    show Restarts        = "restarts"
-    show VSIDS           = "dynamic variable ordering"
-    show ResolutionChecker = "resolution UNSAT checker"
-    show UnsatCoreGeneration = "UNSAT core generation"
+funsatVersion :: Version
+funsatVersion = Version{ versionBranch = [0,6,1]
+                       , versionTags   = [] }
 
-allFeatures :: Set Feature
-allFeatures = Set.fromList [WatchedLiterals, ClauseLearning, Restarts, VSIDS
-                           ,ResolutionChecker, UnsatCoreGeneration]
+options :: [OptDescr (Options -> Options)]
+options =
+    [ Option [] ["no-vsids"] (NoArg $ \o -> o{ optUseVsids = False })
+      "Use static variable ordering."
+    , Option [] ["no-restarts"] (NoArg $ \o -> o{ optUseRestarts = False })
+      "Never restart."
+#ifdef TESTING
+    , Option [] ["verify"] (NoArg $ \o -> o{ optVerify = True })
+      "Run quickcheck properties and unit tests."
+#endif
+    , Option [] ["print-features"] (NoArg $ \o -> o{ optPrintFeatures = True })
+      "Print the optimisations the SAT solver supports and exit."
+    , Option [] ["version"] (NoArg $ \o -> o{ optVersion = True })
+      "Print the version of funsat and exit."
+    ]
 
+data Options = Options
+    { optUseVsids      :: Bool
+    , optUseRestarts   :: Bool
+    , optVerify        :: Bool
+    , optPrintFeatures :: Bool
+    , optVersion       :: Bool }
+               deriving (Show)
+defaultOptions :: Options
+defaultOptions = Options
+                 { optUseVsids      = True
+                 , optUseRestarts   = True
+                 , optVerify        = False
+                 , optPrintFeatures = False
+                 , optVersion       = False }
 
-validOptions :: [OptDescr RunOptions]
-validOptions =
-    [ Option [] ["no-vsids"] (NoArg $ disableF VSIDS)
-             "Use static variable ordering."
-    , Option [] ["no-restarts"] (NoArg $ disableF Restarts)
-             "Never restart."
-    , Option [] ["verify"] (NoArg RunTests)
-             "Run quickcheck properties and unit tests."
-    , Option [] ["print-features"] (NoArg (PrintFeatures Set.empty))
-             "Print the optimisations the SAT solver supports." ]
-
-disableF :: Feature -> RunOptions
-disableF = Disable . Set.singleton
-
-data RunOptions = Disable (Set Feature)       -- disable certain features
-                | RunTests                    -- run unit tests
-                | PrintFeatures (Set Feature) -- disable certain features
--- Combines features, choosing only RunTests and PrintFeatures if present,
--- otherwise combining sets of features to disable.
-instance Monoid RunOptions where
-    mempty = Disable Set.empty
-    mappend (PrintFeatures f) (PrintFeatures f') = PrintFeatures (f `Set.union` f')
-    mappend (PrintFeatures f) (Disable f') = PrintFeatures (f `Set.union` f')
-    mappend o@(PrintFeatures _) _ = o
-    mappend o@RunTests _ = o
-    mappend (Disable s) (Disable s') = Disable (s `Set.union` s')
-    mappend (Disable _) o = o   -- non-feature selection options override
-
-parseOptions :: [String] -> IO (RunOptions, [FilePath])
-parseOptions args = do
-    let (runoptionss, filepaths, errors) = getOpt RequireOrder validOptions args
-    when (not (null errors)) $ do { mapM_ putStr errors ;
-                                    putStrLn (usageInfo usageHeader validOptions) ;
-                                    exitWith (ExitFailure 1) }
-    return $ (fold runoptionss, filepaths)
+validateArgv :: [String] -> IO (Options, [FilePath])
+validateArgv argv = do
+  case getOpt Permute options argv of
+    (o,n,[]  ) -> return (foldl (flip ($)) defaultOptions o, n)
+    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
+    where header = "Usage: funsat [OPTION...] cnf-files..."
 
 main :: IO ()
 main = do
-    (opts, files) <- getArgs >>= parseOptions
-    case opts of
+    (opts, files) <- getArgs >>= validateArgv
 #ifdef TESTING
-      RunTests -> Properties.main
+    when (optVerify opts) $ do
+        Properties.main
+        exitWith ExitSuccess
 #endif
-      PrintFeatures disabled ->
-          putStrLn $ intercalate ", " $ map show $
-                     toList (allFeatures Set.\\ disabled)
-      Disable features -> do
-        putStr "Enabled features: "
-        putStrLn $ intercalate ", " $ map show $
-                   toList (allFeatures Set.\\ features)
-        forM_ files $ parseAndSolve
+
+    when (optVersion opts) $ do
+        putStrLn (showVersion funsatVersion)
+        exitWith ExitSuccess
+
+    putStr $ if (optUseVsids opts) then "vsids" else "no vsids"
+    putStr $ if (optUseRestarts opts) then ", restarts" else ", no restarts"
+    putStr "\n"
+    when (optPrintFeatures opts) $ exitWith ExitSuccess
+
+    forM_ files (parseAndSolve opts)
          where
-           parseAndSolve path = do
-              cnf <- parseCNF path
-              putStrLn $ show (numVars cnf) ++ " variables, "
-                         ++ show (numClauses cnf) ++ " clauses"
-              Set.map seqList (clauses cnf)
-                `seq` putStrLn ("Solving " ++ path ++ "...")
-              startingTime <- getCurrentTime
-              let cfg =
-                    (defaultConfig cnf)
-                    { configUseVSIDS = not $ VSIDS `elem` features
-                    , configUseRestarts = not $ Restarts `elem` features }
-                  (solution, stats, rt) = solve cfg cnf
-              endingTime <- solution `seq` getCurrentTime
-              print solution
-              print $ statTable stats `Tabular.combine`
-                      Tabular.mkTable
-                       [[ WrapString "Real time "
-                        , WrapString $ show (diffUTCTime endingTime startingTime)]]
-              putStr "Verifying solution..."
-              case verify solution rt cnf of
-                Just errorWitness ->
-                    do putStrLn "\n--> VERIFICATION ERROR!"
-                       print errorWitness
-                Nothing -> putStrLn "succeeded."
+         parseAndSolve opts path = do
+            cnf <- parseCNF path
+            putStrLn $ show (numVars cnf) ++ " variables, "
+                       ++ show (numClauses cnf) ++ " clauses"
+            Set.map seqList (clauses cnf)
+              `seq` putStrLn ("Solving " ++ path ++ "...")
 
-
-usageHeader = "Usage: funsat [options] <cnf-filename> ... <cnf-filename>"
+            startingTime <- getCurrentTime
+            let cfg =
+                  (defaultConfig cnf)
+                  { configUseVSIDS = optUseVsids opts
+                  , configUseRestarts = optUseRestarts opts }
+                (solution, stats, rt) = solve cfg cnf
+            endingTime <- solution `seq` getCurrentTime
+            print solution
+            print $ statTable stats `Tabular.combine`
+                    Tabular.mkTable
+                     [[ WrapString "Real time "
+                      , WrapString $ show (diffUTCTime endingTime startingTime)]]
+            putStr "Verifying solution..."
+            case verify solution rt cnf of
+              Just errorWitness ->
+                  do putStrLn "\n--> VERIFICATION ERROR!"
+                     print errorWitness
+              Nothing -> putStrLn "succeeded."
 
 seqList l@[] = l
 seqList l@(x:xs) = x `seq` seqList xs `seq` l
 
 parseCNF :: FilePath -> IO CNF
 parseCNF path = do
-    result <- ParseCNF.parseFile path
+    result <- ParseDIMACS.parseFile path
     case result of 
       Left err -> error . show $ err
       Right c  -> return . asCNF $ c
 
 
 -- | Convert parsed CNF to internal representation.
-asCNF :: ParseCNF.CNF -> CNF
-asCNF (ParseCNF.CNF v c is) =
+asCNF :: ParseDIMACS.CNF -> CNF
+asCNF (ParseDIMACS.CNF v c is) =
     CNF { numVars    = v
         , numClauses = c
         , clauses    = Set.fromList . map (map fromIntegral . elems) $ is }

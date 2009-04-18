@@ -76,8 +76,9 @@ validateArgv :: [String] -> IO (Options, [FilePath])
 validateArgv argv = do
   case getOpt Permute options argv of
     (o,n,[]  ) -> return (foldl (flip ($)) defaultOptions o, n)
-    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo header options))
-    where header = "Usage: funsat [OPTION...] cnf-files..."
+    (_,_,errs) -> ioError (userError (concat errs ++ usageInfo usageHeader options))
+
+usageHeader = "\nUsage: funsat [OPTION...] cnf-files..."
 
 main :: IO ()
 main = do
@@ -89,13 +90,18 @@ main = do
 #endif
 
     when (optVersion opts) $ do
+        putStr "funsat "
         putStrLn (showVersion funsatVersion)
         exitWith ExitSuccess
 
+    putStr "Feature config: "
     putStr $ if (optUseVsids opts) then "vsids" else "no vsids"
     putStr $ if (optUseRestarts opts) then ", restarts" else ", no restarts"
     putStr "\n"
     when (optPrintFeatures opts) $ exitWith ExitSuccess
+
+    when (null files) $
+        ioError (userError (usageInfo usageHeader options))
 
     forM_ files (parseAndSolve opts)
          where

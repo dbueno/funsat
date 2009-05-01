@@ -64,6 +64,7 @@ Library
  Exposed-modules:     Control.Monad.MonadST
                       Funsat.Circuit
                       Funsat.Monad
+                      Funsat.PseudoBool
                       Funsat.Resolution
                       Funsat.Solver
                       Funsat.Types
@@ -84,4 +85,5 @@ Library
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       bimap >= 0.2 && < 0.3,
-                      fgl
+                      fgl,
+                      satchmo

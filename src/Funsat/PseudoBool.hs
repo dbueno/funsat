@@ -4,3 +4,6 @@ import Funsat.Types
 import Satchmo.Binary
 import Satchmo.Data
 
+data PB c = PBCircuit c
+          | PBFoo
+

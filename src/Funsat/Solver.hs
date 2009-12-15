@@ -19,10 +19,10 @@
 
 Funsat aims to be a reasonably efficient modern SAT solver that is easy to
 integrate as a backend to other projects.  SAT is NP-complete, and thus has
-reductions from many other interesting problems.  We hope this implementation
-is efficient enough to make it useful to solve medium-size, real-world problem
-mapped from another space.  We also aim to test the solver rigorously to
-encourage confidence in its output.
+reductions from many other interesting problems.  We hope this implementation is
+efficient enough to make it useful to solve medium-size, real-world problem
+mapped from another space.  We also have taken pains test the solver rigorously
+to encourage confidence in its output.
 
 One particular nicetie facilitating integration of Funsat into other projects
 is the efficient calculation of an /unsatisfiable core/ for unsatisfiable
@@ -30,6 +30,9 @@ problems (see the "Funsat.Resolution" module).  In the case a problem is
 unsatisfiable, as a by-product of checking the proof of unsatisfiability,
 Funsat will generate a minimal set of input clauses that are also
 unsatisfiable.
+
+Another is the ability to compile high-level circuits into CNF.  Seen the
+"Funsat.Circuit" module.
 
 * 07 Jun 2008 21:43:42: N.B. because of the use of mutable arrays in the ST
 monad, the solver will actually give _wrong_ answers if you compile without

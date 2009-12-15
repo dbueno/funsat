@@ -511,8 +511,16 @@ Also see [[AdvancedOptions]]</pre>
 </div>
 <!--POST-SHADOWAREA-->
 <div id="storeArea">
-<div title="Funsat Internals" modifier="Denis" created="200912150512" changecount="1">
-<pre>There's nothing here yet.</pre>
+<div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150515" changecount="2">
+<pre>!VSIDS
+We do VSIDS like MiniSat.</pre>
+</div>
+<div title="Parity" modifier="Denis" created="200912150518" modified="200912150521" tags="xor parity [[constraint types]]" changecount="4">
+<pre>Parity is generalised XOR.  It is a boolean function that yields 1 if the input bits have an odd number of ones.  I want to integrate it into Funsat's DPLL-style loop.
+
+* For each XOR constraint, initially watch two literals.
+* //(boolean constraint propagation)// Once all but one literal is assigned, the last literal is forced for the output to be one.  Propogate this assignment.
+* If we want to generate a learned clause for a parity constraint...</pre>
 </div>
 <div title="SiteSubtitle" modifier="Denis" created="200912150513" changecount="1">
 <pre>a pure Haskell SAT solver</pre>

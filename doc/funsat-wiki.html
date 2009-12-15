@@ -511,15 +511,44 @@ Also see [[AdvancedOptions]]</pre>
 </div>
 <!--POST-SHADOWAREA-->
 <div id="storeArea">
-<div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150515" changecount="2">
-<pre>!VSIDS
+<div title="Cardinality constraints" modifier="Denis" created="200912150523" modified="200912150530" tags="[[constraint types]] cardinality" changecount="8">
+<pre>Consider cardinality constraints of the form //m &lt;= x~~1~~ + x~~2~~ + ... + x~~k~~ &lt;= n// where //x~~i~~// are positive literals.
+
+Keep track of four values:
+# max = //n//
+# min = //m//
+# number-of-literals-set-to-true
+# number-of-literals-set
+
+* Initially, if //m// &lt;= 0 and //n// &gt;= k, just discard the constraint.
+* When an assignment is propagated (through bcp), if it occurs in the constraint we increment number-of-literals-set.  If the assignment is to true, also increment number-of-literals-set.
+* When backing out of an assignment, decrement the relevant counts.</pre>
+</div>
+<div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150545" changecount="3">
+<pre>Funsat is based on the DPLL algorithm.  We have two-watched literals, backjumping, vsids, and restarts.
+
+!VSIDS
 We do VSIDS like MiniSat.</pre>
 </div>
-<div title="Parity" modifier="Denis" created="200912150518" modified="200912150521" tags="xor parity [[constraint types]]" changecount="4">
+<div title="Future" modifier="Denis" created="200912150531" modified="200912150546" tags="todo" changecount="5">
+<pre>I have a small [[TODO]] of specific tasks.
+
+Soon, I want to implement [[Cardinality constraints]] and [[Parity]] constraints.  XOR (parity) is notoriously hard for SAT.  But I think (thanks to Sean) we can add it efficiently.
+* Could we do this by making a clause interface (maybe like Minisat) which lets you on a per-clause-type basis specify how to propagate, watch, learn from, and undo things?
+
+I'd like to make Funsat incremental, too.</pre>
+</div>
+<div title="MainMenu" modifier="Denis" created="200912150538" modified="200912150538" changecount="2">
+<pre>[[Future]]
+[[Funsat Internals]]
+
+[[GettingStarted]]</pre>
+</div>
+<div title="Parity" modifier="Denis" created="200912150518" modified="200912150533" tags="xor parity [[constraint types]]" changecount="6">
 <pre>Parity is generalised XOR.  It is a boolean function that yields 1 if the input bits have an odd number of ones.  I want to integrate it into Funsat's DPLL-style loop.
 
 * For each XOR constraint, initially watch two literals.
-* //(boolean constraint propagation)// Once all but one literal is assigned, the last literal is forced for the output to be one.  Propogate this assignment.
+* Once all but one literal is assigned, the last literal is forced for the output to be one.  Propogate this assignment.  (The earlier literal watching was just to make propagation efficient.)
 * If we want to generate a learned clause for a parity constraint...</pre>
 </div>
 <div title="SiteSubtitle" modifier="Denis" created="200912150513" changecount="1">
@@ -527,6 +556,10 @@ We do VSIDS like MiniSat.</pre>
 </div>
 <div title="SiteTitle" modifier="Denis" created="200912150512" changecount="1">
 <pre>Funsat</pre>
+</div>
+<div title="TODO" modifier="Denis" created="200912150543" modified="200912150544" tags="todo" changecount="2">
+<pre># Add command-line option to turn resolution tracing off.  Looks easy because I see there's only a few places where I manually traces clause ids.
+# Figure out if the main Funsat monad implements all the typeclass operations it should.</pre>
 </div>
 </div>
 <!--POST-STOREAREA-->

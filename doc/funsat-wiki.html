@@ -544,12 +544,14 @@ I'd like to make Funsat incremental, too.</pre>
 
 [[GettingStarted]]</pre>
 </div>
-<div title="Parity" modifier="Denis" created="200912150518" modified="200912150533" tags="xor parity [[constraint types]]" changecount="6">
+<div title="Parity" modifier="Denis" created="200912150518" modified="200912151411" tags="xor parity [[constraint types]]" changecount="7">
 <pre>Parity is generalised XOR.  It is a boolean function that yields 1 if the input bits have an odd number of ones.  I want to integrate it into Funsat's DPLL-style loop.
 
 * For each XOR constraint, initially watch two literals.
 * Once all but one literal is assigned, the last literal is forced for the output to be one.  Propogate this assignment.  (The earlier literal watching was just to make propagation efficient.)
-* If we want to generate a learned clause for a parity constraint...</pre>
+* If we want to generate a learned clause for a parity constraint...
+
+I'll have to generate my own constraints to test this.  From program verification?</pre>
 </div>
 <div title="SiteSubtitle" modifier="Denis" created="200912150513" changecount="1">
 <pre>a pure Haskell SAT solver</pre>

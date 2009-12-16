@@ -62,7 +62,7 @@ module Funsat.Solver
         , verify
         , VerifyError(..)
           -- ** Configuration
-        , DPLLConfig(..)
+        , FunsatConfig(..)
         , defaultConfig
           -- * Solver statistics
         , Stats(..)
@@ -104,6 +104,7 @@ import Funsat.Monad
 import Funsat.Utils
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import Funsat.Types
+import Funsat.Types.Internal
 import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
 import Funsat.Resolution( ResolutionError(..) )
 import Text.Printf( printf )
@@ -121,7 +122,7 @@ import qualified Text.Tabular as Tabular
 -- solution, along with internal solver statistics and possibly a resolution
 -- trace.  The trace is for checking a proof of `Unsat', and thus is only
 -- present when the result is `Unsat'.
-solve :: DPLLConfig -> CNF -> (Solution, Stats, Maybe ResolutionTrace)
+solve :: FunsatConfig -> CNF -> (Solution, Stats, Maybe ResolutionTrace)
 solve cfg fIn =
     -- To solve, we simply take baby steps toward the solution using solveStep,
     -- starting with an initial assignment.
@@ -135,15 +136,15 @@ solve cfg fIn =
                        else stepToSolution initialAssignment >>= reportSolution)
     SC{ cnf = f{ clauses = Set.empty }, dl = []
       , watches = undefined, learnt = undefined
-      , propQ = Seq.empty, trail = [], numConfl = 0, level = undefined
-      , numConflTotal = 0, numDecisions = 0, numImpl = 0
+      , propQ = Seq.empty, trail = [], level = undefined
+      , stats = FunStats{numConfl = 0,numConflTotal = 0,numDecisions = 0,numImpl = 0}
       , reason = Map.empty, varOrder = undefined
       , resolutionTrace = PartialResolutionTrace 1 [] [] Map.empty
       , dpllConfig = cfg }
   where
     f = preprocessCNF fIn
     -- If returns True, then problem is unsat.
-    initialState :: MAssignment s -> DPLLMonad s (IAssignment, Bool)
+    initialState :: MAssignment s -> FunMonad s (IAssignment, Bool)
     initialState m = do
       initialLevel <- liftST $ newSTUArray (V 1, V (numVars f)) noLevel
       modify $ \s -> s{ level = initialLevel }
@@ -173,13 +174,13 @@ solve1 = solve defaultConfig
 
 -- | This function applies `solveStep' recursively until SAT instance is
 -- solved, starting with the given initial assignment.  It also implements the
--- conflict-based restarting (see `DPLLConfig').
-stepToSolution :: MAssignment s -> DPLLMonad s Solution
+-- conflict-based restarting (see `FunsatConfig').
+stepToSolution :: MAssignment s -> FunMonad s Solution
 stepToSolution assignment = do
     step <- solveStep assignment
     useRestarts <- gets (configUseRestarts . dpllConfig)
     isTimeToRestart <- uncurry ((>=)) `liftM`
-               gets (numConfl &&& (configRestart . dpllConfig))
+               gets ((numConfl . stats) &&& (configRestart . dpllConfig))
     case step of
       Left m -> do when (useRestarts && isTimeToRestart)
                      (do _stats <- extractStats
@@ -190,7 +191,7 @@ stepToSolution assignment = do
       Right s -> return s
   where
     resetState m = do
-      modify $ \s -> s{ numConfl = 0 }
+      modify $ \s -> let st = stats s in s{ stats = st{numConfl = 0} }
       -- Require more conflicts before next restart.
       modifySlot dpllConfig $ \s c ->
         s{ dpllConfig = c{ configRestart = ceiling (configRestartBump c
@@ -203,7 +204,7 @@ stepToSolution assignment = do
       compactDB
       unsafeFreezeAss m >>= simplifyDB
 
-reportSolution :: Solution -> DPLLMonad s (Solution, Stats, Maybe ResolutionTrace)
+reportSolution :: Solution -> FunMonad s (Solution, Stats, Maybe ResolutionTrace)
 reportSolution s = do
     stats <- extractStats
     case s of
@@ -212,15 +213,6 @@ reportSolution s = do
           resTrace <- constructResTrace s
           return (s, stats, Just resTrace)
 
-
--- | Configuration parameters for the solver.
-data DPLLConfig = Cfg
-    { configRestart :: !Int64      -- ^ Number of conflicts before a restart.
-    , configRestartBump :: !Double -- ^ `configRestart' is altered after each
-                                   -- restart by multiplying it by this value.
-    , configUseVSIDS :: !Bool      -- ^ If true, use dynamic variable ordering.
-    , configUseRestarts :: !Bool }
-                  deriving Show
 
 -- | A default configuration based on the formula to solve.
 --
@@ -231,7 +223,7 @@ data DPLLConfig = Cfg
 --  * VSIDS to be enabled
 --
 --  * restarts to be enabled
-defaultConfig :: DPLLConfig
+defaultConfig :: FunsatConfig
 defaultConfig = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
                       , configRestartBump = 1.5
                       , configUseVSIDS = True
@@ -250,7 +242,7 @@ preprocessCNF f = f{clauses = simpClauses (clauses f)}
 -- `preprocessCNF'.
 --
 -- Precondition: decision level 0.
-simplifyDB :: IAssignment -> DPLLMonad s ()
+simplifyDB :: IAssignment -> FunMonad s ()
 simplifyDB mFr = do
   -- For each clause in the database, remove it if satisfied; if it contains a
   -- literal whose negation is assigned, delete that literal.
@@ -272,7 +264,7 @@ simplifyDB mFr = do
 -- function takes one step in that transition system.  Given an unsatisfactory
 -- assignment, perform one state transition, producing a new assignment and a
 -- new state.
-solveStep :: MAssignment s -> DPLLMonad s (Either (MAssignment s) Solution)
+solveStep :: MAssignment s -> FunMonad s (Either (MAssignment s) Solution)
 solveStep m = do
     unsafeFreezeAss m >>= solveStepInvariants
     conf <- gets dpllConfig
@@ -302,7 +294,7 @@ solveStep m = do
 --
 -- Records id of conflicting clause in trace before failing.  Always returns
 -- `Nothing'.
-postProcessUnsat :: Maybe (Lit, Clause, ClauseId) -> DPLLMonad s (Maybe a)
+postProcessUnsat :: Maybe (Lit, Clause, ClauseId) -> FunMonad s (Maybe a)
 postProcessUnsat maybeConfl = do
     traceClauseId $ (thd . fromJust) maybeConfl
     return Nothing
@@ -311,7 +303,7 @@ postProcessUnsat maybeConfl = do
 
 -- | Check data structure invariants.  Unless @-fno-ignore-asserts@ is passed,
 -- this should be optimised away to nothing.
-solveStepInvariants :: IAssignment -> DPLLMonad s ()
+solveStepInvariants :: IAssignment -> FunMonad s ()
 {-# INLINE solveStepInvariants #-}
 solveStepInvariants _m = assert True $ do
     s <- get
@@ -327,55 +319,6 @@ solveStepInvariants _m = assert True $ do
 noLevel :: Level
 noLevel = -1
 
--- ** State and Phases
-
-data FunsatState s = SC
-    { cnf :: CNF                -- ^ The problem.
-    , dl :: [Lit]
-      -- ^ The decision level (last decided literal on front).
-
-    , watches :: WatchArray s
-      -- ^ Invariant: if @l@ maps to @((x, y), c)@, then @x == l || y == l@.
-
-    , learnt :: WatchArray s
-      -- ^ Same invariant as `watches', but only contains learned conflict
-      -- clauses.
-
-    , propQ :: Seq Lit
-      -- ^ A FIFO queue of literals to propagate.  This should not be
-      -- manipulated directly; see `enqueue' and `dequeue'.
-
-    , level :: LevelArray s
-
-    , trail :: [Lit]
-      -- ^ Chronological trail of assignments, last-assignment-at-head.
-
-    , reason :: ReasonMap
-      -- ^ For each variable, the clause that (was unit and) implied its value.
-
-    , numConfl :: !Int64
-      -- ^ The number of conflicts that have occurred since the last restart.
-
-    , numConflTotal :: !Int64
-      -- ^ The total number of conflicts.
-
-    , numDecisions :: !Int64
-      -- ^ The total number of decisions.
-
-    , numImpl :: !Int64
-      -- ^ The total number of implications (propagations).
-
-    , varOrder :: VarOrder s
-
-    , resolutionTrace :: PartialResolutionTrace
-
-    , dpllConfig :: DPLLConfig } deriving Show
-
--- | Our star monad, the DPLL State monad.  We use @ST@ for mutable arrays and
--- references, when necessary.  Most of the state, however, is kept in
--- `FunsatState' and is not mutable.
-type DPLLMonad s = SSTErrMonad (Lit, Clause, ClauseId) (FunsatState s) s
-
 
 -- *** Boolean constraint propagation
 
@@ -388,7 +331,7 @@ type DPLLMonad s = SSTErrMonad (Lit, Clause, ClauseId) (FunsatState s) s
 -- watched literals.
 bcpLit :: MAssignment s
           -> Lit                -- ^ Assigned literal which might propagate.
-          -> DPLLMonad s (Maybe (Lit, Clause, ClauseId))
+          -> FunMonad s (Maybe (Lit, Clause, ClauseId))
 bcpLit m l = do
     ws <- gets watches ; ls <- gets learnt
     clauses <- liftST $ readArray ws l
@@ -427,7 +370,7 @@ bcpLit m l = do
              alter (annCl:) (negate l')
 
            Nothing -> do      -- all other lits false, clause is unit
-             modify $ \s -> s{ numImpl = numImpl s + 1 }
+             incNumImpl
              alter (annCl:) l
              isConsistent <- enqueue m (negate q) (Just (c, cid))
              when (not isConsistent) $ do -- unit literal is conflicting
@@ -437,7 +380,7 @@ bcpLit m l = do
 
 -- | Boolean constraint propagation of all literals in `propQ'.  If a conflict
 -- is found it is returned exactly as described for `bcpLit'.
-bcp :: MAssignment s -> DPLLMonad s (Maybe (Lit, Clause, ClauseId))
+bcp :: MAssignment s -> FunMonad s (Maybe (Lit, Clause, ClauseId))
 bcp m = do
   q <- gets propQ
   if Seq.null q then return Nothing
@@ -465,13 +408,13 @@ selectStatic m _ = find (`isUndefUnder` m) (range . bounds $ m)
 
 -- | Assign given decision variable.  Records the current assignment before
 -- deciding on the decision variable indexing the assignment.
-decide :: MAssignment s -> Var -> DPLLMonad s (Maybe (MAssignment s))
+decide :: MAssignment s -> Var -> FunMonad s (Maybe (MAssignment s))
 decide m v = do
   let ld = L (unVar v)
   (SC{dl=dl}) <- get
 --   trace ("decide " ++ show ld) $ return ()
-  modify $ \s -> s{ dl = ld:dl
-                  , numDecisions = numDecisions s + 1 }
+  incNumDecisions
+  modify $ \s -> s{ dl = ld:dl }
   enqueue m ld Nothing
   return $ Just m
 
@@ -485,7 +428,7 @@ backJump :: MAssignment s
          -> (Lit, Clause, ClauseId)
             -- ^ @(l, c)@, where attempting to assign @l@ conflicted with
             -- clause @c@.
-         -> DPLLMonad s (Maybe (MAssignment s))
+         -> FunMonad s (Maybe (MAssignment s))
 backJump m c@(_, _conflict, _) = get >>= \(SC{dl=dl, reason=_reason}) -> do
     _theTrail <- gets trail
 --     trace ("********** conflict = " ++ show c) $ return ()
@@ -493,8 +436,7 @@ backJump m c@(_, _conflict, _) = get >>= \(SC{dl=dl, reason=_reason}) -> do
 --     trace ("dlits (" ++ show (length dl) ++ ") = " ++ show dl) $ return ()
 --          ++ "reason: " ++ Map.showTree _reason
 --           ) (
-    modify $ \s -> s{ numConfl = numConfl s + 1
-                    , numConflTotal = numConflTotal s + 1 }
+    incNumConfl ; incNumConflTotal
     levelArr :: FrozenLevelArray <- do s <- get
                                        liftST $ unsafeFreeze (level s)
     (learntCl, learntClId, newLevel) <-
@@ -534,7 +476,7 @@ doWhile body test = do
 --
 -- May undo part of the trail, but not past the current decision level.
 analyse :: IAssignment -> FrozenLevelArray -> [Lit] -> (Lit, Clause, ClauseId)
-        -> DPLLMonad s (Clause, ClauseId, Int)
+        -> FunMonad s (Clause, ClauseId, Int)
            -- ^ learned clause and new decision level
 analyse mFr levelArr dlits (cLit, cClause, cCid) = do
     st <- get
@@ -559,7 +501,7 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
     -- BFS by undoing the trail backward.  From Minisat paper.  Returns
     -- conflict clause and backtrack level.
     firstUIPBFS :: MAssignment s -> Int -> ReasonMap
-                -> DPLLMonad s (Clause, ClauseId, Int)
+                -> FunMonad s (Clause, ClauseId, Int)
     firstUIPBFS m nVars reasonMap =  do
       resolveSourcesR <- liftST $ newSTRef [] -- trace sources
       let addResolveSource clauseId =
@@ -634,7 +576,7 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
 -- assignment, sets `noLevel', undoes reason.
 --
 -- Does /not/ touch `dl'.
-undoOne :: MAssignment s -> DPLLMonad s ()
+undoOne :: MAssignment s -> FunMonad s ()
 {-# INLINE undoOne #-}
 undoOne m = do
     trl <- gets trail
@@ -649,7 +591,7 @@ undoOne m = do
              , reason   = Map.delete (var l) (reason s) }
 
 -- | Increase the recorded activity of given variable.
-bump :: Var -> DPLLMonad s ()
+bump :: Var -> FunMonad s ()
 {-# INLINE bump #-}
 bump v = varOrderMod v (+ varInc)
 
@@ -680,7 +622,7 @@ unsat maybeConflict (SC{dl=dl}) = isUnsat
 -- *** Clause compaction
 
 -- | Keep the smaller half of the learned clauses.
-compactDB :: DPLLMonad s ()
+compactDB :: FunMonad s ()
 compactDB = do
     n <- numVars `liftM` gets cnf
     lArr <- gets learnt
@@ -710,7 +652,7 @@ compactDB = do
 watchClause :: MAssignment s
             -> (Clause, ClauseId)
             -> Bool             -- ^ Is this clause learned?
-            -> DPLLMonad s Bool
+            -> FunMonad s Bool
 {-# INLINE watchClause #-}
 watchClause m (c, cid) isLearnt = do
     case c of
@@ -747,7 +689,7 @@ enqueue :: MAssignment s
         -> Maybe (Clause, ClauseId)
            -- ^ The reason for enqueuing the literal.  Including a
            -- non-@Nothing@ value here adjusts the `reason' map.
-        -> DPLLMonad s Bool
+        -> FunMonad s Bool
 {-# INLINE enqueue #-}
 -- enqueue _m l _r | trace ("enqueue " ++ show l) $ False = undefined
 enqueue m l r = do
@@ -766,7 +708,7 @@ enqueue m l r = do
         return True
 
 -- | Pop the `propQ'.  Error (crash) if it is empty.
-dequeue :: DPLLMonad s Lit
+dequeue :: FunMonad s Lit
 {-# INLINE dequeue #-}
 dequeue = do
     q <- gets propQ
@@ -777,14 +719,14 @@ dequeue = do
         return top
 
 -- | Clear the `propQ'.
-clearQueue :: DPLLMonad s ()
+clearQueue :: FunMonad s ()
 {-# INLINE clearQueue #-}
 clearQueue = modify $ \s -> s{propQ = Seq.empty}
 
 -- *** Dynamic variable ordering
 
 -- | Modify priority of variable; takes care of @Double@ overflow.
-varOrderMod :: Var -> (Double -> Double) -> DPLLMonad s ()
+varOrderMod :: Var -> (Double -> Double) -> FunMonad s ()
 varOrderMod v f = do
     vo <- varOrderArr `liftM` gets varOrder
     vActivity <- liftST $ readArray vo v
@@ -819,7 +761,7 @@ varOrderGet mFr (FrozenVarOrder voFr) =
 
 
 -- | Generate a new clause identifier (always unique).
-nextTraceId :: DPLLMonad s Int
+nextTraceId :: FunMonad s Int
 nextTraceId = do
     counter <- gets (resTraceIdCount . resolutionTrace)
     modifySlot resolutionTrace $ \s rt ->
@@ -827,7 +769,7 @@ nextTraceId = do
     return $! counter
 
 -- | Add the given clause id to the trace.
-traceClauseId :: ClauseId -> DPLLMonad s ()
+traceClauseId :: ClauseId -> FunMonad s ()
 traceClauseId cid = do
     modifySlot resolutionTrace $ \s rt ->
         s{resolutionTrace = rt{ resTrace = [cid] }}
@@ -960,10 +902,10 @@ statSummary s =
                       ++ " lits/clause)"]])
 
 
-extractStats :: DPLLMonad s Stats
+extractStats :: FunMonad s Stats
 extractStats = do
-  s <- get
-  learntArr <- liftST $ unsafeFreezeWatchArray (learnt s)
+  s <- gets stats
+  learntArr <- get >>= liftST . unsafeFreezeWatchArray . learnt
   let learnts = (nub . Fl.concat)
         [ map (sort . (\(_,c,_) -> c)) (learntArr!i)
         | i <- (range . bounds) learntArr ] :: [Clause]
@@ -982,7 +924,7 @@ unsafeFreezeWatchArray :: WatchArray s -> ST s (Array Lit [WatchedPair s])
 unsafeFreezeWatchArray = freeze
 
 
-constructResTrace :: Solution -> DPLLMonad s ResolutionTrace
+constructResTrace :: Solution -> FunMonad s ResolutionTrace
 constructResTrace sol = do
     s <- get
     watchesIndices <- range `liftM` liftST (getBounds (watches s))

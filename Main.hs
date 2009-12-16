@@ -19,11 +19,11 @@ import Data.Version( showVersion )
 import Funsat.Solver
     ( solve
     , verify
-    , DPLLConfig(..)
     , defaultConfig
     , ShowWrapped(..)
     , statTable )
 import Funsat.Types( CNF(..) )
+import Funsat.Types.Internal( FunsatConfig(..) )
 import Paths_funsat( version )
 import Prelude hiding ( elem )
 import System.Console.GetOpt

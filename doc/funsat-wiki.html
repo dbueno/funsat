@@ -524,6 +524,9 @@ Keep track of four values:
 * When an assignment is propagated (through bcp), if it occurs in the constraint we increment number-of-literals-set.  If the assignment is to true, also increment number-of-literals-set.
 * When backing out of an assignment, decrement the relevant counts.</pre>
 </div>
+<div title="Clause Learning" modifier="Denis" created="200912160438" tags="sat [[clause learning]]" changecount="1">
+<pre>A learned clause is needed to to remember the reason for conflicts.</pre>
+</div>
 <div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150545" changecount="3">
 <pre>Funsat is based on the DPLL algorithm.  We have two-watched literals, backjumping, vsids, and restarts.
 
@@ -538,10 +541,12 @@ Soon, I want to implement [[Cardinality constraints]] and [[Parity]] constraints
 
 I'd like to make Funsat incremental, too.</pre>
 </div>
-<div title="MainMenu" modifier="Denis" created="200912150538" modified="200912150538" changecount="2">
+<div title="MainMenu" modifier="Denis" created="200912150538" modified="200912190213" changecount="3">
 <pre>[[Future]]
 [[Funsat Internals]]
 
+[[Tag Cloud]]
+[[Popular Tiddlers]]
 [[GettingStarted]]</pre>
 </div>
 <div title="Parity" modifier="Denis" created="200912150518" modified="200912151411" tags="xor parity [[constraint types]]" changecount="7">
@@ -553,6 +558,9 @@ I'd like to make Funsat incremental, too.</pre>
 
 I'll have to generate my own constraints to test this.  From program verification?</pre>
 </div>
+<div title="Popular Tiddlers" modifier="Denis" created="200912190210" modified="200912190212" changecount="3">
+<pre>&lt;&lt;cloud references&gt;&gt;</pre>
+</div>
 <div title="SiteSubtitle" modifier="Denis" created="200912150513" changecount="1">
 <pre>a pure Haskell SAT solver</pre>
 </div>
@@ -562,6 +570,337 @@ I'll have to generate my own constraints to test this.  From program verificatio
 <div title="TODO" modifier="Denis" created="200912150543" modified="200912150544" tags="todo" changecount="2">
 <pre># Add command-line option to turn resolution tracing off.  Looks easy because I see there's only a few places where I manually traces clause ids.
 # Figure out if the main Funsat monad implements all the typeclass operations it should.</pre>
+</div>
+<div title="Tag Cloud" modifier="Denis" created="200912190209" modified="200912190210" changecount="2">
+<pre>&lt;&lt;cloud tags action:goto systemConfig DiscoveryPackage NavigationPackage&gt;&gt;</pre>
+</div>
+<div title="TagCloudPlugin" modifier="ELSDesignStudios" created="200510141945" modified="200907190523" tags="NavigationPackage systemConfig DiscoveryPackage" server.page.revision="200907190523" server.host="www.tiddlytools.com/#TagCloudPlugin" server.type="file">
+<pre>/***
+|Name|TagCloudPlugin|
+|Source|http://www.TiddlyTools.com/#TagCloudPlugin|
+|Version|1.7.0|
+|Author|Eric Shulman|
+|Original Author|Clint Checketts|
+|License|http://www.TiddlyTools.com/#LegalStatements|
+|~CoreVersion|2.1|
+|Type|plugin|
+|Description|present a 'cloud' of tags (or links) using proportional font display|
+!Usage
+&lt;&lt;&lt;
+{{{
+&lt;&lt;cloud type action:... limit:... tag tag tag ...&gt;&gt;
+&lt;&lt;cloud type action:... limit:... +TiddlerName&gt;&gt;
+&lt;&lt;cloud type action:... limit:... -TiddlerName&gt;&gt;
+&lt;&lt;cloud type action:... limit:... =tagvalue&gt;&gt;
+}}}
+where:
+* //type// is a keyword, one of:
+** ''tags'' (default) - displays a cloud of tags, based on frequency of use
+** ''links'' - displays a cloud of tiddlers, based on number of links //from// each tiddler
+** ''references'' - displays a cloud of tiddlers, based on number of links //to// each tiddler
+* ''action:popup'' (default) - clicking a cloud item shows a popup with links to related tiddlers&lt;br&gt;//or//&lt;br&gt; ''action:goto'' - clicking a cloud item immediately opens the tiddler corresponding to that item
+* ''limit:N'' (optional) - restricts the cloud display to only show the N most popular tags/links
+* ''tag tag tag...'' (or ''title title title'' if ''links''/''references'' is used)&lt;br&gt;shows all tags/links in the document //except// for those listed as macro parameters
+* ''+TiddlerName''&lt;br&gt;show only tags/links read from a space-separated, bracketed list stored in a separate tiddler.
+* ''-TiddlerName''&lt;br&gt;show all tags/links //except// those read from a space-separated, bracketed list stored in a separate tiddler.
+* ''=tagvalue'' (//only if type=''tags''//)&lt;br&gt;shows only tags that are themselves tagged with the indicated tag value (i.e., ~TagglyTagging usage)
+//note: for backward-compatibility, you can also use the macro {{{&lt;&lt;tagCloud ...&gt;&gt;}}} in place of {{{&lt;&lt;cloud ...&gt;&gt;}}}//
+&lt;&lt;&lt;
+!Examples
+&lt;&lt;&lt;
+//all tags excluding&lt;&lt;tag systemConfig&gt;&gt;, &lt;&lt;tag excludeMissing&gt;&gt; and &lt;&lt;tag script&gt;&gt;//
+{{{&lt;&lt;cloud systemConfig excludeMissing script&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud systemConfig excludeMissing script&gt;&gt;}}}
+//top 10 tags excluding&lt;&lt;tag systemConfig&gt;&gt;, &lt;&lt;tag excludeMissing&gt;&gt; and &lt;&lt;tag script&gt;&gt;//
+{{{&lt;&lt;cloud limit:10 systemConfig excludeMissing script&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud limit:10 systemConfig excludeMissing script&gt;&gt;}}}
+//tags listed in// [[FavoriteTags]]
+{{{&lt;&lt;cloud +FavoriteTags&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud +FavoriteTags&gt;&gt;}}}
+//tags NOT listed in// [[FavoriteTags]]
+{{{&lt;&lt;cloud -FavoriteTags&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud -FavoriteTags&gt;&gt;}}}
+//links to tiddlers tagged with 'package'//
+{{{&lt;&lt;cloud action:goto =package&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud action:goto =package&gt;&gt;}}}
+//top 20 most referenced tiddlers//
+{{{&lt;&lt;cloud references limit:20&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud references limit:20&gt;&gt;}}}
+//top 20 tiddlers that contain the most links//
+{{{&lt;&lt;cloud links limit:20&gt;&gt;}}}
+{{groupbox{&lt;&lt;cloud links limit:20&gt;&gt;}}}
+&lt;&lt;&lt;
+!Revisions
+&lt;&lt;&lt;
+2009.07.17 [1.7.0] added {{{-TiddlerName}}} parameter to exclude tags that are listed in the indicated tiddler
+2009.02.26 [1.6.0] added {{{action:...}}} parameter to apply popup vs. goto action when clicking cloud items
+2009.02.05 [1.5.0] added ability to show links or back-links (references) instead of tags and renamed macro to {{{&lt;&lt;cloud&gt;&gt;}}} to reflect more generalized usage.
+2008.12.16 [1.4.2] corrected group calculation to prevent 'group=0' error
+2008.12.16 [1.4.1] revised tag filtering so excluded tags don't affect calculations
+2008.12.15 [1.4.0] added {{{limit:...}}} parameter to restrict the number of tags displayed to the top N most popular
+2008.11.15 [1.3.0] added {{{+TiddlerName}}} parameter to include only tags that are listed in the indicated tiddler
+2008.09.05 [1.2.0] added '=tagname' parameter to include only tags that are themselves tagged with the specified value (i.e., ~TagglyTagging usage)
+2008.07.03 [1.1.0] added 'segments' property to macro object.  Extensive code cleanup
+&lt;&lt;&lt;
+!Code
+***/
+//{{{
+version.extensions.TagCloudPlugin= {major: 1, minor: 7 , revision: 0, date: new Date(2009,7,17)};
+//Originally created by Clint Checketts, contributions by Jonny Leroy and Eric Shulman
+//Currently maintained and enhanced by Eric Shulman
+//}}}
+//{{{
+config.macros.cloud = {
+	tagstip: &quot;%1 tiddlers tagged with '%0'&quot;,
+	refslabel: &quot; (%0 references)&quot;,
+	refstip: &quot;%1 tiddlers have links to '%0'&quot;,
+	linkslabel: &quot; (%0 links)&quot;,
+	linkstip: &quot;'%0' has links to %1 other tiddlers&quot;,
+	groups: 9,
+	init: function() {
+		config.macros.tagCloud=config.macros.cloud; // for backward-compatibility
+		config.shadowTiddlers.TagCloud='&lt;&lt;cloud&gt;&gt;';
+		config.shadowTiddlers.StyleSheetTagCloud=
+			'/*{{{*/\n'
+			+'.tagCloud span {line-height: 3.5em; margin:3px;}\n'
+			+'.tagCloud1{font-size: 80%;}\n'
+			+'.tagCloud2{font-size: 100%;}\n'
+			+'.tagCloud3{font-size: 120%;}\n'
+			+'.tagCloud4{font-size: 140%;}\n'
+			+'.tagCloud5{font-size: 160%;}\n'
+			+'.tagCloud6{font-size: 180%;}\n'
+			+'.tagCloud7{font-size: 200%;}\n'
+			+'.tagCloud8{font-size: 220%;}\n'
+			+'.tagCloud9{font-size: 240%;}\n'
+			+'/*}}}*/\n';
+		setStylesheet(store.getTiddlerText('StyleSheetTagCloud'),'tagCloudsStyles');
+	},
+	getLinks: function(tiddler) { // get list of links to existing tiddlers and shadows
+		if (!tiddler.linksUpdated) tiddler.changed();
+		var list=[]; for (var i=0; i&lt;tiddler.links.length; i++) {
+			var title=tiddler.links[i];
+			if (store.isShadowTiddler(title)||store.tiddlerExists(title))
+				list.push(title);
+		}
+		return list;
+	},
+	handler: function(place,macroName,params) {
+		// unpack params
+		var inc=[]; var ex=[]; var limit=0; var action='popup';
+		var links=(params[0]&amp;&amp;params[0].toLowerCase()=='links'); if (links) params.shift();
+		var refs=(params[0]&amp;&amp;params[0].toLowerCase()=='references'); if (refs) params.shift();
+		if (params[0]&amp;&amp;params[0].substr(0,7).toLowerCase()=='action:')
+			action=params.shift().substr(7).toLowerCase();
+		if (params[0]&amp;&amp;params[0].substr(0,6).toLowerCase()=='limit:')
+			limit=parseInt(params.shift().substr(6));
+		while (params.length) {
+			if (params[0].substr(0,1)=='+') { // read taglist from tiddler
+				inc=inc.concat(store.getTiddlerText(params[0].substr(1),'').readBracketedList());
+			} else if (params[0].substr(0,1)=='-') { // exclude taglist from tiddler
+				ex=ex.concat(store.getTiddlerText(params[0].substr(1),'').readBracketedList());
+			} else if (params[0].substr(0,1)=='=') { // get tag list using tagged tags
+				var tagged=store.getTaggedTiddlers(params[0].substr(1));
+				for (var t=0; t&lt;tagged.length; t++) inc.push(tagged[t].title);
+			} else ex.push(params[0]); // exclude params
+			params.shift();
+		}
+		// get all items, include/exclude specific items
+		var items=[];
+		var list=(links||refs)?store.getTiddlers('title','excludeLists'):store.getTags();
+		for (var t=0; t&lt;list.length; t++) {
+			var title=(links||refs)?list[t].title:list[t][0];
+			if (links)	var count=this.getLinks(list[t]).length;
+			else if (refs)	var count=store.getReferringTiddlers(title).length;
+			else 		var count=list[t][1];
+			if ((!inc.length||inc.contains(title))&amp;&amp;(!ex.length||!ex.contains(title)))
+				items.push({ title:title, count:count });
+		}
+		if(!items.length) return;
+		// sort by decending count, limit results (optional)
+		items=items.sort(function(a,b){return(a.count==b.count)?0:(a.count&gt;b.count?-1:1);});
+		while (limit &amp;&amp; items.length&gt;limit) items.pop();
+		// find min/max and group size
+		var most=items[0].count;
+		var least=items[items.length-1].count;
+		var groupSize=(most-least+1)/this.groups;
+		// sort by title and draw the cloud of items
+		items=items.sort(function(a,b){return(a.title==b.title)?0:(a.title&gt;b.title?1:-1);});
+		var cloudWrapper = createTiddlyElement(place,'div',null,'tagCloud',null);
+		for (var t=0; t&lt;items.length; t++) {
+			cloudWrapper.appendChild(document.createTextNode(' '));
+			var group=Math.ceil((items[t].count-least)/groupSize)||1;
+			var className='tagCloudtag tagCloud'+group;
+			var tip=refs?this.refstip:links?this.linkstip:this.tagstip;
+			tip=tip.format([items[t].title,items[t].count]);
+			if (action=='goto') { // TAG/LINK/REFERENCES GOTO
+				var btn=createTiddlyLink(cloudWrapper,items[t].title,true,className);
+				btn.title=tip;
+				btn.style.fontWeight='normal';
+			} else if (!links&amp;&amp;!refs) { // TAG POPUP
+				var btn=createTiddlyButton(cloudWrapper,items[t].title,tip,onClickTag,className);
+				btn.setAttribute('tag',items[t].title);
+			} else { // LINK/REFERENCES POPUP
+				var btn=createTiddlyButton(cloudWrapper,items[t].title,tip,
+					function(ev) { var e=ev||window.event; var cmt=config.macros.cloud;
+						var popup = Popup.create(this);
+						var title = this.getAttribute('tiddler');
+						var count = this.getAttribute('count');
+						var refs  = this.getAttribute('refs')=='T';
+						var links = this.getAttribute('links')=='T';
+						var label = (refs?cmt.refslabel:cmt.linkslabel).format([count]);
+						createTiddlyLink(popup,title,true);
+						createTiddlyText(popup,label);
+						createTiddlyElement(popup,'hr');
+						if (refs) {
+							popup.setAttribute('tiddler',title);
+							config.commands.references.handlePopup(popup,title);
+						}
+						if (links) {
+							var tiddler = store.fetchTiddler(title);
+							var links=config.macros.cloud.getLinks(tiddler);
+							for(var i=0;i&lt;links.length;i++)
+								createTiddlyLink(createTiddlyElement(popup,'li'),
+									links[i],true);
+						}
+						Popup.show();
+						e.cancelBubble=true; if(e.stopPropagation) e.stopPropagation();
+						return false;
+					}, className);
+				btn.setAttribute('tiddler',items[t].title);
+				btn.setAttribute('count',items[t].count);
+				btn.setAttribute('refs',refs?'T':'F');
+				btn.setAttribute('links',links?'T':'F');
+				btn.title=tip;
+			}
+		}
+	}
+};
+//}}}</pre>
+</div>
+<div title="TiddlyWiki Markup" modifier="Denis" created="200912190207" changecount="1">
+<pre>!Inline Formatting
+|!Option|!Syntax|!Output|
+|bold font|{{{''bold''}}}|''bold''|
+|italic type|{{{//italic//}}}|//italic//|
+|underlined text|{{{__underlined__}}}|__underlined__|
+|strikethrough text|{{{--strikethrough--}}}|--strikethrough--|
+|superscript text|{{{^^super^^script}}}|^^super^^script|
+|subscript text|{{{~~sub~~script}}}|~~sub~~script|
+|highlighted text|{{{@@highlighted@@}}}|@@highlighted@@|
+|preformatted text|&lt;html&gt;&lt;code&gt;{{{preformatted}}}&lt;/code&gt;&lt;/html&gt;|{{{preformatted}}}|
+!Block Elements
+!!Headings
+{{{
+!Heading 1
+!!Heading 2
+!!!Heading 3
+!!!!Heading 4
+!!!!!Heading 5
+}}}
+&lt;&lt;&lt;
+!Heading 1
+!!Heading 2
+!!!Heading 3
+!!!!Heading 4
+!!!!!Heading 5
+&lt;&lt;&lt;
+!!Lists
+{{{
+* unordered list, level 1
+** unordered list, level 2
+*** unordered list, level 3
+
+# ordered list, level 1
+## ordered list, level 2
+### unordered list, level 3
+
+; definition list, term
+: definition list, description
+}}}
+&lt;&lt;&lt;
+* unordered list, level 1
+** unordered list, level 2
+*** unordered list, level 3
+
+# ordered list, level 1
+## ordered list, level 2
+### unordered list, level 3
+
+; definition list, term
+: definition list, description
+&lt;&lt;&lt;
+!!Blockquotes
+{{{
+&gt; blockquote, level 1
+&gt;&gt; blockquote, level 2
+&gt;&gt;&gt; blockquote, level 3
+
+&lt;&lt;&lt;
+blockquote
+&lt;&lt;&lt;
+}}}
+&lt;&lt;&lt;
+&gt; blockquote, level 1
+&gt;&gt; blockquote, level 2
+&gt;&gt;&gt; blockquote, level 3
+
+&gt; blockquote
+&lt;&lt;&lt;
+!!Preformatted Text
+&lt;html&gt;&lt;pre&gt;
+{{{
+preformatted (e.g. code)
+}}}
+&lt;/pre&gt;&lt;/html&gt;
+&lt;&lt;&lt;
+{{{
+preformatted (e.g. code)
+}}}
+&lt;&lt;&lt;
+!!Tables
+{{{
+|CssClass|k
+|!heading column 1|!heading column 2|
+|row 1, column 1|row 1, column 2|
+|row 2, column 1|row 2, column 2|
+|&gt;|COLSPAN|
+|ROWSPAN| &#8230; |
+|~| &#8230; |
+|CssProperty:value;&#8230;| &#8230; |
+|caption|c
+}}}
+''Annotation:''
+* The {{{&gt;}}} marker creates a &quot;colspan&quot;, causing the current cell to merge with the one to the right.
+* The {{{~}}} marker creates a &quot;rowspan&quot;, causing the current cell to merge with the one above.
+&lt;&lt;&lt;
+|CssClass|k
+|!heading column 1|!heading column 2|
+|row 1, column 1|row 1, column 2|
+|row 2, column 1|row 2, column 2|
+|&gt;|COLSPAN|
+|ROWSPAN| &#8230; |
+|~| &#8230; |
+|CssProperty:value;&#8230;| &#8230; |
+|caption|c
+&lt;&lt;&lt;
+!!Images /% TODO %/
+cf. [[TiddlyWiki.com|http://www.tiddlywiki.com/#EmbeddedImages]]
+!Hyperlinks
+* [[WikiWords|WikiWord]] are automatically transformed to hyperlinks to the respective tiddler
+** the automatic transformation can be suppressed by preceding the respective WikiWord with a tilde ({{{~}}}): {{{~WikiWord}}}
+* [[PrettyLinks]] are enclosed in square brackets and contain the desired tiddler name: {{{[[tiddler name]]}}}
+** optionally, a custom title or description can be added, separated by a pipe character ({{{|}}}): {{{[[title|target]]}}}&lt;br&gt;''N.B.:'' In this case, the target can also be any website (i.e. URL).
+!Custom Styling
+* {{{@@CssProperty:value;CssProperty:value;&#8230;@@}}}&lt;br&gt;''N.B.:'' CSS color definitions should use lowercase letters to prevent the inadvertent creation of WikiWords.
+* &lt;html&gt;&lt;code&gt;{{customCssClass{&#8230;}}}&lt;/code&gt;&lt;/html&gt;
+* raw HTML can be inserted by enclosing the respective code in HTML tags: {{{&lt;html&gt; &#8230; &lt;/html&gt;}}}
+!Special Markers
+* {{{&lt;br&gt;}}} forces a manual line break
+* {{{----}}} creates a horizontal ruler
+* [[HTML entities|http://www.tiddlywiki.com/#HtmlEntities]]
+* {{{&lt;&lt;macroName&gt;&gt;}}} calls the respective [[macro|Macros]]
+* To hide text within a tiddler so that it is not displayed, it can be wrapped in {{{/%}}} and {{{%/}}}.&lt;br/&gt;This can be a useful trick for hiding drafts or annotating complex markup.
+* To prevent wiki markup from taking effect for a particular section, that section can be enclosed in three double quotes: e.g. {{{&quot;&quot;&quot;WikiWord&quot;&quot;&quot;}}}.</pre>
 </div>
 </div>
 <!--POST-STOREAREA-->

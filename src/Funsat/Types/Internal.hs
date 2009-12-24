@@ -93,12 +93,3 @@ incNumDecisions = modify $ \s ->
 -- `FunsatState' and is not mutable.
 type FunMonad s = SSTErrMonad (Lit, Clause, ClauseId) (FunsatState s) s
 
--- | Configuration parameters for the solver.
-data FunsatConfig = Cfg
-    { configRestart :: !Int64      -- ^ Number of conflicts before a restart.
-    , configRestartBump :: !Double -- ^ `configRestart' is altered after each
-                                   -- restart by multiplying it by this value.
-    , configUseVSIDS :: !Bool      -- ^ If true, use dynamic variable ordering.
-    , configUseRestarts :: !Bool }
-                  deriving Show
-

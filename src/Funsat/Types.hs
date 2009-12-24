@@ -31,6 +31,7 @@ import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet ( BitSet )
 import Data.Foldable hiding ( sequence_ )
+import Data.Int( Int64 )
 import Data.List( intercalate )
 import Data.Map ( Map )
 import Data.Set ( Set )
@@ -242,6 +243,11 @@ instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
 -- assignment) and decision level.  The only reason we make a new datatype for
 -- this is for its `Show' instance.
 data CGNodeAnnot = CGNA Lit Int
+
+-- | The lambda node is connected exactly to the two nodes causing the conflict.
+cgLambda :: CGNodeAnnot
+cgLambda = CGNA (L 0) (-1)
+
 instance Show CGNodeAnnot where
     show (CGNA (L 0) _) = "lambda"
     show (CGNA l lev) = show l ++ " (" ++ show lev ++ ")"
@@ -331,3 +337,23 @@ instance Show (STRef s a) where show = const "<STRef>"
 instance Show (STUArray s Var Int) where show = const "<STUArray Var Int>"
 instance Show (STUArray s Var Double) where show = const "<STUArray Var Double>"
 instance Show (STArray s a b) where show = const "<STArray>"
+
+
+-- * Configuration
+
+-- | A choice of conflict graph cut for learning clauses.
+data ConflictCut = FirstUipCut
+                 | DecisionLitCut
+                   deriving (Show)
+
+-- | Configuration parameters for the solver.
+data FunsatConfig = Cfg
+    { configRestart :: !Int64      -- ^ Number of conflicts before a restart.
+    , configRestartBump :: !Double -- ^ `configRestart' is altered after each
+                                   -- restart by multiplying it by this value.
+    , configUseVSIDS :: !Bool      -- ^ If true, use dynamic variable ordering.
+    , configUseRestarts :: !Bool
+    , configCut :: !ConflictCut
+    }
+                  deriving (Show)
+

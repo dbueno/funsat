@@ -14,7 +14,7 @@ module Main where
 
 import Control.Monad( when, forM_ )
 import Data.Array.Unboxed( elems )
-import Data.Int( Int64 )
+import Data.List( intersperse )
 import Data.Version( showVersion )
 import Funsat.Solver
     ( solve
@@ -22,8 +22,7 @@ import Funsat.Solver
     , defaultConfig
     , ShowWrapped(..)
     , statTable )
-import Funsat.Types( CNF(..) )
-import Funsat.Types.Internal( FunsatConfig(..) )
+import Funsat.Types( CNF(..), FunsatConfig(..), ConflictCut(..) )
 import Paths_funsat( version )
 import Prelude hiding ( elem )
 import System.Console.GetOpt
@@ -42,20 +41,35 @@ import qualified Properties
 options :: [OptDescr (Options -> Options)]
 options =
     [ Option [] ["restart-at"]
-      (ReqArg (\i o -> o{ optRestartAt = read i }) "INT")
-      (withDefault optRestartAt
+      (ReqArg (\i o ->
+          let c = optFunsatConfig o
+          in o{ optFunsatConfig = c{configRestart = read i} }) "INT")
+      (withDefault (configRestart . optFunsatConfig)
        "Restart after INT conflicts.")
 
     , Option [] ["restart-bump"]
-      (ReqArg (\d o -> o{ optRestartBump = read d }) "FLOAT")
-      (withDefault optRestartBump
+      (ReqArg (\d o ->
+          let c = optFunsatConfig o
+          in o{ optFunsatConfig = c{configRestartBump = read d} }) "FLOAT")
+      (withDefault (configRestartBump . optFunsatConfig)
        "Alter the number of conflicts required to restart by multiplying by FLOAT.")
 
-    , Option [] ["no-vsids"] (NoArg $ \o -> o{ optUseVsids = False })
+    , Option [] ["no-vsids"] (NoArg $ \o ->
+          let c = optFunsatConfig o
+          in o{ optFunsatConfig = c{configUseVSIDS = False} })
       "Use static variable ordering."
 
-    , Option [] ["no-restarts"] (NoArg $ \o -> o{ optUseRestarts = False })
+    , Option [] ["no-restarts"] (NoArg $ \o ->
+          let c = optFunsatConfig o
+          in o{ optFunsatConfig = c{configUseRestarts = False} })
       "Never restart."
+{-
+    , Option [] ["conflict-cut"]
+      (ReqArg (\cut o ->
+          let c = optFunsatConfig o
+          in o{ optFunsatConfig = c{configCut = readCutOption cut} }) "1|d")
+      "Which cut of the conflict graph to use for learning.  1=first UIP; d=decision lit"
+-}
 #ifdef TESTING
     , Option [] ["verify"] (NoArg $ \o -> o{ optVerify = True })
       "Run quickcheck properties and unit tests."
@@ -69,23 +83,25 @@ options =
     ]
 
 data Options = Options
-    { optRestartAt     :: Int64
-    , optRestartBump   :: Double
-    , optUseVsids      :: Bool
-    , optUseRestarts   :: Bool
-    , optVerify        :: Bool
+    { optVerify        :: Bool
     , optPrintFeatures :: Bool
+    , optFunsatConfig  :: FunsatConfig
     , optVersion       :: Bool }
                deriving (Show)
 defaultOptions :: Options
 defaultOptions = Options
-                 { optRestartAt     = configRestart defaultConfig
-                 , optRestartBump   = configRestartBump defaultConfig
-                 , optUseVsids      = True
-                 , optUseRestarts   = True
-                 , optVerify        = False
+                 { optVerify        = False
+                 , optVersion       = False
                  , optPrintFeatures = False
-                 , optVersion       = False }
+                 , optFunsatConfig  = defaultConfig }
+
+optUseVsids, optUseRestarts :: Options -> Bool
+optUseVsids = configUseVSIDS . optFunsatConfig
+optUseRestarts = configUseRestarts . optFunsatConfig
+
+readCutOption ('1':_) = FirstUipCut
+readCutOption ('d':_) = DecisionLitCut
+readCutOption _       = error "error parsing cut option"
 
 -- | Show default value of option at the end of the given string.
 withDefault :: (Show v) => (Options -> v) -> String -> String
@@ -115,8 +131,11 @@ main = do
         exitWith ExitSuccess
 
     putStr "Feature config: "
-    putStr $ if (optUseVsids opts) then "vsids" else "no vsids"
-    putStr $ if (optUseRestarts opts) then ", restarts" else ", no restarts"
+    putStr . concat $ intersperse ", "
+        [ if (optUseVsids opts) then "vsids" else "no vsids"
+        , if (optUseRestarts opts) then "restarts" else "no restarts"
+        , "unsat checking"
+        ]
     putStr "\n"
     when (optPrintFeatures opts) $ exitWith ExitSuccess
 
@@ -135,9 +154,7 @@ main = do
             parseEnd <- getCurrentTime
 
             startingTime <- getCurrentTime
-            let cfg = defaultConfig
-                  { configUseVSIDS    = optUseVsids opts
-                  , configUseRestarts = optUseRestarts opts }
+            let cfg = optFunsatConfig opts
                 (solution, stats, rt) = solve cfg cnf
             endingTime <- solution `seq` getCurrentTime
             print solution

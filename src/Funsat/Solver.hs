@@ -225,9 +225,10 @@ reportSolution s = do
 --  * restarts to be enabled
 defaultConfig :: FunsatConfig
 defaultConfig = Cfg { configRestart = 100 -- fromIntegral $ max (numVars f `div` 10) 100
-                      , configRestartBump = 1.5
-                      , configUseVSIDS = True
-                      , configUseRestarts = True }
+                    , configRestartBump = 1.5
+                    , configUseVSIDS = True
+                    , configUseRestarts = True
+                    , configCut = FirstUipCut }
 
 -- * Preprocessing
 

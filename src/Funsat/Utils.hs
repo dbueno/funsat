@@ -172,7 +172,7 @@ uipCut dlits levelArr conflGraph conflNode uip =
         , cutUIP       = uip
         , cutGraph     = conflGraph }
     where
-      -- Transitively implied, and not including the UIP.  
+      -- Transitively implied, and not including the UIP.
       impliedByUIP = Set.insert extraNode $
                      Set.fromList $ tail $ DFS.reachable uip conflGraph
       -- The UIP may not imply the assigned conflict variable which needs to
@@ -226,14 +226,14 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
     -- both literals of the conflict variable, so that that variable has two
     -- nodes in the graph.
     nodes' =
-            ((0, CGNA (L 0) (-1)) :) $ -- lambda node
+            ((0, cgLambda) :) $
             ((unLit cLit, CGNA cLit (-1)) :) $
             ((negate (unLit cLit), CGNA (negate cLit) (lev!(var cLit))) :) $
             -- annotate each node with its literal and level
             map (\v -> (unVar v, CGNA (varToLit v) (lev!v))) $
             filter (\v -> v /= var cLit) $
             toList nodeSet'
-          
+
     -- node set includes all variables reachable from conflict.  This node set
     -- construction needs a `seen' set because it might infinite loop
     -- otherwise.

@@ -494,9 +494,12 @@ analyse mFr levelArr dlits (cLit, cClause, cCid) = do
 --     trace ("learnt: " ++ show (map (\l -> (l, levelArr!(var l))) learntCl, newLevel)) $ return ()
 --     outputConflict "conflict.dot" (graphviz' conflGraph) $ return ()
 --     return $ (learntCl, newLevel)
+    conf <- gets dpllConfig
     m <- liftST $ unsafeThawAss mFr
-    a <- firstUIPBFS m (numVars . cnf $ st) (reason st)
---     trace ("firstUIPBFS learned: " ++ show a) $ return ()
+    a <- case configCut conf of
+           FirstUipCut -> firstUIPBFS m (numVars . cnf $ st) (reason st)
+           DecisionLitCut -> error "decisionLitCut not implemented yet, yargh"
+--     trace ("learned: " ++ show a) $ return ()
     return a
   where
     -- BFS by undoing the trail backward.  From Minisat paper.  Returns

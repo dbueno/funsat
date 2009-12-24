@@ -63,13 +63,13 @@ options =
           let c = optFunsatConfig o
           in o{ optFunsatConfig = c{configUseRestarts = False} })
       "Never restart."
-{-
+
     , Option [] ["conflict-cut"]
       (ReqArg (\cut o ->
           let c = optFunsatConfig o
           in o{ optFunsatConfig = c{configCut = readCutOption cut} }) "1|d")
       "Which cut of the conflict graph to use for learning.  1=first UIP; d=decision lit"
--}
+
 #ifdef TESTING
     , Option [] ["verify"] (NoArg $ \o -> o{ optVerify = True })
       "Run quickcheck properties and unit tests."

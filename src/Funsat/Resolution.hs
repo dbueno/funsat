@@ -43,7 +43,7 @@ import Data.Map( Map )
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
 import Funsat.Types
-import Funsat.Utils( isSingle, getUnit, isFalseUnder )
+import Funsat.Utils.Internal( isSingle, getUnit, isFalseUnder )
 
 
 -- IDs = Ints

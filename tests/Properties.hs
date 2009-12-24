@@ -26,7 +26,7 @@ import Debug.Trace
 import Funsat.Circuit hiding( Circuit(..) )
 import Funsat.Circuit( Circuit(input,true,false,ite,xor,onlyif) )
 import Funsat.Types
-import Funsat.Utils
+import Funsat.Utils.Internal
 import Language.CNF.Parse.ParseDIMACS( parseFile )
 import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concatMap, sum, concat )
 import Funsat.Resolution( ResolutionTrace(..) )

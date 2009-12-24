@@ -19,7 +19,7 @@
 Generic utilities that happen to be used in the SAT solver.
 
 -}
-module Funsat.Utils where
+module Funsat.Utils.Internal where
 
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ( (>=>), forM_ )

@@ -101,7 +101,7 @@ import Data.STRef
 import Data.Sequence( Seq )
 -- import Debug.Trace (trace)
 import Funsat.Monad
-import Funsat.Utils
+import Funsat.Utils.Internal
 import Funsat.Resolution( ResolutionTrace(..), initResolutionTrace )
 import Funsat.Types
 import Funsat.Types.Internal

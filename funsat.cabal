@@ -43,7 +43,7 @@ Executable funsat
                       Funsat.Resolution
                       Funsat.Solver
                       Funsat.Types
-                      Funsat.Utils
+                      Funsat.Utils.Internal
                       Text.Tabular
                       Properties
 
@@ -68,7 +68,8 @@ Library
                       Funsat.Solver
                       Funsat.Types
                       Text.Tabular
- Other-modules:       Funsat.FastDom Funsat.Utils
+                      Funsat.Utils.Internal
+ Other-modules:       Funsat.FastDom
  Ghc-options:         -funbox-strict-fields
                       -Wall -fwarn-tabs
                       -fno-warn-name-shadowing

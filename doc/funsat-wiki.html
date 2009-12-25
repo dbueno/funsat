@@ -511,6 +511,20 @@ Also see [[AdvancedOptions]]</pre>
 </div>
 <!--POST-SHADOWAREA-->
 <div id="storeArea">
+<div title="Benchmarking Funsat" modifier="Denis" created="200912250232" modified="200912250232" tags="benchmark" changecount="4">
+<pre>This file depends on the [[README]].  So you should probably read that first.
+
+Funsat comes with some benchmarks and a script to run them ({{{benchmark.sh}}}) and a script to generate neat-looking PNG plots from the results ({{{bench/GraphResults.hs}}}).
+
+The raw results are stashed in the {{{bench-results/}}} subdirectory, indexed by date and time.  The raw results can be turned into data files suitable for input to gnuplot by using bench/GraphResults.hs and a haskell interpreter. The script requires Chart, a library available from Hackage.  For example,
+{{{
+runghc bench/GraphResults.hs bench-results/&lt;date-1&gt; bench-results/&lt;date-2&gt;
+}}}
+will create a graph comparing the runs of the respective dates.  The information that benchmark.sh prompts for will label the graphs.  (This information is stored in the file &quot;info&quot; in the {{{bench-results/&lt;date&gt;}}} directory.)
+
+The raw results simply contain the output of each file as it is running, including the wall and user time spent, the filename solved, and statistics about the solution for the problem.  In particular, it is human-readable.
+</pre>
+</div>
 <div title="Cardinality constraints" modifier="Denis" created="200912150523" modified="200912150530" tags="[[constraint types]] cardinality" changecount="8">
 <pre>Consider cardinality constraints of the form //m &lt;= x~~1~~ + x~~2~~ + ... + x~~k~~ &lt;= n// where //x~~i~~// are positive literals.
 
@@ -560,6 +574,32 @@ I'll have to generate my own constraints to test this.  From program verificatio
 </div>
 <div title="Popular Tiddlers" modifier="Denis" created="200912190210" modified="200912190212" changecount="3">
 <pre>&lt;&lt;cloud references&gt;&gt;</pre>
+</div>
+<div title="README" modifier="Denis" created="200912250230" modified="200912250230" tags="readme" changecount="2">
+<pre>!Funsat
+Funsat is a native Haskell SAT solver that uses modern techniques for solving SAT instances.  Current features include two-watched literals, conflict-directed learning, non-chronological backtracking, a VSIDS-like dynamic variable ordering, and restarts.  Our goal is to facilitate convenient embedding of a reasonably fast SAT solver as a constraint solving backend in other applications.
+
+Currently along this theme we provide //unsatisfiable core// generation, giving (hopefully) small unsatisfiable sub-problems of unsatisfiable input problems (see &quot;Funsat.Resolution&quot;).
+
+!!Installation
+Install using the typical Cabal procedure:
+{{{
+ghc --make -o Setup Setup.hs
+./Setup configure
+./Setup build
+}}}
+This will produce a binary called funsat at ./dist/build/funsat/funsat and a standalone library interface for the solver.  If you feel like profiling the code, a profiling binary is automatically built in ./dist/build/funsat-prof/funsat-prof.
+
+!!Dependencies
+All the dependences are cabal-ised and available from hackage, or in etc/.
+
+!!!parse-dimacs
+A haskell CNF file parser.
+
+http://hackage.haskell.org/cgi-bin/hackage-scripts/package/parse-dimacs
+
+!!!bitset
+http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset</pre>
 </div>
 <div title="SiteSubtitle" modifier="Denis" created="200912150513" changecount="1">
 <pre>a pure Haskell SAT solver</pre>
@@ -864,9 +904,9 @@ preformatted (e.g. code)
 |row 1, column 1|row 1, column 2|
 |row 2, column 1|row 2, column 2|
 |&gt;|COLSPAN|
-|ROWSPAN| &#8230; |
-|~| &#8230; |
-|CssProperty:value;&#8230;| &#8230; |
+|ROWSPAN| … |
+|~| … |
+|CssProperty:value;…| … |
 |caption|c
 }}}
 ''Annotation:''
@@ -878,9 +918,9 @@ preformatted (e.g. code)
 |row 1, column 1|row 1, column 2|
 |row 2, column 1|row 2, column 2|
 |&gt;|COLSPAN|
-|ROWSPAN| &#8230; |
-|~| &#8230; |
-|CssProperty:value;&#8230;| &#8230; |
+|ROWSPAN| … |
+|~| … |
+|CssProperty:value;…| … |
 |caption|c
 &lt;&lt;&lt;
 !!Images /% TODO %/
@@ -891,9 +931,9 @@ cf. [[TiddlyWiki.com|http://www.tiddlywiki.com/#EmbeddedImages]]
 * [[PrettyLinks]] are enclosed in square brackets and contain the desired tiddler name: {{{[[tiddler name]]}}}
 ** optionally, a custom title or description can be added, separated by a pipe character ({{{|}}}): {{{[[title|target]]}}}&lt;br&gt;''N.B.:'' In this case, the target can also be any website (i.e. URL).
 !Custom Styling
-* {{{@@CssProperty:value;CssProperty:value;&#8230;@@}}}&lt;br&gt;''N.B.:'' CSS color definitions should use lowercase letters to prevent the inadvertent creation of WikiWords.
-* &lt;html&gt;&lt;code&gt;{{customCssClass{&#8230;}}}&lt;/code&gt;&lt;/html&gt;
-* raw HTML can be inserted by enclosing the respective code in HTML tags: {{{&lt;html&gt; &#8230; &lt;/html&gt;}}}
+* {{{@@CssProperty:value;CssProperty:value;…@@}}}&lt;br&gt;''N.B.:'' CSS color definitions should use lowercase letters to prevent the inadvertent creation of WikiWords.
+* &lt;html&gt;&lt;code&gt;{{customCssClass{…}}}&lt;/code&gt;&lt;/html&gt;
+* raw HTML can be inserted by enclosing the respective code in HTML tags: {{{&lt;html&gt; … &lt;/html&gt;}}}
 !Special Markers
 * {{{&lt;br&gt;}}} forces a manual line break
 * {{{----}}} creates a horizontal ruler

@@ -25,8 +25,6 @@
 module Funsat.Types where
 
 
-import Control.Monad.MonadST( MonadST(..) )
-import Control.Monad.ST.Strict
 import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet ( BitSet )
@@ -36,7 +34,6 @@ import Data.List( intercalate )
 import Data.Map ( Map )
 import Data.Set ( Set )
 import Data.STRef
-import Funsat.Monad
 import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
 import qualified Data.BitSet as BitSet
 import qualified Data.Foldable as Fl
@@ -194,37 +191,6 @@ showAssignment a = intercalate " " ([show (a!i) | i <- range . bounds $ a,
 -- | Mutable array corresponding to the `IAssignment' representation.
 type MAssignment s = STUArray s Var Int
 
--- | Same as @freeze@, but at the right type so GHC doesn't yell at me.
-freezeAss :: MAssignment s -> ST s IAssignment
-{-# INLINE freezeAss #-}
-freezeAss = freeze
--- | See `freezeAss'.
-unsafeFreezeAss :: (MonadST s m) => MAssignment s -> m IAssignment
-{-# INLINE unsafeFreezeAss #-}
-unsafeFreezeAss = liftST . unsafeFreeze
-
-thawAss :: IAssignment -> ST s (MAssignment s)
-{-# INLINE thawAss #-}
-thawAss = thaw
-unsafeThawAss :: IAssignment -> ST s (MAssignment s)
-{-# INLINE unsafeThawAss #-}
-unsafeThawAss = unsafeThaw
-
--- | Destructively update the assignment with the given literal.
-assign :: MAssignment s -> Lit -> ST s (MAssignment s)
-assign a l = writeArray a (var l) (unLit l) >> return a
-
--- | Destructively undo the assignment to the given literal.
-unassign :: MAssignment s -> Lit -> ST s (MAssignment s)
-unassign a l = writeArray a (var l) 0 >> return a
-
--- | The assignment as a list of signed literals.
-litAssignment :: IAssignment -> [Lit]
-litAssignment mFr = foldr (\i ass -> if mFr!i == 0 then ass
-                                     else (L . (mFr!) $ i) : ass)
-                          []
-                          (range . bounds $ mFr)
-
 -- | The union of the reason side and the conflict side are all the nodes in
 -- the `cutGraph' (excepting, perhaps, the nodes on the reason side at
 -- decision level 0, which should never be present in a learned clause).
@@ -243,6 +209,9 @@ instance (Show (f Graph.Node), Show (gr a b)) => Show (Cut f gr a b) where
 -- assignment) and decision level.  The only reason we make a new datatype for
 -- this is for its `Show' instance.
 data CGNodeAnnot = CGNA Lit Int
+
+-- | Just a graph with special node annotations.
+type ConflictGraph g = g CGNodeAnnot ()
 
 -- | The lambda node is connected exactly to the two nodes causing the conflict.
 cgLambda :: CGNodeAnnot

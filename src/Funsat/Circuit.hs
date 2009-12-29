@@ -78,7 +78,8 @@ import Data.Map( Map )
 import Data.Maybe()
 import Data.Ord()
 import Data.Set( Set )
-import Funsat.Types( CNF(..), Lit(..), Var(..), var, lit, Solution(..), litSign, litAssignment )
+import Funsat.Types( CNF(..), Lit(..), Var(..), var, lit, Solution(..), litSign )
+import Funsat.Utils( litAssignment )
 import Prelude hiding( not, and, or )
 
 import qualified Data.Bimap as Bimap

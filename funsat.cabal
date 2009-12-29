@@ -30,10 +30,20 @@ Extra-source-files:  README CHANGES
 Executable funsat
  Main-is:             Main.hs
  Ghc-options:         -funbox-strict-fields
-                      -Wall -fwarn-tabs
+                      -Wall
+                      -fwarn-tabs
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
- Extensions:          CPP, ScopedTypeVariables
+ Extensions:          CPP,
+                      BangPatterns,
+                      ScopedTypeVariables,
+                      TypeSynonymInstances,
+                      MultiParamTypeClasses,
+                      FunctionalDependencies,
+                      FlexibleInstances,
+                      FlexibleContexts
+
+
  CPP-options:         -DTESTING
  Hs-source-dirs:      . src tests
  Other-modules:
@@ -43,6 +53,7 @@ Executable funsat
                       Funsat.Resolution
                       Funsat.Solver
                       Funsat.Types
+                      Funsat.Utils
                       Funsat.Utils.Internal
                       Text.Tabular
                       Properties
@@ -61,6 +72,14 @@ Executable funsat
                       time
 
 Library
+ Extensions:          CPP,
+                      BangPatterns,
+                      ScopedTypeVariables,
+                      TypeSynonymInstances,
+                      MultiParamTypeClasses,
+                      FunctionalDependencies,
+                      FlexibleInstances,
+                      FlexibleContexts
  Exposed-modules:     Control.Monad.MonadST
                       Funsat.Circuit
                       Funsat.Monad
@@ -68,6 +87,7 @@ Library
                       Funsat.Solver
                       Funsat.Types
                       Text.Tabular
+                      Funsat.Utils
                       Funsat.Utils.Internal
  Other-modules:       Funsat.FastDom
  Ghc-options:         -funbox-strict-fields

@@ -575,7 +575,7 @@ I'll have to generate my own constraints to test this.  From program verificatio
 <div title="Popular Tiddlers" modifier="Denis" created="200912190210" modified="200912190212" changecount="3">
 <pre>&lt;&lt;cloud references&gt;&gt;</pre>
 </div>
-<div title="README" modifier="Denis" created="200912250230" modified="200912250230" tags="readme" changecount="2">
+<div title="README" modifier="Denis" created="200912250230" modified="200912291540" tags="readme" changecount="3">
 <pre>!Funsat
 Funsat is a native Haskell SAT solver that uses modern techniques for solving SAT instances.  Current features include two-watched literals, conflict-directed learning, non-chronological backtracking, a VSIDS-like dynamic variable ordering, and restarts.  Our goal is to facilitate convenient embedding of a reasonably fast SAT solver as a constraint solving backend in other applications.
 
@@ -588,7 +588,7 @@ ghc --make -o Setup Setup.hs
 ./Setup configure
 ./Setup build
 }}}
-This will produce a binary called funsat at ./dist/build/funsat/funsat and a standalone library interface for the solver.  If you feel like profiling the code, a profiling binary is automatically built in ./dist/build/funsat-prof/funsat-prof.
+This will produce a binary called funsat at ./dist/build/funsat/funsat and a standalone library interface for the solver.
 
 !!Dependencies
 All the dependences are cabal-ised and available from hackage, or in etc/.

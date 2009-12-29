@@ -1,7 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses
-            ,FunctionalDependencies
-            ,FlexibleInstances
-            ,FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 {-
     This file is part of funsat.
@@ -21,6 +18,7 @@ Generic utilities that happen to be used in the SAT solver.
 -}
 module Funsat.Utils.Internal where
 
+import Control.Monad.MonadST( MonadST, liftST )
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ( (>=>), forM_ )
 import Data.Array.ST
@@ -28,10 +26,10 @@ import Data.Array.Unboxed
 import Data.Foldable hiding ( sequence_ )
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
 import Data.List( foldl1' )
-import Data.Map (Map)
-import Data.Set (Set)
+import Data.Set( Set )
 import Debug.Trace( trace )
 import Funsat.Types
+import Funsat.Types.Internal( FunMonad )
 import Prelude hiding ( sum, concatMap, elem, foldr, foldl, any, maximum )
 import System.IO.Unsafe( unsafePerformIO )
 import System.IO( hPutStr, stderr )
@@ -42,6 +40,49 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+
+class FunFreeze t e f | t -> f where
+    funFreeze :: (MArray t e (ST s), Ix i, IArray f e) =>
+                 t i e -> FunMonad s (f i e)
+    funThaw   :: (MArray t e (ST s), Ix i, IArray f e) =>
+                 f i e -> FunMonad s (t i e)
+instance FunFreeze (STUArray s) Int UArray where
+    funFreeze = liftST . unsafeFreeze
+    funThaw   = liftST . unsafeThaw
+
+instance FunFreeze (STUArray s) Double UArray where
+    funFreeze = liftST . unsafeFreeze
+    funThaw   = liftST . unsafeThaw
+
+instance FunFreeze (STArray s) [WatchedPair s] Array where
+    funFreeze = liftST . freeze
+    funThaw   = liftST . thaw
+
+{-
+-- | Same as @freeze@, but at the right type so GHC doesn't yell at me.
+freezeAss :: MAssignment s -> ST s IAssignment
+{-# INLINE freezeAss #-}
+freezeAss = freeze
+-- | See `freezeAss'.
+unsafeFreezeAss :: (MonadST s m) => MAssignment s -> m IAssignment
+{-# INLINE unsafeFreezeAss #-}
+unsafeFreezeAss = liftST . unsafeFreeze
+
+thawAss :: IAssignment -> ST s (MAssignment s)
+{-# INLINE thawAss #-}
+thawAss = thaw
+unsafeThawAss :: IAssignment -> ST s (MAssignment s)
+{-# INLINE unsafeThawAss #-}
+unsafeThawAss = unsafeThaw
+-}
+
+-- | Destructively update the assignment with the given literal.
+assign :: MAssignment s -> Lit -> ST s (MAssignment s)
+assign a l = writeArray a (var l) (unLit l) >> return a
+
+-- | Destructively undo the assignment to the given literal.
+unassign :: MAssignment s -> Lit -> ST s (MAssignment s)
+unassign a l = writeArray a (var l) 0 >> return a
 
 
 -- | `True' if and only if the object is undefined in the model.
@@ -173,8 +214,10 @@ uipCut dlits levelArr conflGraph conflNode uip =
         , cutGraph     = conflGraph }
     where
       -- Transitively implied, and not including the UIP.
-      impliedByUIP = Set.insert extraNode $
-                     Set.fromList $ tail $ DFS.reachable uip conflGraph
+      impliedByUIP = Set.insert extraNode
+                     . Set.fromList
+                     . tail
+                     $ DFS.reachable uip conflGraph
       -- The UIP may not imply the assigned conflict variable which needs to
       -- be on the conflict side, unless it's a decision variable or the UIP
       -- itself.
@@ -207,18 +250,18 @@ cutLearn a levelArr cut =
     maximum0 [] = 0            -- maximum0 has 0 as its max for the empty list
     maximum0 xs = maximum xs
 
-
 -- | Creates the conflict graph, where each node is labeled by its literal and
--- level.
+-- level.  There is also a distinguished /lambda/ node, as used by Sabharwal
+-- when he explains conflict graphs.
 --
 -- Useful for getting pretty graphviz output of a conflict.
-mkConflGraph :: DynGraph gr =>
+mkConflGraph :: DynGraph g =>
                 IAssignment
              -> FrozenLevelArray
-             -> Map Var Clause
-             -> [Lit]           -- ^ decision lits, in rev. chron. order
-             -> (Lit, Clause)   -- ^ conflict info
-             -> gr CGNodeAnnot ()
+             -> ReasonMap
+             -> [Lit]           -- ^ the trail (decision lits, in rev. chron. order)
+             -> (Lit, Clause)   -- ^ conflicting literal and reason clause
+             -> ConflictGraph g
 mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
     Graph.mkGraph nodes' edges'
   where
@@ -259,14 +302,25 @@ mkConflGraph mFr lev reasonMap _dlits (cLit, confl) =
                      | x <- pred ] ++ edges
         pred = filterReason $
                if lit == cLit then confl else
-               Map.findWithDefault [] (var lit) reasonMap `without` lit
+                   fst (Map.findWithDefault ([],undefined) (var lit) reasonMap)
+                   `without` lit
         filterReason = filter ( ((var lit /=) . var) .&&.
                                 ((<= litLevel lit) . litLevel) )
         seen' = seen `with` litNode lit
-        litLevel l = if l == cLit then length _dlits else lev!(var l)
+        litLevel l = if l == cLit then numDlits else lev!(var l)
+        numDlits = length _dlits
         litNode l =              -- lit to node
             if var l == var cLit -- preserve sign of conflicting lit
             then unLit l
             else (abs . unLit) l
 
 
+
+
+-- | @doWhile cmd test@ first runs @cmd@, then loops testing @test@ and
+-- executing @cmd@.  The traditional @do-while@ semantics, in other words.
+doWhile :: (Monad m) => m () -> m Bool -> m ()
+doWhile body test = do
+  body
+  shouldContinue <- test
+  when shouldContinue $ doWhile body test

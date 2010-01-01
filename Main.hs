@@ -34,9 +34,7 @@ import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseDIMACS
 import qualified Text.Tabular as Tabular
 
-#ifdef TESTING
 import qualified Properties
-#endif
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -70,10 +68,11 @@ options =
           in o{ optFunsatConfig = c{configCut = readCutOption cut} }) "1|d")
       "Which cut of the conflict graph to use for learning.  1=first UIP; d=decision lit"
 
-#ifdef TESTING
     , Option [] ["verify"] (NoArg $ \o -> o{ optVerify = True })
       "Run quickcheck properties and unit tests."
-#endif
+
+    , Option [] ["profile"] (NoArg $ \o -> o{ optProfile = True })
+      "Run solver.  (assumes profiling build)"
 
     , Option [] ["print-features"] (NoArg $ \o -> o{ optPrintFeatures = True })
       "Print the optimisations the SAT solver supports and exit."
@@ -84,6 +83,7 @@ options =
 
 data Options = Options
     { optVerify        :: Bool
+    , optProfile       :: Bool
     , optPrintFeatures :: Bool
     , optFunsatConfig  :: FunsatConfig
     , optVersion       :: Bool }
@@ -119,11 +119,14 @@ usageHeader = "\nUsage: funsat [OPTION...] cnf-files..."
 main :: IO ()
 main = do
     (opts, files) <- getArgs >>= validateArgv
-#ifdef TESTING
     when (optVerify opts) $ do
         Properties.main
         exitWith ExitSuccess
-#endif
+
+    when (optProfile opts) $ do
+        putStrLn "Solving ..."
+        Properties.profile
+        exitWith ExitSuccess
 
     when (optVersion opts) $ do
         putStr "funsat "

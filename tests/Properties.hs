@@ -87,6 +87,33 @@ main = do
       check resChkConfig prop_resolutionChecker
 
 
+profile :: IO ()
+profile = do
+      -- hPutStr stderr "prop_circuitToCnf: " >> check config prop_circuitToCnf
+
+      -- Add more tests above here.  Setting the rng keeps the SAT instances the
+      -- same even if more tests are added above.  I want this because if I make
+      -- a change that makes the solver dramatically faster or slower, I know
+      -- this wasn't due to the test distribution.
+      gen <- getStdGen
+      setStdGen (mkStdGen 42)
+      hPutStr stderr "prop_solveCorrect: "
+      check solveConfig prop_solveCorrect
+
+      setStdGen gen
+      hPutStr stderr "prop_solveCorrect (rand): "
+      check solveConfig prop_solveCorrect
+      gen <- getStdGen
+
+      setStdGen (mkStdGen 42)
+      hPutStr stderr "prop_resolutionChecker: "
+      check resChkConfig prop_resolutionChecker
+
+      setStdGen gen
+      hPutStr stderr "prop_resolutionChecker (rand): "
+      check resChkConfig prop_resolutionChecker
+
+
 config = QC.defaultConfig { configMaxTest = 1000 }
 
 -- Special configuration for the "solve this random instance" tests.

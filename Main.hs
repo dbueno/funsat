@@ -91,6 +91,7 @@ data Options = Options
 defaultOptions :: Options
 defaultOptions = Options
                  { optVerify        = False
+                 , optProfile       = False
                  , optVersion       = False
                  , optPrintFeatures = False
                  , optFunsatConfig  = defaultConfig }

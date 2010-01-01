@@ -47,15 +47,21 @@ class FunFreeze t e f | t -> f where
     funThaw   :: (MArray t e (ST s), Ix i, IArray f e) =>
                  f i e -> FunMonad s (t i e)
 instance FunFreeze (STUArray s) Int UArray where
+    {-# INLINE funFreeze #-}
     funFreeze = liftST . unsafeFreeze
+    {-# INLINE funThaw #-}
     funThaw   = liftST . unsafeThaw
 
 instance FunFreeze (STUArray s) Double UArray where
+    {-# INLINE funFreeze #-}
     funFreeze = liftST . unsafeFreeze
+    {-# INLINE funThaw #-}
     funThaw   = liftST . unsafeThaw
 
 instance FunFreeze (STArray s) [WatchedPair s] Array where
+    {-# INLINE funFreeze #-}
     funFreeze = liftST . freeze
+    {-# INLINE funThaw #-}
     funThaw   = liftST . thaw
 
 {-

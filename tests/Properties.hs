@@ -59,7 +59,7 @@ main = do
       hPutStr stderr "prop_negDefNotUndefUnder: " >> check config prop_negDefNotUndefUnder
       hPutStr stderr "prop_undefUnderImpliesNegUndef: " >> check config prop_undefUnderImpliesNegUndef
       hPutStr stderr "prop_count: " >> check config prop_count
-      hPutStr stderr "prop_circuitToCnf: " >> check config prop_circuitToCnf
+      hPutStr stderr "prop_circuitToCnf: " >> check config{ maxSize = 10000} prop_circuitToCnf
       hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
 
       -- Add more tests above here.  Setting the rng keeps the SAT instances the

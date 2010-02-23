@@ -71,7 +71,7 @@ where
 
 
 import Control.Monad.Reader
-import Control.Monad.State.Lazy hiding ((>=>), forM_)
+import Control.Monad.State.Strict hiding ((>=>), forM_)
 import Data.Bimap( Bimap )
 import Data.List( nub )
 import Data.Map( Map )

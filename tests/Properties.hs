@@ -16,7 +16,6 @@ import Funsat.Solver hiding ((==>))
 import Control.Exception( assert )
 import Control.Monad
 import Data.Array.Unboxed
-import Data.BitSet (hash)
 import Data.Bits hiding( xor )
 import Data.Foldable hiding (sequence_)
 import Data.List (nub, splitAt)
@@ -58,8 +57,6 @@ main = do
       hPutStr stderr "prop_clauseStatusUnderA: " >> check config prop_clauseStatusUnderA
       hPutStr stderr "prop_negDefNotUndefUnder: " >> check config prop_negDefNotUndefUnder
       hPutStr stderr "prop_undefUnderImpliesNegUndef: " >> check config prop_undefUnderImpliesNegUndef
-      hPutStr stderr "prop_litHash: " >> check config prop_litHash
-      hPutStr stderr "prop_varHash: " >> check config prop_varHash
       hPutStr stderr "prop_count: " >> check config prop_count
       hPutStr stderr "prop_circuitToCnf: " >> check config prop_circuitToCnf
       hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
@@ -185,14 +182,6 @@ prop_randAssign (a :: IAssignment) =
 --     case unitPropFar m cnf of
 --       Nothing -> label "no propagation" True
 --       Just m' -> label "propagated" $ all (\l -> elem l m') m
-
--- Make sure the bit set will work.
-
-prop_litHash (k :: Lit) (l :: Lit) =
-    hash k == hash l <==> k == l
-
-prop_varHash (k :: Var) l =
-    hash k == hash l <==> k == l
 
 
 (<==>) = iff

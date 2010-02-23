@@ -156,19 +156,10 @@ instance (Ord k, Ord a) => Setlike (Map k a) (k, a) where
     without m (k,_) = Map.delete k m
     contains = error "no contains for Setlike (Map k a) (k, a)"
 
-instance (Ord a, BitSet.Hash a) => Setlike (BitSet a) a where
+instance (Ord a, Enum a) => Setlike (BitSet a) a where
     with = flip BitSet.insert
     without = flip BitSet.delete
     contains = flip BitSet.member
-
-
-instance (BitSet.Hash Lit) where
-    hash l = if li > 0 then 2 * vi else (2 * vi) + 1
-        where li = unLit l
-              vi = abs li
-
-instance (BitSet.Hash Var) where
-    hash = unVar
 
 -- * Assignments
 

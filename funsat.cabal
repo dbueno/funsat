@@ -55,7 +55,7 @@ Executable funsat
                       array,
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
-                      bitset < 1,
+                      bitset == 1.0,
                       bimap >= 0.2 && < 0.3,
                       fgl,
                       time
@@ -82,6 +82,6 @@ Library
                       array,
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
-                      bitset < 1,
+                      bitset == 1.0,
                       bimap >= 0.2 && < 0.3,
                       fgl

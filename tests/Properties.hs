@@ -31,7 +31,8 @@ import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concat
 import Funsat.Resolution( ResolutionTrace(..) )
 import System.IO
 import System.Random
-import Test.QuickCheck hiding (defaultConfig)
+import Test.QuickCheck
+import Test.QuickCheck.Gen( unGen )
 
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
@@ -83,14 +84,20 @@ main = do
       hPutStr stderr "prop_resolutionChecker (rand): "
       check resChkConfig prop_resolutionChecker
 
-
-config = QC.defaultConfig { configMaxTest = 1000 }
+check :: Testable prop => Args -> prop -> IO ()
+check = QC.quickCheckWith
+config = QC.stdArgs{ maxSuccess = 1400
+                   , maxSize    = 1000
+                   , maxDiscard = 1000 }
 
 -- Special configuration for the "solve this random instance" tests.
-solveConfig  = QC.defaultConfig { configMaxTest = 2000 }
-resChkConfig = QC.defaultConfig{ configMaxTest = 1200 }
+solveConfig  = config{ maxSuccess = 2000 }
+resChkConfig = config{ maxSuccess = 1200 }
 
 myConfigEvery testnum args = show testnum ++ ": " ++ show args ++ "\n\n"
+
+trivial :: Testable p => Bool -> p -> Property
+trivial t = classify t "trivial"
 
 -- * Tests
 prop_solveCorrect (cnf :: CNF) =
@@ -328,7 +335,6 @@ instance Arbitrary CNF where
 
 newtype ArbBEnv = ArbBEnv (BEnv Var) deriving (Show)
 instance Arbitrary ArbBEnv where
-    coarbitrary = undefined
     arbitrary = sized $ \n -> do
                   bools <- vector (n+1) :: Gen [Bool]
                   return . ArbBEnv $ Map.fromList (zip [V 1 .. V (n+1)] bools)
@@ -408,7 +414,7 @@ instance Arbitrary UnsatCNF where
 
 getCNF :: Int -> IO CNF
 getCNF maxVars = do g <- newStdGen
-                    return (generate (maxVars * 3) g arbitrary)
+                    return (unGen arbitrary g (maxVars * 3))
 
 prob :: IO ParseCNF.CNF
 prob = do cnfOrError <- parseFile "./tests/problems/uf20/uf20-0119.cnf"

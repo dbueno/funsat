@@ -87,12 +87,12 @@ main = do
 check :: Testable prop => Args -> prop -> IO ()
 check = QC.quickCheckWith
 config = QC.stdArgs{ maxSuccess = 1400
-                   , maxSize    = 1000
+                   , maxSize    = 800
                    , maxDiscard = 1000 }
 
 -- Special configuration for the "solve this random instance" tests.
 solveConfig  = config{ maxSuccess = 2000 }
-resChkConfig = config{ maxSuccess = 1200 }
+resChkConfig = config{ maxSuccess = 1200, maxSize = 600 }
 
 myConfigEvery testnum args = show testnum ++ ": " ++ show args ++ "\n\n"
 

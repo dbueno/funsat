@@ -58,18 +58,18 @@ Executable funsat
                       Text.Tabular
                       Properties
 
- Build-Depends:       base,
-                      random,
-                      containers,
-                      pretty,
-                      mtl,
-                      array,
+ Build-Depends:       base >= 3 && < 5,
+                      random < 2,
+                      containers >= 0.2 && < 0.3,
+                      pretty < 2,
+                      mtl >= 1 && < 2,
+                      array >= 0.2 && < 0.3,
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       bimap >= 0.2 && < 0.3,
-                      fgl,
-                      time
+                      fgl >= 5 && <= 5.4.2.2,
+                      time < 1.2
 
 Library
  Extensions:          CPP,
@@ -96,11 +96,11 @@ Library
                       -fno-warn-orphans
  Extensions:          CPP, ScopedTypeVariables
  Hs-source-dirs:      src
- Build-Depends:       base,
-                      containers,
-                      pretty,
-                      mtl,
-                      array,
+ Build-Depends:       base >= 3 && < 5,
+                      containers >= 0.2 && < 0.3,
+                      pretty < 2,
+                      mtl >= 1 && < 2,
+                      array >= 0.2 && < 0.3,
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,

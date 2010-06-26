@@ -53,6 +53,7 @@ Executable funsat
                       Funsat.Resolution
                       Funsat.Solver
                       Funsat.Types
+                      Funsat.Types.Internal
                       Funsat.Utils
                       Funsat.Utils.Internal
                       Text.Tabular
@@ -86,6 +87,7 @@ Library
                       Funsat.Resolution
                       Funsat.Solver
                       Funsat.Types
+                      Funsat.Types.Internal
                       Text.Tabular
                       Funsat.Utils
                       Funsat.Utils.Internal

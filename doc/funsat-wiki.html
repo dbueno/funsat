@@ -541,6 +541,13 @@ Keep track of four values:
 <div title="Clause Learning" modifier="Denis" created="200912160438" tags="sat [[clause learning]]" changecount="1">
 <pre>A learned clause is needed to to remember the reason for conflicts.</pre>
 </div>
+<div title="Cutting a Funsat Release" modifier="Denis" created="201006261954" modified="201006262001" tags="release" changecount="8">
+<pre>* Always cut a release from the master branch
+* Make sure the working tree is clean
+* Adjust the version number in funsat.cabal (if it's not already)
+* Clean, build, and run {{{funsat --verify}}}
+* (Optional) run benchmark.sh</pre>
+</div>
 <div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150545" changecount="3">
 <pre>Funsat is based on the DPLL algorithm.  We have two-watched literals, backjumping, vsids, and restarts.
 
@@ -616,7 +623,7 @@ http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset</pre>
 <div title="Tag Cloud" modifier="Denis" created="200912190209" modified="200912190210" changecount="2">
 <pre>&lt;&lt;cloud tags action:goto systemConfig DiscoveryPackage NavigationPackage&gt;&gt;</pre>
 </div>
-<div title="TagCloudPlugin" modifier="ELSDesignStudios" created="200510141945" modified="200907190523" tags="NavigationPackage systemConfig DiscoveryPackage" server.page.revision="200907190523" server.host="www.tiddlytools.com/#TagCloudPlugin" server.type="file">
+<div title="TagCloudPlugin" modifier="ELSDesignStudios" created="200510141945" modified="200907190523" tags="NavigationPackage systemConfig DiscoveryPackage" server.type="file" server.host="www.tiddlytools.com/#TagCloudPlugin" server.page.revision="200907190523">
 <pre>/***
 |Name|TagCloudPlugin|
 |Source|http://www.TiddlyTools.com/#TagCloudPlugin|
@@ -906,9 +913,9 @@ preformatted (e.g. code)
 |row 1, column 1|row 1, column 2|
 |row 2, column 1|row 2, column 2|
 |&gt;|COLSPAN|
-|ROWSPAN| … |
-|~| … |
-|CssProperty:value;…| … |
+|ROWSPAN| &#8230; |
+|~| &#8230; |
+|CssProperty:value;&#8230;| &#8230; |
 |caption|c
 }}}
 ''Annotation:''
@@ -920,9 +927,9 @@ preformatted (e.g. code)
 |row 1, column 1|row 1, column 2|
 |row 2, column 1|row 2, column 2|
 |&gt;|COLSPAN|
-|ROWSPAN| … |
-|~| … |
-|CssProperty:value;…| … |
+|ROWSPAN| &#8230; |
+|~| &#8230; |
+|CssProperty:value;&#8230;| &#8230; |
 |caption|c
 &lt;&lt;&lt;
 !!Images /% TODO %/
@@ -933,9 +940,9 @@ cf. [[TiddlyWiki.com|http://www.tiddlywiki.com/#EmbeddedImages]]
 * [[PrettyLinks]] are enclosed in square brackets and contain the desired tiddler name: {{{[[tiddler name]]}}}
 ** optionally, a custom title or description can be added, separated by a pipe character ({{{|}}}): {{{[[title|target]]}}}&lt;br&gt;''N.B.:'' In this case, the target can also be any website (i.e. URL).
 !Custom Styling
-* {{{@@CssProperty:value;CssProperty:value;…@@}}}&lt;br&gt;''N.B.:'' CSS color definitions should use lowercase letters to prevent the inadvertent creation of WikiWords.
-* &lt;html&gt;&lt;code&gt;{{customCssClass{…}}}&lt;/code&gt;&lt;/html&gt;
-* raw HTML can be inserted by enclosing the respective code in HTML tags: {{{&lt;html&gt; … &lt;/html&gt;}}}
+* {{{@@CssProperty:value;CssProperty:value;&#8230;@@}}}&lt;br&gt;''N.B.:'' CSS color definitions should use lowercase letters to prevent the inadvertent creation of WikiWords.
+* &lt;html&gt;&lt;code&gt;{{customCssClass{&#8230;}}}&lt;/code&gt;&lt;/html&gt;
+* raw HTML can be inserted by enclosing the respective code in HTML tags: {{{&lt;html&gt; &#8230; &lt;/html&gt;}}}
 !Special Markers
 * {{{&lt;br&gt;}}} forces a manual line break
 * {{{----}}} creates a horizontal ruler

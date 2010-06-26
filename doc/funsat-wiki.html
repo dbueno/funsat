@@ -541,13 +541,16 @@ Keep track of four values:
 <div title="Clause Learning" modifier="Denis" created="200912160438" tags="sat [[clause learning]]" changecount="1">
 <pre>A learned clause is needed to to remember the reason for conflicts.</pre>
 </div>
-<div title="Cutting a Funsat Release" modifier="Denis" created="201006261954" modified="201006262031" tags="release" changecount="9">
+<div title="Cutting a Funsat Release" modifier="Denis" created="201006261954" modified="201006262040" tags="release" changecount="11">
 <pre>* Always cut a release from the master branch
 * Make sure the working tree is clean
 * Adjust the version number in funsat.cabal (if it's not already)
 * Clean, build, and run {{{funsat --verify}}}
 * Run {{{cabal haddock}}}
-* (Optional) run benchmark.sh</pre>
+* (Optional) run benchmark.sh
+* When that looks good, run {{{cabal sdist}}}
+* From the tarball, build it
+* Upload to [[http://hackage.haskell.org/]]</pre>
 </div>
 <div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150545" changecount="3">
 <pre>Funsat is based on the DPLL algorithm.  We have two-watched literals, backjumping, vsids, and restarts.

@@ -105,4 +105,4 @@ Library
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       bimap >= 0.2 && < 0.3,
-                      fgl
+                      fgl >= 5 && <= 5.4.2.2

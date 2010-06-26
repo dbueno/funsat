@@ -541,11 +541,12 @@ Keep track of four values:
 <div title="Clause Learning" modifier="Denis" created="200912160438" tags="sat [[clause learning]]" changecount="1">
 <pre>A learned clause is needed to to remember the reason for conflicts.</pre>
 </div>
-<div title="Cutting a Funsat Release" modifier="Denis" created="201006261954" modified="201006262001" tags="release" changecount="8">
+<div title="Cutting a Funsat Release" modifier="Denis" created="201006261954" modified="201006262031" tags="release" changecount="9">
 <pre>* Always cut a release from the master branch
 * Make sure the working tree is clean
 * Adjust the version number in funsat.cabal (if it's not already)
 * Clean, build, and run {{{funsat --verify}}}
+* Run {{{cabal haddock}}}
 * (Optional) run benchmark.sh</pre>
 </div>
 <div title="Funsat Internals" modifier="Denis" created="200912150512" modified="200912150545" changecount="3">

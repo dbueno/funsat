@@ -14,8 +14,8 @@ else
     DATE=date
 fi
 
-DSAT=./dist/build/funsat/funsat
-RESULTS_DIR=bench-results/$($DATE +%F.%H%M)
+FUNSAT=./dist/build/funsat/funsat
+RESULTS_DIR=bench/results/$($DATE +%F.%H%M)
 
 MAX_PROB_SECONDS="300"
 echo "Max time per problem:" $MAX_PROB_SECONDS "seconds"
@@ -45,7 +45,7 @@ do
     i=$(($i+1))
     OUTPUT="$RESULTS_DIR/result.$i"
 
-    CMD="$DSAT $options"
+    CMD="$FUNSAT $options"
     echo "-->" $CMD
 
 #     find ./bench -iname "*.cnf" -exec $TIMED $CMD 2>&1 > $OUTPUT \;

@@ -13,12 +13,12 @@ Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional
 Cabal-Version:       >= 1.2.3
-Build-Depends:       base, QuickCheck >= 2 && < 4
 Build-type:          Simple
-
-Exposed-modules:     Data.BitSet
-Build-depends:       base >= 4.0.0
-Extensions:          ScopedTypeVariables, DeriveDataTypeable
-Ghc-options:         -Wall -O2
-Ghc-prof-options:    -prof -auto-all
 Extra-source-files:  tests/Properties.hs
+
+Library
+  Exposed-modules:     Data.BitSet
+  Build-depends:       base >= 4.0.0 && < 5, QuickCheck >= 2 && < 3
+  Extensions:          ScopedTypeVariables, DeriveDataTypeable
+  Ghc-options:         -Wall -O2
+  Ghc-prof-options:    -prof -auto-all

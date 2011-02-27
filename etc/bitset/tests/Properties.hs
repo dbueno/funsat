@@ -14,23 +14,26 @@ import qualified Data.List as List
 
 main :: IO ()
 main = do
-  dbgMsg "prop_size: " >> check config prop_size
-  dbgMsg "prop_size_insert: " >> check config prop_size_insert
-  dbgMsg "prop_size_delete: " >> check config prop_size_delete
-  dbgMsg "prop_insert: " >> check config prop_insert
-  dbgMsg "prop_delete: " >> check config prop_delete
-  dbgMsg "prop_insDelIdempotent: " >> check config prop_insDelIdempotent
-  dbgMsg "prop_delDelIdempotent: " >> check config prop_delDelIdempotent
-  dbgMsg "prop_insInsIdempotent: " >> check config prop_insInsIdempotent
-  dbgMsg "prop_extensional: " >> check config prop_extensional
-  dbgMsg "prop_fromList: " >> check config prop_fromList
-  dbgMsg "prop_empty: " >> check config prop_empty
+  dbgMsg "prop_size: " >> quickCheckWith myargs prop_size
+  dbgMsg "prop_size_insert: " >> quickCheckWith myargs prop_size_insert
+  dbgMsg "prop_size_delete: " >> quickCheckWith myargs prop_size_delete
+  dbgMsg "prop_insert: " >> quickCheckWith myargs prop_insert
+  dbgMsg "prop_delete: " >> quickCheckWith myargs prop_delete
+  dbgMsg "prop_insDelIdempotent: " >> quickCheckWith myargs prop_insDelIdempotent
+  dbgMsg "prop_delDelIdempotent: " >> quickCheckWith myargs prop_delDelIdempotent
+  dbgMsg "prop_insInsIdempotent: " >> quickCheckWith myargs prop_insInsIdempotent
+  dbgMsg "prop_extensional: " >> quickCheckWith myargs prop_extensional
+  dbgMsg "prop_fromList: " >> quickCheckWith myargs prop_fromList
+  dbgMsg "prop_empty: " >> quickCheckWith myargs prop_empty
+  dbgMsg "prop_integral: " >> quickCheckWith (myargs{ maxSize = 40 }) prop_integral
 
 dbgMsg = hPutStr stderr
 
-config = defaultConfig{ configMaxTest = 2000 }
+myargs = stdArgs{ maxSize = 64 }
 
 -- * Quickcheck properties
+
+trivial test = classify test "trivial"
 
 prop_size xs =
     trivial (List.null uxs) $
@@ -82,6 +85,11 @@ prop_fromList xs = all (`member` s) xsa
 
 prop_empty x = not $ xa `member` empty
     where xa = abs x :: Int
+
+prop_integral x s = trivial (null s) $ xa `member` reconstructed
+  where reconstructed = unsafeFromIntegral (toIntegral xs)
+        xa = abs x :: Int
+        xs = xa `insert` s
 
 
 

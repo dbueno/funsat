@@ -104,5 +104,5 @@ toIntegral (BS _ i) = fromIntegral i
 {-# INLINE unsafeFromIntegral #-}
 unsafeFromIntegral x = let i = fromIntegral x in BS (count i) i
     where count 0 = 0
-          count x | x `mod` 2 == 0 = 1 + count (shiftR x 1)
-                  | otherwise = count (shiftR x 1)
+          count z | z `mod` 2 == 0 = 1 + count (shiftR z 1)
+                  | otherwise = count (shiftR z 1)

@@ -1,5 +1,9 @@
 -*- mode: outline -*-
 
+* 1.1
+Added conversion to and from the underlying Integral value (thanks to Mathieu
+Boespflug).
+
 * 1.0
 Instead of a custom Hash typeclass, we now use Enum.  It's standard and it gives
 us exactly what we need, so it's a win-win.

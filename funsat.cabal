@@ -61,16 +61,16 @@ Executable funsat
 
  Build-Depends:       base >= 3 && < 5,
                       random < 2,
-                      containers >= 0.2 && < 0.3,
+                      containers,
                       pretty < 2,
-                      mtl >= 1 && < 2,
-                      array >= 0.2 && < 0.3,
+                      mtl,
+                      array,
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       bimap >= 0.2 && < 0.3,
-                      fgl >= 5 && <= 5.4.2.2,
-                      time < 1.2
+                      fgl,
+                      time
 
 Library
  Extensions:          CPP,
@@ -80,7 +80,8 @@ Library
                       MultiParamTypeClasses,
                       FunctionalDependencies,
                       FlexibleInstances,
-                      FlexibleContexts
+                      FlexibleContexts,
+                      GeneralizedNewtypeDeriving
  Exposed-modules:     Control.Monad.MonadST
                       Funsat.Circuit
                       Funsat.Monad
@@ -99,12 +100,12 @@ Library
  Extensions:          CPP, ScopedTypeVariables
  Hs-source-dirs:      src
  Build-Depends:       base >= 3 && < 5,
-                      containers >= 0.2 && < 0.3,
+                      containers,
                       pretty < 2,
-                      mtl >= 1 && < 2,
-                      array >= 0.2 && < 0.3,
+                      mtl,
+                      array,
                       QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
                       bitset < 1,
                       bimap >= 0.2 && < 0.3,
-                      fgl >= 5 && <= 5.4.2.2
+                      fgl

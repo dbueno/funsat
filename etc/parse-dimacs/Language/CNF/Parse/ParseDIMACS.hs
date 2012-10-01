@@ -23,7 +23,7 @@ import Text.Parsec( ParseError, SourceName )
 import Text.Parsec.ByteString.Lazy
 import Text.Parsec.Char
 import Text.Parsec.Combinator
-import Text.Parsec.Prim( try, unexpected, runParser )
+import Text.Parsec.Prim( many, try, unexpected, runParser )
 import qualified Text.Parsec.Token as T
 
 
@@ -49,7 +49,7 @@ parseByteString = runParser cnf ()
 -- A DIMACS CNF file contains a header of the form "p cnf <numVars>
 -- <numClauses>" and then a bunch of 0-terminated clauses.
 cnf :: Parser CNF
-cnf = uncurry CNF `fmap` cnfHeader `ap` lexeme (many1 clause)
+cnf = uncurry CNF `fmap` cnfHeader `ap` lexeme (many clause)
 
 -- Parses into `(numVars, numClauses)'.
 cnfHeader :: Parser (Int, Int)

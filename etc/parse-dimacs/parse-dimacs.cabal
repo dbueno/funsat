@@ -1,5 +1,5 @@
 Name:                parse-dimacs
-Version:             1.2
+Version:             1.3
 Cabal-Version:       >= 1.2
 Synopsis:            DIMACS CNF parser library
 Description:         
@@ -15,7 +15,7 @@ Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional
 Build-type:          Simple
-Tested-with:         GHC==6.8.3
+Tested-with:         GHC==6.8.3,GHC==7.4.1
 Extra-source-files:  CHANGES
 
 
@@ -32,7 +32,7 @@ Extra-source-files:  CHANGES
 
 Library
  Exposed-modules:    Language.CNF.Parse.ParseDIMACS
- Build-depends:      parsec >= 3, base, bytestring, array
+ Build-depends:      parsec >= 3, base < 5, bytestring, array
  Ghc-options:        -fwarn-incomplete-patterns
                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                      -fwarn-unused-binds -fwarn-unused-imports

@@ -12,8 +12,8 @@ import qualified Data.List as List
 
 
 
-main :: IO ()
-main = do
+prop_main :: IO ()
+prop_main = do
   dbgMsg "prop_size: " >> quickCheckWith myargs prop_size
   dbgMsg "prop_size_insert: " >> quickCheckWith myargs prop_size_insert
   dbgMsg "prop_size_delete: " >> quickCheckWith myargs prop_size_delete
@@ -29,7 +29,7 @@ main = do
 
 dbgMsg = hPutStr stderr
 
-myargs = stdArgs{ maxSize = 64 }
+myargs = stdArgs{ maxSize = 48 }
 
 -- * Quickcheck properties
 

@@ -22,3 +22,17 @@ Library
   Extensions:          ScopedTypeVariables, DeriveDataTypeable
   Ghc-options:         -Wall -O2
   Ghc-prof-options:    -prof -auto-all
+
+flag test
+  description: Build test program.
+  default:     False
+
+Executable test
+  hs-source-dirs:  tests
+  other-modules:   Properties
+  main-is:         Main.hs
+  build-depends:   base
+  Extensions:      ScopedTypeVariables, DeriveDataTypeable
+  Ghc-options:     -Wall -O2
+  if !flag(test)
+    buildable:     False

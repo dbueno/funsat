@@ -15,7 +15,7 @@ Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Stability:           provisional
 Build-type:          Simple
-Tested-with:         GHC==6.8.3,GHC==7.4.1
+Tested-with:         GHC==6.8.3,GHC==7.4.1,GHC==7.10.1
 Extra-source-files:  CHANGES
 
 

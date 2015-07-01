@@ -12,8 +12,8 @@ import qualified Data.List as List
 
 
 
-prop_main :: IO ()
-prop_main = do
+main :: IO ()
+main = do
   dbgMsg "prop_size: " >> quickCheckWith myargs prop_size
   dbgMsg "prop_size_insert: " >> quickCheckWith myargs prop_size_insert
   dbgMsg "prop_size_delete: " >> quickCheckWith myargs prop_size_delete

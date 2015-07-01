@@ -16,7 +16,6 @@ import Funsat.Solver hiding ((==>))
 import Control.Exception( assert )
 import Control.Monad
 import Data.Array.Unboxed
-import Data.BitSet (hash)
 import Data.Bits hiding( xor )
 import Data.Foldable hiding (sequence_)
 import Data.List (nub, splitAt)
@@ -32,7 +31,8 @@ import Prelude hiding ( or, and, all, any, elem, minimum, foldr, splitAt, concat
 import Funsat.Resolution( ResolutionTrace(..) )
 import System.IO
 import System.Random
-import Test.QuickCheck hiding (defaultConfig)
+import Test.QuickCheck
+import Test.QuickCheck.Gen( unGen )
 
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
@@ -58,10 +58,8 @@ main = do
       hPutStr stderr "prop_clauseStatusUnderA: " >> check config prop_clauseStatusUnderA
       hPutStr stderr "prop_negDefNotUndefUnder: " >> check config prop_negDefNotUndefUnder
       hPutStr stderr "prop_undefUnderImpliesNegUndef: " >> check config prop_undefUnderImpliesNegUndef
-      hPutStr stderr "prop_litHash: " >> check config prop_litHash
-      hPutStr stderr "prop_varHash: " >> check config prop_varHash
       hPutStr stderr "prop_count: " >> check config prop_count
-      hPutStr stderr "prop_circuitToCnf: " >> check config prop_circuitToCnf
+      hPutStr stderr "prop_circuitToCnf: " >> check config{ maxSize = 10000} prop_circuitToCnf
       hPutStr stderr "prop_circuitSimplify: " >> check config prop_circuitSimplify
 
       -- Add more tests above here.  Setting the rng keeps the SAT instances the
@@ -85,7 +83,6 @@ main = do
       setStdGen gen
       hPutStr stderr "prop_resolutionChecker (rand): "
       check resChkConfig prop_resolutionChecker
-
 
 profile :: IO ()
 profile = do
@@ -114,13 +111,20 @@ profile = do
       check resChkConfig prop_resolutionChecker
 
 
-config = QC.defaultConfig { configMaxTest = 1000 }
+check :: Testable prop => Args -> prop -> IO ()
+check = QC.quickCheckWith
+config = QC.stdArgs{ maxSuccess = 1400
+                   , maxSize    = 800
+                   , maxDiscard = 1000 }
 
 -- Special configuration for the "solve this random instance" tests.
-solveConfig  = QC.defaultConfig { configMaxTest = 2000 }
-resChkConfig = QC.defaultConfig{ configMaxTest = 1200 }
+solveConfig  = config{ maxSuccess = 2000 }
+resChkConfig = config{ maxSuccess = 1200, maxSize = 600 }
 
 myConfigEvery testnum args = show testnum ++ ": " ++ show args ++ "\n\n"
+
+trivial :: Testable p => Bool -> p -> Property
+trivial t = classify t "trivial"
 
 -- * Tests
 prop_solveCorrect (cnf :: CNF) =
@@ -212,14 +216,6 @@ prop_randAssign (a :: IAssignment) =
 --     case unitPropFar m cnf of
 --       Nothing -> label "no propagation" True
 --       Just m' -> label "propagated" $ all (\l -> elem l m') m
-
--- Make sure the bit set will work.
-
-prop_litHash (k :: Lit) (l :: Lit) =
-    hash k == hash l <==> k == l
-
-prop_varHash (k :: Var) l =
-    hash k == hash l <==> k == l
 
 
 (<==>) = iff
@@ -366,7 +362,6 @@ instance Arbitrary CNF where
 
 newtype ArbBEnv = ArbBEnv (BEnv Var) deriving (Show)
 instance Arbitrary ArbBEnv where
-    coarbitrary = undefined
     arbitrary = sized $ \n -> do
                   bools <- vector (n+1) :: Gen [Bool]
                   return . ArbBEnv $ Map.fromList (zip [V 1 .. V (n+1)] bools)
@@ -446,7 +441,7 @@ instance Arbitrary UnsatCNF where
 
 getCNF :: Int -> IO CNF
 getCNF maxVars = do g <- newStdGen
-                    return (generate (maxVars * 3) g arbitrary)
+                    return (unGen arbitrary g (maxVars * 3))
 
 prob :: IO ParseCNF.CNF
 prob = do cnfOrError <- parseFile "./tests/problems/uf20/uf20-0119.cnf"

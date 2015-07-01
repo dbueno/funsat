@@ -1,5 +1,5 @@
 Name:                funsat
-Version:             0.6.1
+Version:             0.6.2
 Cabal-Version:       >= 1.2
 Description:
 
@@ -13,7 +13,7 @@ Description:
     Currently along this theme we provide unsatisfiable core generation (see
     "Funsat.Resolution") and a logical circuit interface (see "Funsat.Circuit").
 
-    New in 0.6: circuits and BSD3 license.
+    New in 0.6.2: works with ghc-6.12 and fixed some space leaks. =/
 
 Synopsis:            A modern DPLL-style SAT solver
 Homepage:            http://github.com/dbueno/funsat
@@ -65,9 +65,9 @@ Executable funsat
                       pretty < 2,
                       mtl,
                       array,
-                      QuickCheck < 2,
+                      QuickCheck >= 2 && < 3,
                       parse-dimacs >= 1.2 && < 2,
-                      bitset < 1,
+                      bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.3,
                       fgl,
                       time
@@ -104,8 +104,7 @@ Library
                       pretty < 2,
                       mtl,
                       array,
-                      QuickCheck < 2,
                       parse-dimacs >= 1.2 && < 2,
-                      bitset < 1,
+                      bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.3,
                       fgl

@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
 module Properties where
 
 {-
@@ -33,6 +32,7 @@ import System.IO
 import System.Random
 import Test.QuickCheck
 import Test.QuickCheck.Gen( unGen )
+import Test.QuickCheck.Random( newQCGen )
 
 import qualified Data.Foldable as Foldable
 import qualified Data.List as List
@@ -115,7 +115,7 @@ check :: Testable prop => Args -> prop -> IO ()
 check = QC.quickCheckWith
 config = QC.stdArgs{ maxSuccess = 1400
                    , maxSize    = 800
-                   , maxDiscard = 1000 }
+                   , maxDiscardRatio = 10 }
 
 -- Special configuration for the "solve this random instance" tests.
 solveConfig  = config{ maxSuccess = 2000 }
@@ -439,8 +439,9 @@ instance Arbitrary UnsatCNF where
 
 
 
+-- | Generates a random CNF
 getCNF :: Int -> IO CNF
-getCNF maxVars = do g <- newStdGen
+getCNF maxVars = do g <- newQCGen
                     return (unGen arbitrary g (maxVars * 3))
 
 prob :: IO ParseCNF.CNF

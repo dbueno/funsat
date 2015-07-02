@@ -25,6 +25,13 @@ standalone library interface for the solver.  If you feel like profiling the
 code, a profiling binary is automatically built in
 ./dist/build/funsat-prof/funsat-prof.
 
+** Testing
+
+All the problems in tests/problems should run through.
+
+  uf20 and uf50 - satisfiable
+  uuf50 - unsatisfiable
+
 ** Dependencies
 All the dependences are cabal-ised and available from hackage, or in etc/.
 

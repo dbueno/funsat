@@ -1,5 +1,9 @@
 -*- mode: outline -*-
 
+* 0.6.3
+
+ghc 7.10.1 compatibility
+
 * 0.6.0
 - Logical circuit representation added.
 - License is now BSD3, which is apparently happier for some people.

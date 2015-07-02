@@ -28,7 +28,6 @@ module Funsat.Types where
 import Data.Array.ST
 import Data.Array.Unboxed
 import Data.BitSet ( BitSet )
-import Data.Foldable hiding ( sequence_ )
 import Data.Int( Int64 )
 import Data.List( intercalate )
 import Data.Map ( Map )

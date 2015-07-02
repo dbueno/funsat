@@ -425,8 +425,9 @@ backJump m c@(_, _conflict, _) = get >>= \(SC{dl=dl, reason=_reason}) -> do
 --          ++ "reason: " ++ Map.showTree _reason
 --           ) (
     incNumConfl ; incNumConflTotal
-    levelArr <- do s <- get
-                   funFreeze (level s)
+    levelArr <- gets level >>= funFreeze
+    -- levelArr <- do s <- get
+    --                funFreeze (level s)
     (learntCl, learntClId, newLevel) <- analyse m levelArr dl c
     s <- get
     let numDecisionsToUndo = length dl - newLevel

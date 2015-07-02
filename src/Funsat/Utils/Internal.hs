@@ -18,11 +18,12 @@ Generic utilities that happen to be used in the SAT solver.
 -}
 module Funsat.Utils.Internal where
 
-import Control.Monad.MonadST( MonadST, liftST )
+import Control.Monad.MonadST( liftST )
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ( (>=>), forM_ )
 import Data.Array.ST
 import Data.Array.Unboxed
+import Data.Array.Unsafe( unsafeFreeze, unsafeThaw )
 import Data.Foldable hiding ( sequence_ )
 import Data.Graph.Inductive.Graph( DynGraph, Graph )
 import Data.List( foldl1' )
@@ -36,11 +37,11 @@ import System.IO( hPutStr, stderr )
 import qualified Data.Foldable as Fl
 import qualified Data.Graph.Inductive.Graph as Graph
 import qualified Data.Graph.Inductive.Query.DFS as DFS
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 
+-- WTF is this 
 class FunFreeze t e f | t -> f where
     funFreeze :: (MArray t e (ST s), Ix i, IArray f e) =>
                  t i e -> FunMonad s (f i e)
@@ -64,23 +65,8 @@ instance FunFreeze (STArray s) [WatchedPair s] Array where
     {-# INLINE funThaw #-}
     funThaw   = liftST . thaw
 
-{-
--- | Same as @freeze@, but at the right type so GHC doesn't yell at me.
-freezeAss :: MAssignment s -> ST s IAssignment
-{-# INLINE freezeAss #-}
-freezeAss = freeze
--- | See `freezeAss'.
-unsafeFreezeAss :: (MonadST s m) => MAssignment s -> m IAssignment
-{-# INLINE unsafeFreezeAss #-}
-unsafeFreezeAss = liftST . unsafeFreeze
 
-thawAss :: IAssignment -> ST s (MAssignment s)
-{-# INLINE thawAss #-}
-thawAss = thaw
-unsafeThawAss :: IAssignment -> ST s (MAssignment s)
-{-# INLINE unsafeThawAss #-}
-unsafeThawAss = unsafeThaw
--}
+
 
 -- | Destructively update the assignment with the given literal.
 assign :: MAssignment s -> Lit -> ST s (MAssignment s)

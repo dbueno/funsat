@@ -27,10 +27,12 @@ module Funsat.Monad
     , evalSSTErrMonad
     , SSTErrMonad )
     where
-import Control.Monad.Error
 import Control.Monad.ST.Strict
 import Control.Monad.State.Class
 import Control.Monad.MonadST
+import Control.Applicative (WrappedMonad)
+import Control.Monad.Except
+import Control.Applicative
 
 
 instance MonadST s (SSTErrMonad e st s) where
@@ -43,10 +45,10 @@ dpllST st = SSTErrMonad (\k s -> st >>= \x -> k x s)
 
 -- | @runSSTErrMonad m s@ executes a `SSTErrMonad' action with initial state @s@
 -- until an error occurs or a result is returned.
-runSSTErrMonad :: (Error e) => SSTErrMonad e st s a -> (st -> ST s (Either e a, st))
+runSSTErrMonad :: SSTErrMonad e st s a -> (st -> ST s (Either e a, st))
 runSSTErrMonad m = unSSTErrMonad m (\x s -> return (return x, s))
 
-evalSSTErrMonad :: (Error e) => SSTErrMonad e st s a -> st -> ST s (Either e a)
+evalSSTErrMonad :: SSTErrMonad e st s a -> st -> ST s (Either e a)
 evalSSTErrMonad m s = do (result, _) <- runSSTErrMonad m s
                          return result
 
@@ -76,7 +78,7 @@ instance MonadState st (SSTErrMonad e st s) where
     get    = SSTErrMonad (\k s -> k s s)
     put s' = SSTErrMonad (\k _ -> k () s')
 
-instance (Error e) => MonadError e (SSTErrMonad e st s) where
+instance MonadError e (SSTErrMonad e st s) where
     throwError err =            -- throw away continuation
         SSTErrMonad (\_ s -> return (Left err, s))
     catchError action handler = {-# SCC "catchErrorSSTErrMonad" #-} SSTErrMonad
@@ -85,10 +87,32 @@ instance (Error e) => MonadError e (SSTErrMonad e st s) where
                       Left error -> unSSTErrMonad (handler error) k s'
                       Right result -> k result s')
 
-instance (Error e) => MonadPlus (SSTErrMonad e st s) where
-    mzero     = SSTErrMonad (\_ s -> return (Left noMsg, s))
+instance Alternative (SSTErrMonad e st s) where
+    empty = return undefined
+
+instance MonadPlus (SSTErrMonad e st s) where
+    mzero     = SSTErrMonad (\_ s -> return (Left undefined, s)) -- UMMMMM
     mplus m n = SSTErrMonad (\k s ->
                                  do (r, s') <- runSSTErrMonad m s
                                     case r of
                                       Left _ -> unSSTErrMonad n k s'
                                       Right x -> k x s')
+
+-- Makes ghc happy
+instance Applicative (SSTErrMonad e st s) where
+    pure x = SSTErrMonad ($ x)
+    mf <*> mx = do f <- mf
+                   x <- mx
+                   return (f x)
+    mx *> my = do _ <- mx
+                  y <- my
+                  return y
+    mx <* my = do x <- mx
+                  _ <- my
+                  return x
+
+instance Functor (SSTErrMonad e st s) where
+    fmap f ma = do x <- ma
+                   return (f x)
+    x <$ my = do _ <- my
+                 return x

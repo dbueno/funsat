@@ -9,19 +9,19 @@ description:
 category:            Data Structures
 license:             BSD-3-Clause
 license-file:        LICENSE
-data-files:          CHANGES
 author:              Denis Bueno
 maintainer:          Denis Bueno <dbueno@gmail.com>
 stability:           provisional
 build-type:          Simple
 extra-source-files:  tests/Properties.hs
+extra-doc-files:     CHANGES
 
 library
   exposed-modules:     Data.BitSet
   build-depends:       base >= 4.0.0 && < 5, QuickCheck >= 2 && < 3
   default-language:    Haskell2010
   default-extensions:  ScopedTypeVariables, DeriveDataTypeable
-  ghc-options:         -Wall -O2
+  ghc-options:         -Wall
 
 flag test
   description: Build test program.
@@ -31,9 +31,9 @@ executable test
   hs-source-dirs:      tests
   other-modules:       Properties
   main-is:             Main.hs
-  build-depends:       base
+  build-depends:       base >= 4.0.0 && < 5
   default-language:    Haskell2010
   default-extensions:  ScopedTypeVariables, DeriveDataTypeable
-  ghc-options:         -Wall -O2
+  ghc-options:         -Wall
   if !flag(test)
     buildable:         False

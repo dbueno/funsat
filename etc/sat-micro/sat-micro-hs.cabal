@@ -21,13 +21,19 @@ executable sat-micro
   hs-source-dirs:      .
   default-language:    Haskell2010
   ghc-options:         -Wall
-  ghc-prof-options:    -prof -auto-all
   other-modules:       SatMicro
-  build-depends:       base, containers, pretty, mtl, parse-dimacs
+  build-depends:       base >= 3 && < 5,
+                       containers < 1,
+                       pretty < 2,
+                       mtl < 3,
+                       parse-dimacs >= 1.2 && < 2
 
 library
   exposed-modules:     SatMicro
   hs-source-dirs:      .
   default-language:    Haskell2010
-  build-depends:       base, containers, pretty, mtl, parse-dimacs
-  ghc-prof-options:    -prof -auto-all
+  build-depends:       base >= 3 && < 5,
+                       containers < 1,
+                       pretty < 2,
+                       mtl < 3,
+                       parse-dimacs >= 1.2 && < 2

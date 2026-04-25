@@ -16,7 +16,7 @@ maintainer:          Denis Bueno <dbueno@gmail.com>
 stability:           provisional
 build-type:          Simple
 tested-with:         GHC == 6.8.3, GHC == 7.4.1, GHC == 7.10.1
-extra-source-files:  CHANGES
+extra-doc-files:     CHANGES
 
 
 -- Executable pdtest
@@ -33,7 +33,10 @@ extra-source-files:  CHANGES
 library
  default-language:   Haskell2010
  exposed-modules:    Language.CNF.Parse.ParseDIMACS
- build-depends:      parsec >= 3, base < 5, bytestring, array
+ build-depends:      parsec >= 3 && < 4,
+                     base < 5,
+                     bytestring < 1,
+                     array < 1
  ghc-options:        -fwarn-incomplete-patterns
                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                      -fwarn-unused-binds -fwarn-unused-imports

@@ -26,11 +26,11 @@ author:              Denis Bueno
 maintainer:          Denis Bueno <dbueno@gmail.com>
 build-type:          Simple
 extra-source-files:  README
-                     CHANGES
                      tests/Properties.hs
                      tests/TestMain.hs
                      tests/Integration.hs
                      tests/problems/**/*.cnf
+extra-doc-files:     CHANGES
 
 source-repository head
   type: git
@@ -39,6 +39,7 @@ source-repository head
 executable funsat
  main-is:             Main.hs
  default-language:    Haskell2010
+ autogen-modules:     Paths_funsat
  ghc-options:         -funbox-strict-fields
                       -Wall
                       -fwarn-tabs
@@ -67,15 +68,15 @@ executable funsat
                       Text.Tabular
 
  build-depends:       base >= 3 && < 5,
-                      containers,
+                      containers < 1,
                       pretty < 2,
-                      mtl,
-                      array,
+                      mtl < 3,
+                      array < 1,
                       parse-dimacs >= 1.2 && < 2,
                       bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.6,
-                      fgl,
-                      time
+                      fgl < 6,
+                      time < 2
 
 library
  default-language:    Haskell2010
@@ -105,14 +106,14 @@ library
                       -fno-warn-orphans
  hs-source-dirs:      src
  build-depends:       base >= 3 && < 5,
-                      containers,
+                      containers < 1,
                       pretty < 2,
-                      mtl,
-                      array,
+                      mtl < 3,
+                      array < 1,
                       parse-dimacs >= 1.2 && < 2,
                       bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.6,
-                      fgl
+                      fgl < 6
 
 test-suite funsat-tests
  type:                exitcode-stdio-1.0
@@ -137,14 +138,14 @@ test-suite funsat-tests
  build-depends:       base >= 3 && < 5,
                       funsat,
                       random < 2,
-                      containers,
+                      containers < 1,
                       pretty < 2,
-                      mtl,
-                      array,
+                      mtl < 3,
+                      array < 1,
                       QuickCheck >= 2 && < 3,
                       parse-dimacs >= 1.2 && < 2,
                       bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.6,
-                      fgl,
-                      directory,
-                      filepath
+                      fgl < 6,
+                      directory < 2,
+                      filepath < 2

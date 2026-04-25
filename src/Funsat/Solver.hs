@@ -71,11 +71,12 @@ module Funsat.Solver
 
 import Control.Arrow( (&&&) )
 import Control.Exception( assert )
-import Control.Monad.Error hiding ( (>=>), forM_, runErrorT )
+import Control.Monad( foldM, forM, guard, liftM, when )
+import Control.Monad.Except hiding ( (>=>), forM_ )
 import Control.Monad.MonadST( MonadST(..) )
 import Control.Monad.ST.Strict
 import Control.Monad.State.Lazy hiding ( (>=>), forM_ )
-import Data.Array.ST
+import Data.Array.ST( STArray, STUArray, getBounds, newArray, readArray, writeArray )
 import Data.Array.Unboxed
 import Data.Foldable hiding ( sequence_ )
 import Data.Graph.Inductive.Tree
@@ -786,10 +787,6 @@ infixl 5 ><
 
 initialActivity :: Double
 initialActivity = 1.0
-
-instance Error (Lit, Clause, ClauseId) where noMsg = (L 0, [], 0)
-instance Error () where noMsg = ()
-
 
 data VerifyError =
     SatError [(Clause, Either () Bool)]

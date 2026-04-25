@@ -34,7 +34,8 @@ module Funsat.Resolution
     , UnsatisfiableCore )
         where
 
-import Control.Monad.Error
+import Control.Monad.Except
+import Control.Monad( foldM, liftM, when )
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.IntSet( IntSet )
@@ -116,7 +117,6 @@ data ResolutionError =
         -- ^ Indicates that the clause id is referenced but has no entry in
         -- `traceSources'.
           deriving Show
-instance Error ResolutionError where -- Just for the Error monad.
 
 -- checkDepthFirstFix :: (CNF -> (Solution, Maybe ResolutionTrace))
 --                    -> Solution
@@ -147,7 +147,7 @@ checkDepthFirst resTrace =
     . (`runReader` resTrace)
     . (`evalStateT` ResState { clauseIdMap = traceOriginalClauses resTrace
                              , unsatCore   = IntSet.empty })
-    . runErrorT
+    . runExceptT
     $     recursiveBuild (traceFinalClauseId resTrace)
       >>= checkDFClause
 
@@ -173,7 +173,7 @@ data ResState = ResState
 
 type UnsatCoreIntSet = IntSet   -- set of ClauseIds
 
-type ResM = ErrorT ResolutionError (StateT ResState (Reader ResolutionTrace))
+type ResM = ExceptT ResolutionError (StateT ResState (Reader ResolutionTrace))
 
 
 -- Recursively resolve the (final, initially) clause with antecedents until

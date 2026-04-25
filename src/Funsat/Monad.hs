@@ -1,4 +1,4 @@
-{-# LANGUAGE PolymorphicComponents
+{-# LANGUAGE RankNTypes
             ,MultiParamTypeClasses
             ,FunctionalDependencies
             ,FlexibleInstances
@@ -28,9 +28,9 @@ module Funsat.Monad
     , SSTErrMonad )
     where
 import Control.Monad.ST.Strict
+import Control.Monad
 import Control.Monad.State.Class
 import Control.Monad.MonadST
-import Control.Applicative (WrappedMonad)
 import Control.Monad.Except
 import Control.Applicative
 

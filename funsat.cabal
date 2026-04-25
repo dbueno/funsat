@@ -1,6 +1,6 @@
 Name:                funsat
 Version:             0.6.3
-Cabal-Version:       >= 1.2
+Cabal-Version:       >= 1.10
 Description:
 
     Funsat is a native Haskell SAT solver that uses modern techniques for
@@ -68,7 +68,7 @@ Executable funsat
                       QuickCheck >= 2 && < 3,
                       parse-dimacs >= 1.2 && < 2,
                       bitset >= 1 && < 2,
-                      bimap >= 0.2 && < 0.3,
+                      bimap >= 0.2 && < 0.6,
                       fgl,
                       time
 
@@ -106,5 +106,5 @@ Library
                       array,
                       parse-dimacs >= 1.2 && < 2,
                       bitset >= 1 && < 2,
-                      bimap >= 0.2 && < 0.3,
+                      bimap >= 0.2 && < 0.6,
                       fgl

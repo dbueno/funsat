@@ -20,6 +20,7 @@ module Funsat.Utils.Internal where
 
 import Control.Monad.MonadST( liftST )
 import Control.Monad.ST.Strict
+import Control.Monad( when )
 import Control.Monad.State.Lazy hiding ( (>=>), forM_ )
 import Data.Array.ST
 import Data.Array.Unboxed

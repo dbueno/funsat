@@ -75,6 +75,7 @@ where
 -}
 
 
+import Control.Monad( liftM2, liftM3 )
 import Control.Monad.Reader
 import Control.Monad.State.Strict hiding ((>=>), forM_)
 import Data.Bimap( Bimap )
@@ -258,7 +259,11 @@ recordC :: (Ord a) =>
 recordC _ _ _ x | x `seq` False = undefined
 recordC cons prj upd x = do
   s <- get
-  c:cs <- gets hashCount
+  hashes <- gets hashCount
+  let (c, cs) =
+        case hashes of
+          h : hs -> (h, hs)
+          [] -> error "recordC: exhausted circuit hashes"
   maybe (do let s' = upd (s{ hashCount = cs })
                          (Bimap.insert c x (prj s))
             put s'
@@ -660,7 +665,11 @@ emptyCNFState = CNFS{ toCnfVars = [V 1 ..]
 --findVar :: (MonadState CNFState m) => CCode -> m Lit
 findVar ccode = do
     m <- gets toCnfMap
-    v:vs <- gets toCnfVars
+    vars <- gets toCnfVars
+    let (v, vs) =
+          case vars of
+            x : xs -> (x, xs)
+            [] -> error "findVar: exhausted CNF variables"
     case Bimap.lookupR ccode m of
       Nothing -> do modify $ \s -> s{ toCnfMap = Bimap.insert v ccode m
                                     , toCnfVars = vs }
@@ -692,8 +701,10 @@ toCNF cIn =
     let c@(FrozenShared sharedCircuit circuitMaps) =
             runShared . removeComplex $ cIn
         (cnf, m) = ((`runReader` circuitMaps) . (`runStateT` emptyCNFState)) $ do
-                     (CP l theClauses) <- toCNF' sharedCircuit
-                     return $ Set.insert (Set.singleton l) theClauses
+                     cp <- toCNF' sharedCircuit
+                     return $
+                       case cp of
+                         CP l theClauses -> Set.insert (Set.singleton l) theClauses
     in CircuitProblem
        { problemCnf = CNF { numVars =   Set.fold max 1
                           . Set.map (Set.fold max 1)
@@ -722,40 +733,43 @@ toCNF cIn =
     toCNF' c@(CNot i) = do
         notLit <- findVar c
         eTree <- extract i notMap
-        (CP eLit eCnf) <- toCNF' eTree
-        return
-          (CP notLit
+        eResult <- toCNF' eTree
+        return $ case eResult of
+          CP eLit eCnf ->
+            CP notLit
               (Set.fromList [ Set.fromList [negate notLit, negate eLit]
                          , Set.fromList [eLit, notLit] ]
-              `Set.union` eCnf))
+              `Set.union` eCnf)
 
 --     -- x <-> (y | z)
 --     --   <-> (-y, x) & (-z, x) & (-x, y, z)
     toCNF' c@(COr i) = do
         orLit <- findVar c
         (l, r) <- extract i orMap
-        (CP lLit lCnf) <- toCNF' l
-        (CP rLit rCnf) <- toCNF' r
-        return
-          (CP orLit
+        lResult <- toCNF' l
+        rResult <- toCNF' r
+        return $ case (lResult, rResult) of
+          (CP lLit lCnf, CP rLit rCnf) ->
+            CP orLit
               (Set.fromList [ Set.fromList [negate lLit, orLit]
                          , Set.fromList [negate rLit, orLit]
                          , Set.fromList [negate orLit, lLit, rLit] ]
-              `Set.union` lCnf `Set.union` rCnf))
+              `Set.union` lCnf `Set.union` rCnf)
               
 --     -- x <-> (y & z)
 --     --   <-> (-x, y), (-x, z) & (-y, -z, x)
     toCNF' c@(CAnd i) = do
         andLit <- findVar c
         (l, r) <- extract i andMap
-        (CP lLit lCnf) <- toCNF' l
-        (CP rLit rCnf) <- toCNF' r
-        return
-          (CP andLit
+        lResult <- toCNF' l
+        rResult <- toCNF' r
+        return $ case (lResult, rResult) of
+          (CP lLit lCnf, CP rLit rCnf) ->
+            CP andLit
              (Set.fromList [ Set.fromList [negate andLit, lLit]
                          , Set.fromList [negate andLit, rLit]
                          , Set.fromList [negate lLit, negate rLit, andLit] ]
-             `Set.union` lCnf `Set.union` rCnf))
+             `Set.union` lCnf `Set.union` rCnf)
 
     toCNF' c = do
         m <- ask
@@ -816,5 +830,3 @@ projectCircuitSolution sol pblm = case sol of
     litHash l = case Bimap.lookup (var l) (problemCodeMap pblm) of
                   Nothing -> error $ "projectSolution: unknown lit: " ++ show l
                   Just code -> circuitHash code
-
-

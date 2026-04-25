@@ -7,7 +7,6 @@ description:
     presentation from Cormen, Rivest, and related algorithms texts.
 category:            Data Structures
 license:             LGPL-2.1-only
-license-file:        LICENSE
 author:              Denis Bueno
 maintainer:          Denis Bueno <dbueno@gmail.com>
 stability:           provisional
@@ -19,6 +18,10 @@ library
   other-modules:       Data.FibHeapST
                        Data.SequenceZipper
   hs-source-dirs:      .
-  build-depends:       base, QuickCheck, containers
+  build-depends:       base >= 3 && < 5,
+                       QuickCheck >= 2 && < 3,
+                       containers < 1
   default-language:    Haskell2010
-  ghc-options:         -Wall -cpp -DTESTING
+  default-extensions:  CPP
+  cpp-options:         -DTESTING
+  ghc-options:         -Wall

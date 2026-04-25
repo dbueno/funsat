@@ -1,4 +1,5 @@
 /dsat.prof
+/dist-newstyle
 dist
 *.out
 bench-results

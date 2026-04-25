@@ -41,7 +41,7 @@ Executable funsat
                       -fwarn-tabs
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
- Extensions:          CPP,
+ Default-Extensions:  CPP,
                       BangPatterns,
                       ScopedTypeVariables,
                       TypeSynonymInstances,
@@ -51,6 +51,7 @@ Executable funsat
                       FlexibleContexts
  Hs-source-dirs:      . src
  Other-modules:
+                      Paths_funsat
                       Control.Monad.MonadST
                       Funsat.FastDom
                       Funsat.Monad
@@ -75,7 +76,7 @@ Executable funsat
 
 Library
  Default-language:    Haskell2010
- Extensions:          CPP,
+ Default-Extensions:  CPP,
                       BangPatterns,
                       ScopedTypeVariables,
                       TypeSynonymInstances,
@@ -99,7 +100,6 @@ Library
                       -Wall -fwarn-tabs
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
- Extensions:          CPP, ScopedTypeVariables
  Hs-source-dirs:      src
  Build-Depends:       base >= 3 && < 5,
                       containers,
@@ -118,7 +118,7 @@ Test-Suite funsat-tests
  Hs-source-dirs:      tests
  Other-modules:       Properties
                       Integration
- Extensions:          CPP,
+ Default-Extensions:  CPP,
                       BangPatterns,
                       ScopedTypeVariables,
                       TypeSynonymInstances,

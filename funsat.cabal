@@ -16,7 +16,8 @@ description:
     New in 0.6.2: works with ghc-6.12 and fixed some space leaks. =/
 
 synopsis:            A modern DPLL-style SAT solver
-homepage:            http://github.com/dbueno/funsat
+homepage:            https://github.com/dbueno/funsat
+bug-reports:         https://github.com/dbueno/funsat/issues
 category:            Algorithms
 stability:           beta
 license:             BSD-3-Clause
@@ -30,6 +31,10 @@ extra-source-files:  README
                      tests/TestMain.hs
                      tests/Integration.hs
                      tests/problems/**/*.cnf
+
+source-repository head
+  type: git
+  location: https://github.com/dbueno/funsat.git
 
 executable funsat
  main-is:             Main.hs

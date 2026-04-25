@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cabal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up GHC and Cabal
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: "9.10.3"
+          cabal-version: "latest"
+          enable-stack: false
+
+      - name: Cache Cabal store
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+          key: ${{ runner.os }}-ghc-9.10.3-cabal-${{ hashFiles('cabal.project', '*.cabal', 'etc/**/*.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-ghc-9.10.3-cabal-
+
+      - name: Update package index
+        run: cabal update
+
+      - name: Build
+        run: cabal build all
+
+      - name: Test
+        run: cabal test funsat-tests

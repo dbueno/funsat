@@ -26,7 +26,6 @@ Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
 Extra-source-files:  README
                      CHANGES
-                     test.sh
                      tests/Properties.hs
                      tests/TestMain.hs
                      tests/Integration.hs

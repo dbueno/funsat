@@ -1,38 +1,40 @@
-Name:                bitset
-Version:             1.1
-Synopsis:            A functional data structure for efficient membership testing.
-Description:
+cabal-version:       2.4
+name:                bitset
+version:             1.1
+synopsis:            A functional data structure for efficient membership testing.
+description:
         A /bit set/ maintains a record of members from a type that can be mapped
         into (non-negative) @Int@s.  Supports insertion, deletion, size, and
         membership testing, and is completely pure (functional).
-Category:            Data Structures
-License:             BSD3
-License-file:        LICENSE
-Data-files:          CHANGES
-Author:              Denis Bueno
-Maintainer:          Denis Bueno <dbueno@gmail.com>
-Stability:           provisional
-Cabal-Version:       >= 1.2.3
-Build-type:          Simple
-Extra-source-files:  tests/Properties.hs
+category:            Data Structures
+license:             BSD-3-Clause
+license-file:        LICENSE
+data-files:          CHANGES
+author:              Denis Bueno
+maintainer:          Denis Bueno <dbueno@gmail.com>
+stability:           provisional
+build-type:          Simple
+extra-source-files:  tests/Properties.hs
 
-Library
-  Exposed-modules:     Data.BitSet
-  Build-depends:       base >= 4.0.0 && < 5, QuickCheck >= 2 && < 3
-  Extensions:          ScopedTypeVariables, DeriveDataTypeable
-  Ghc-options:         -Wall -O2
-  Ghc-prof-options:    -prof -auto-all
+library
+  exposed-modules:     Data.BitSet
+  build-depends:       base >= 4.0.0 && < 5, QuickCheck >= 2 && < 3
+  default-language:    Haskell2010
+  default-extensions:  ScopedTypeVariables, DeriveDataTypeable
+  ghc-options:         -Wall -O2
+  ghc-prof-options:    -prof -auto-all
 
 flag test
   description: Build test program.
   default:     False
 
-Executable test
-  hs-source-dirs:  tests
-  other-modules:   Properties
-  main-is:         Main.hs
-  build-depends:   base
-  Extensions:      ScopedTypeVariables, DeriveDataTypeable
-  Ghc-options:     -Wall -O2
+executable test
+  hs-source-dirs:      tests
+  other-modules:       Properties
+  main-is:             Main.hs
+  build-depends:       base
+  default-language:    Haskell2010
+  default-extensions:  ScopedTypeVariables, DeriveDataTypeable
+  ghc-options:         -Wall -O2
   if !flag(test)
-    buildable:     False
+    buildable:         False

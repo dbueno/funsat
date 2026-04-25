@@ -34,8 +34,6 @@ import qualified Data.Set as Set
 import qualified Language.CNF.Parse.ParseDIMACS as ParseDIMACS
 import qualified Text.Tabular as Tabular
 
-import qualified Properties
-
 options :: [OptDescr (Options -> Options)]
 options =
     [ Option [] ["restart-at"]
@@ -68,12 +66,6 @@ options =
           in o{ optFunsatConfig = c{configCut = readCutOption cut} }) "1|d")
       "Which cut of the conflict graph to use for learning.  1=first UIP; d=decision lit"
 
-    , Option [] ["verify"] (NoArg $ \o -> o{ optVerify = True })
-      "Run quickcheck properties and unit tests."
-
-    , Option [] ["profile"] (NoArg $ \o -> o{ optProfile = True })
-      "Run solver.  (assumes profiling build)"
-
     , Option [] ["print-features"] (NoArg $ \o -> o{ optPrintFeatures = True })
       "Print the optimisations the SAT solver supports and exit."
 
@@ -82,17 +74,13 @@ options =
     ]
 
 data Options = Options
-    { optVerify        :: Bool
-    , optProfile       :: Bool
-    , optPrintFeatures :: Bool
+    { optPrintFeatures :: Bool
     , optFunsatConfig  :: FunsatConfig
     , optVersion       :: Bool }
                deriving (Show)
 defaultOptions :: Options
 defaultOptions = Options
-                 { optVerify        = False
-                 , optProfile       = False
-                 , optVersion       = False
+                 { optVersion       = False
                  , optPrintFeatures = False
                  , optFunsatConfig  = defaultConfig }
 
@@ -120,15 +108,6 @@ usageHeader = "\nUsage: funsat [OPTION...] cnf-files..."
 main :: IO ()
 main = do
     (opts, files) <- getArgs >>= validateArgv
-    when (optVerify opts) $ do
-        Properties.main
-        exitWith ExitSuccess
-
-    when (optProfile opts) $ do
-        putStrLn "Solving ..."
-        Properties.profile
-        exitWith ExitSuccess
-
     when (optVersion opts) $ do
         putStr "funsat "
         putStrLn (showVersion version)
@@ -192,4 +171,3 @@ asCNF (ParseDIMACS.CNF v c is) =
     CNF { numVars    = v
         , numClauses = c
         , clauses    = Set.fromList . map (map fromIntegral . elems) $ is }
-

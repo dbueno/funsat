@@ -1,0 +1,4 @@
+packages:
+  .
+  ./etc/bitset
+  ./etc/parse-dimacs

@@ -1,7 +1,7 @@
-Name:                funsat
-Version:             0.6.3
-Cabal-Version:       >= 1.10
-Description:
+cabal-version:       2.4
+name:                funsat
+version:             0.6.3
+description:
 
     Funsat is a native Haskell SAT solver that uses modern techniques for
     solving SAT instances.  Current features include two-watched literals,
@@ -15,32 +15,31 @@ Description:
 
     New in 0.6.2: works with ghc-6.12 and fixed some space leaks. =/
 
-Synopsis:            A modern DPLL-style SAT solver
-Homepage:            http://github.com/dbueno/funsat
-Category:            Algorithms
-Stability:           beta
-License:             BSD3
-License-file:        LICENSE
-Author:              Denis Bueno
-Maintainer:          Denis Bueno <dbueno@gmail.com>
-Build-type:          Simple
-Extra-source-files:  README
+synopsis:            A modern DPLL-style SAT solver
+homepage:            http://github.com/dbueno/funsat
+category:            Algorithms
+stability:           beta
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Denis Bueno
+maintainer:          Denis Bueno <dbueno@gmail.com>
+build-type:          Simple
+extra-source-files:  README
                      CHANGES
                      tests/Properties.hs
                      tests/TestMain.hs
                      tests/Integration.hs
-                     tests/problems/*/*.cnf
+                     tests/problems/**/*.cnf
 
-
-Executable funsat
- Main-is:             Main.hs
- Default-language:    Haskell2010
- Ghc-options:         -funbox-strict-fields
+executable funsat
+ main-is:             Main.hs
+ default-language:    Haskell2010
+ ghc-options:         -funbox-strict-fields
                       -Wall
                       -fwarn-tabs
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
- Default-Extensions:  CPP,
+ default-extensions:  CPP,
                       BangPatterns,
                       ScopedTypeVariables,
                       TypeSynonymInstances,
@@ -48,8 +47,8 @@ Executable funsat
                       FunctionalDependencies,
                       FlexibleInstances,
                       FlexibleContexts
- Hs-source-dirs:      . src
- Other-modules:
+ hs-source-dirs:      . src
+ other-modules:
                       Paths_funsat
                       Control.Monad.MonadST
                       Funsat.FastDom
@@ -62,7 +61,7 @@ Executable funsat
                       Funsat.Utils.Internal
                       Text.Tabular
 
- Build-Depends:       base >= 3 && < 5,
+ build-depends:       base >= 3 && < 5,
                       containers,
                       pretty < 2,
                       mtl,
@@ -73,9 +72,9 @@ Executable funsat
                       fgl,
                       time
 
-Library
- Default-language:    Haskell2010
- Default-Extensions:  CPP,
+library
+ default-language:    Haskell2010
+ default-extensions:  CPP,
                       BangPatterns,
                       ScopedTypeVariables,
                       TypeSynonymInstances,
@@ -84,7 +83,7 @@ Library
                       FlexibleInstances,
                       FlexibleContexts,
                       GeneralizedNewtypeDeriving
- Exposed-modules:     Control.Monad.MonadST
+ exposed-modules:     Control.Monad.MonadST
                       Funsat.Circuit
                       Funsat.Monad
                       Funsat.Resolution
@@ -94,13 +93,13 @@ Library
                       Text.Tabular
                       Funsat.Utils
                       Funsat.Utils.Internal
- Other-modules:       Funsat.FastDom
- Ghc-options:         -funbox-strict-fields
+ other-modules:       Funsat.FastDom
+ ghc-options:         -funbox-strict-fields
                       -Wall -fwarn-tabs
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
- Hs-source-dirs:      src
- Build-Depends:       base >= 3 && < 5,
+ hs-source-dirs:      src
+ build-depends:       base >= 3 && < 5,
                       containers,
                       pretty < 2,
                       mtl,
@@ -110,14 +109,14 @@ Library
                       bimap >= 0.2 && < 0.6,
                       fgl
 
-Test-Suite funsat-tests
- Type:                exitcode-stdio-1.0
- Main-is:             TestMain.hs
- Default-language:    Haskell2010
- Hs-source-dirs:      tests
- Other-modules:       Properties
+test-suite funsat-tests
+ type:                exitcode-stdio-1.0
+ main-is:             TestMain.hs
+ default-language:    Haskell2010
+ hs-source-dirs:      tests
+ other-modules:       Properties
                       Integration
- Default-Extensions:  CPP,
+ default-extensions:  CPP,
                       BangPatterns,
                       ScopedTypeVariables,
                       TypeSynonymInstances,
@@ -125,12 +124,12 @@ Test-Suite funsat-tests
                       FunctionalDependencies,
                       FlexibleInstances,
                       FlexibleContexts
- Ghc-options:         -funbox-strict-fields
+ ghc-options:         -funbox-strict-fields
                       -Wall
                       -fwarn-tabs
                       -fno-warn-name-shadowing
                       -fno-warn-orphans
- Build-Depends:       base >= 3 && < 5,
+ build-depends:       base >= 3 && < 5,
                       funsat,
                       random < 2,
                       containers,

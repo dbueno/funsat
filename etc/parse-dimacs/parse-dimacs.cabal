@@ -1,22 +1,22 @@
-Name:                parse-dimacs
-Version:             1.3
-Cabal-Version:       >= 1.2
-Synopsis:            DIMACS CNF parser library
-Description:         
+cabal-version:       2.4
+name:                parse-dimacs
+version:             1.3
+synopsis:            DIMACS CNF parser library
+description:
 
     A DIMACS CNF parser library, implemented with Parsec 3, using ByteStrings.
     DIMACS CNF is a file format for describing constraint problems in
     conjunctive normal form.
 
-Category:            Parsing
-License:             BSD3
-License-file:        LICENSE
-Author:              Denis Bueno
-Maintainer:          Denis Bueno <dbueno@gmail.com>
-Stability:           provisional
-Build-type:          Simple
-Tested-with:         GHC==6.8.3,GHC==7.4.1,GHC==7.10.1
-Extra-source-files:  CHANGES
+category:            Parsing
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Denis Bueno
+maintainer:          Denis Bueno <dbueno@gmail.com>
+stability:           provisional
+build-type:          Simple
+tested-with:         GHC == 6.8.3, GHC == 7.4.1, GHC == 7.10.1
+extra-source-files:  CHANGES
 
 
 -- Executable pdtest
@@ -30,11 +30,10 @@ Extra-source-files:  CHANGES
 --  Hs-source-dirs:     . tests
 --  Other-modules:      Language.CNF.Parse.ParseDIMACS
 
-Library
- Exposed-modules:    Language.CNF.Parse.ParseDIMACS
- Build-depends:      parsec >= 3, base < 5, bytestring, array
- Ghc-options:        -fwarn-incomplete-patterns
+library
+ default-language:   Haskell2010
+ exposed-modules:    Language.CNF.Parse.ParseDIMACS
+ build-depends:      parsec >= 3, base < 5, bytestring, array
+ ghc-options:        -fwarn-incomplete-patterns
                      -fwarn-dodgy-imports -fwarn-incomplete-record-updates
                      -fwarn-unused-binds -fwarn-unused-imports
-
-

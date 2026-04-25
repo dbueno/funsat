@@ -1,30 +1,33 @@
-Name:                sat-micro-hs
-Version:             0.1.2
-Description:         A complete (in the logical sense) SAT solver with non-chronological backtracking.  This is a Haskell implementation of (most of) the minimal OCaml solver described in the paper "SAT-MICRO: petit mais costaud!" by Sylvain Conchon, Johannes Kanig, and Stephane Lescuyer (see <http://www.lri.fr/~conchon/publis/conchon-jfla08.ps>).
-Synopsis:            A minimal SAT solver
-Category:            Algorithms
-Stability:           alpha
-License:             BSD3
-License-file:        LICENSE
+cabal-version:       2.4
+name:                sat-micro-hs
+version:             0.1.2
+description:
+    A complete SAT solver, in the logical sense, with non-chronological
+    backtracking. This package is a Haskell implementation of most of the
+    minimal OCaml solver described in the paper "SAT-MICRO: petit mais
+    costaud!" by Sylvain Conchon, Johannes Kanig, and Stephane Lescuyer.
+synopsis:            A minimal SAT solver
+category:            Algorithms
+stability:           alpha
+license:             BSD-3-Clause
+license-file:        LICENSE
+author:              Denis Bueno
+maintainer:          Denis Bueno <dbueno@gmail.com>
+build-type:          Simple
+tested-with:         GHC == 6.8.2
 
-Author:              Denis Bueno
-Maintainer:          Denis Bueno <dbueno@gmail.com>
+executable sat-micro
+  main-is:             Main.hs
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+  ghc-prof-options:    -prof -auto-all
+  other-modules:       SatMicro
+  build-depends:       base, containers, pretty, mtl, parse-dimacs
 
-Cabal-Version:       >= 1.2
-Build-type:          Simple
-Tested-with:         GHC==6.8.2
-
-
-Executable sat-micro
-  Main-is:             Main.hs
-  Ghc-options:         -Wall
-  Ghc-prof-options:    -prof -auto-all
-  Other-modules:       SatMicro
-  Build-Depends:       base, containers, pretty, mtl, parse-dimacs
-
-Library
+library
   exposed-modules:     SatMicro
-  Build-Depends:       base, containers, pretty, mtl, parse-dimacs
-  Ghc-prof-options:    -prof -auto-all
-
-
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  build-depends:       base, containers, pretty, mtl, parse-dimacs
+  ghc-prof-options:    -prof -auto-all

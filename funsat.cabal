@@ -24,11 +24,18 @@ License-file:        LICENSE
 Author:              Denis Bueno
 Maintainer:          Denis Bueno <dbueno@gmail.com>
 Build-type:          Simple
-Extra-source-files:  README CHANGES
+Extra-source-files:  README
+                     CHANGES
+                     test.sh
+                     tests/Properties.hs
+                     tests/TestMain.hs
+                     tests/Integration.hs
+                     tests/problems/*/*.cnf
 
 
 Executable funsat
  Main-is:             Main.hs
+ Default-language:    Haskell2010
  Ghc-options:         -funbox-strict-fields
                       -Wall
                       -fwarn-tabs
@@ -42,10 +49,7 @@ Executable funsat
                       FunctionalDependencies,
                       FlexibleInstances,
                       FlexibleContexts
-
-
- CPP-options:         -DTESTING
- Hs-source-dirs:      . src tests
+ Hs-source-dirs:      . src
  Other-modules:
                       Control.Monad.MonadST
                       Funsat.FastDom
@@ -57,15 +61,12 @@ Executable funsat
                       Funsat.Utils
                       Funsat.Utils.Internal
                       Text.Tabular
-                      Properties
 
  Build-Depends:       base >= 3 && < 5,
-                      random < 2,
                       containers,
                       pretty < 2,
                       mtl,
                       array,
-                      QuickCheck >= 2 && < 3,
                       parse-dimacs >= 1.2 && < 2,
                       bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.6,
@@ -73,6 +74,7 @@ Executable funsat
                       time
 
 Library
+ Default-language:    Haskell2010
  Extensions:          CPP,
                       BangPatterns,
                       ScopedTypeVariables,
@@ -108,3 +110,38 @@ Library
                       bitset >= 1 && < 2,
                       bimap >= 0.2 && < 0.6,
                       fgl
+
+Test-Suite funsat-tests
+ Type:                exitcode-stdio-1.0
+ Main-is:             TestMain.hs
+ Default-language:    Haskell2010
+ Hs-source-dirs:      tests
+ Other-modules:       Properties
+                      Integration
+ Extensions:          CPP,
+                      BangPatterns,
+                      ScopedTypeVariables,
+                      TypeSynonymInstances,
+                      MultiParamTypeClasses,
+                      FunctionalDependencies,
+                      FlexibleInstances,
+                      FlexibleContexts
+ Ghc-options:         -funbox-strict-fields
+                      -Wall
+                      -fwarn-tabs
+                      -fno-warn-name-shadowing
+                      -fno-warn-orphans
+ Build-Depends:       base >= 3 && < 5,
+                      funsat,
+                      random < 2,
+                      containers,
+                      pretty < 2,
+                      mtl,
+                      array,
+                      QuickCheck >= 2 && < 3,
+                      parse-dimacs >= 1.2 && < 2,
+                      bitset >= 1 && < 2,
+                      bimap >= 0.2 && < 0.6,
+                      fgl,
+                      directory,
+                      filepath

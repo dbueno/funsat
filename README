@@ -15,19 +15,30 @@ Currently along this theme we provide /unsatisfiable core/ generation, giving
 
 
 * Installation
-Install using the typical Cabal procedure:
+Build the project with the `cabal.project` in this repository:
 
-    $ cabal configure
     $ cabal build
+    $ cabal run funsat -- --version
 
-This will produce a binary called funsat at ./dist/build/funsat/funsat and a
-standalone library interface for the solver.  If you feel like profiling the
-code, a profiling binary is automatically built in
-./dist/build/funsat-prof/funsat-prof.
+This builds the `funsat` executable, the library, and the local package
+dependencies listed in `cabal.project`.
+
+To run the solver on a DIMACS CNF instance:
+
+    $ cabal run funsat -- tests/problems/uf20/uf20-010.cnf
+
+To run the test suite:
+
+    $ cabal test funsat-tests
+
+If you want to use the compiled executable directly, find the path with:
+
+    $ cabal list-bin funsat
 
 ** Testing
 
-All the problems in tests/problems should run through.
+The `funsat-tests` suite runs the regression corpus in `tests/problems`.
+Expected results by corpus:
 
   uf20 and uf50 - satisfiable
   uuf50 - unsatisfiable
@@ -42,5 +53,4 @@ http://hackage.haskell.org/cgi-bin/hackage-scripts/package/parse-dimacs
 
 *** bitset
 http://hackage.haskell.org/cgi-bin/hackage-scripts/package/bitset
-
 
